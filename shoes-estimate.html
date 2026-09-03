@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신발 AI 가상견적 - Bridge Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="estimate-common.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="estimate-header">
+        <div class="header-container">
+            <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
+            <h1>신발 AI 가상견적</h1>
+            <div></div>
+        </div>
+    </header>
+
+    <div class="estimate-container">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step active" id="step1">
+                <span class="step-number">1</span>
+                <span class="step-name">신발 선택</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" id="step2">
+                <span class="step-number">2</span>
+                <span class="step-name">상세 정보</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Shoe Category Selection -->
+        <section class="step-content active" id="step1-content">
+            <h2>신발 종류를 선택해주세요</h2>
+            <p class="step-description">제조하고 싶은 신발의 종류를 선택해주세요. 정확한 선택이 견적에 도움이 됩니다.</p>
+
+            <div class="category-grid">
+                <div class="category-card" data-category="sneakers">
+                    <div class="category-icon">👟</div>
+                    <p>운동화</p>
+                </div>
+                <div class="category-card" data-category="heels">
+                    <div class="category-icon">👠</div>
+                    <p>여성구두</p>
+                </div>
+                <div class="category-card" data-category="mens">
+                    <div class="category-icon">🞄</div>
+                    <p>남성구두</p>
+                </div>
+                <div class="category-card" data-category="boots">
+                    <div class="category-icon">🥾</div>
+                    <p>부츠</p>
+                </div>
+                <div class="category-card" data-category="sandals">
+                    <div class="category-icon">🩴</div>
+                    <p>샌들/슬리퍼</p>
+                </div>
+                <div class="category-card" data-category="other">
+                    <div class="category-icon">➕</div>
+                    <p>기타</p>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="nextBtn1" disabled>다음 단계로</button>
+        </section>
+
+        <!-- Step 2: Detailed Information -->
+        <section class="step-content" id="step2-content">
+            <h2>상세 정보를 입력해주세요</h2>
+            <p class="step-description">선택하신 신발에 대한 상세 정보를 입력해주세요.</p>
+
+            <div class="form-section">
+                <div class="form-group full-width">
+                    <label for="shoeImage">신발 이미지 업로드</label>
+                    <p class="form-hint">참고 이미지가 있으면 업로드해주세요. (옵션)</p>
+                    <div class="image-upload-box" id="imageUploadBox">
+                        <div class="upload-icon">📷</div>
+                        <p>이미지를 클릭하거나 드래그해서 업로드</p>
+                        <input type="file" id="shoeImage" name="shoeImage" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="material">주요 재질</label>
+                        <select id="material" name="material">
+                            <option value="">선택해주세요</option>
+                            <option value="leather">가죽</option>
+                            <option value="canvas">캔버스</option>
+                            <option value="mesh">메쉬</option>
+                            <option value="synthetic">인공가죽</option>
+                            <option value="rubber">고무</option>
+                            <option value="mixed">혼합</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="color">색상</label>
+                        <input type="text" id="color" name="color" placeholder="예: 검정, 흰색 혼합">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>사이즈 범위 *</label>
+                        <p class="form-hint">생산할 사이즈 범위를 선택해주세요.</p>
+                        <div class="size-selector">
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="220" id="size220">
+                                <label for="size220">220mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="230" id="size230">
+                                <label for="size230">230mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="240" id="size240">
+                                <label for="size240">240mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="250" id="size250">
+                                <label for="size250">250mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="260" id="size260">
+                                <label for="size260">260mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="270" id="size270">
+                                <label for="size270">270mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="280" id="size280">
+                                <label for="size280">280mm</label>
+                            </div>
+                            <div class="size-option">
+                                <input type="checkbox" name="size" value="290" id="size290">
+                                <label for="size290">290mm</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quantity">수량 *</label>
+                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="deliveryDate">납기일 요청</label>
+                        <input type="date" id="deliveryDate" name="deliveryDate">
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="additionalInfo">추가 요청사항</label>
+                    <textarea id="additionalInfo" name="additionalInfo" placeholder="특별한 요청사항이 있으시면 입력해주세요. (예: 특수 밑창, 맞춤 디자인 등)" rows="5"></textarea>
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn-secondary" onclick="goToStep(1)">이전 단계</button>
+                <button class="btn-primary" id="submitBtn">견적 요청하기</button>
+            </div>
+
+            <div id="successMessage" class="success-message" style="display: none;">
+                <p>✓ 신발 견적 요청이 접수되었습니다!</p>
+                <p>빠른 시간 내에 담당자가 연락드리겠습니다.</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="estimate-common.js"></script>
+    <script src="shoes-estimate.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선글라스 AI 가상견적 - Bridge Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="estimate-common.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="estimate-header">
+        <div class="header-container">
+            <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
+            <h1>선글라스 AI 가상견적</h1>
+            <div></div>
+        </div>
+    </header>
+
+    <div class="estimate-container">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step active" id="step1">
+                <span class="step-number">1</span>
+                <span class="step-name">선글라스 선택</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" id="step2">
+                <span class="step-number">2</span>
+                <span class="step-name">상세 정보</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Eyewear Category Selection -->
+        <section class="step-content active" id="step1-content">
+            <h2>안경 유형을 선택해주세요</h2>
+            <p class="step-description">제조하고 싶은 안경의 유형을 선택해주세요. 정확한 선택이 견적에 도움이 됩니다.</p>
+
+            <div class="category-grid">
+                <div class="category-card" data-category="optical">
+                    <div class="category-icon">👓</div>
+                    <p class="category-main">Optical Frames</p>
+                    <p class="category-sub">일반 안경테</p>
+                </div>
+                <div class="category-card" data-category="sunglasses">
+                    <div class="category-icon">😎</div>
+                    <p class="category-main">Sunglasses</p>
+                    <p class="category-sub">선글라스</p>
+                </div>
+                <div class="category-card" data-category="sports">
+                    <div class="category-icon">🏃</div>
+                    <p class="category-main">Sports Sunglasses</p>
+                    <p class="category-sub">스포츠 선글라스</p>
+                </div>
+                <div class="category-card" data-category="kids">
+                    <div class="category-icon">🧒</div>
+                    <p class="category-main">Kids Eyewear</p>
+                    <p class="category-sub">키즈 안경</p>
+                </div>
+                <div class="category-card" data-category="safety">
+                    <div class="category-icon">🛡️</div>
+                    <p class="category-main">Safety & Functional</p>
+                    <p class="category-sub">기능성 안경</p>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="nextBtn1" disabled>다음 단계로</button>
+        </section>
+
+        <!-- Step 2: Detailed Information -->
+        <section class="step-content" id="step2-content">
+            <h2>상세 정보를 입력해주세요</h2>
+            <p class="step-description">선택하신 선글라스에 대한 상세 정보를 입력해주세요.</p>
+
+            <div class="form-section">
+                <div class="form-group full-width">
+                    <label for="sunglassImage">선글라스 이미지 업로드</label>
+                    <p class="form-hint">참고 이미지가 있으면 업로드해주세요. (옵션)</p>
+                    <div class="image-upload-box" id="imageUploadBox">
+                        <div class="upload-icon">📷</div>
+                        <p>이미지를 클릭하거나 드래그해서 업로드</p>
+                        <input type="file" id="sunglassImage" name="sunglassImage" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="frameColor">프레임 색상</label>
+                        <input type="text" id="frameColor" name="frameColor" placeholder="예: 검정, 골드, 멀티컬러">
+                    </div>
+                    <div class="form-group">
+                        <label for="lensType">렌즈 타입</label>
+                        <select id="lensType" name="lensType">
+                            <option value="">선택해주세요</option>
+                            <option value="normal">일반 렌즈</option>
+                            <option value="polarized">편광 렌즈</option>
+                            <option value="mirror">미러 렌즈</option>
+                            <option value="gradient">그래디언트 렌즈</option>
+                            <option value="photochromic">변색 렌즈</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="frameMaterial">프레임 재질</label>
+                        <select id="frameMaterial" name="frameMaterial">
+                            <option value="">선택해주세요</option>
+                            <option value="metal">금속 (메탈)</option>
+                            <option value="plastic">플라스틱</option>
+                            <option value="acetate">아세테이트</option>
+                            <option value="mixed">혼합</option>
+                            <option value="wood">우드</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="lensColor">렌즈 색상</label>
+                        <input type="text" id="lensColor" name="lensColor" placeholder="예: 검정, 갈색, 블루">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="bridgeWidth">브릿지 너비 (mm)</label>
+                        <input type="number" id="bridgeWidth" name="bridgeWidth" placeholder="예: 20" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="armLength">암 길이 (mm)</label>
+                        <input type="number" id="armLength" name="armLength" placeholder="예: 145" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="lensWidth">렌즈 가로 크기 (mm)</label>
+                        <input type="number" id="lensWidth" name="lensWidth" placeholder="예: 56" min="0">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="quantity">수량 *</label>
+                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="deliveryDate">납기일 요청</label>
+                        <input type="date" id="deliveryDate" name="deliveryDate">
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="additionalInfo">추가 요청사항</label>
+                    <textarea id="additionalInfo" name="additionalInfo" placeholder="특별한 요청사항이 있으시면 입력해주세요. (예: UV 차단율, 브랜드 로고 인쇄, 포장 스타일 등)" rows="5"></textarea>
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn-secondary" onclick="goToStep(1)">이전 단계</button>
+                <button class="btn-primary" id="submitBtn">견적 요청하기</button>
+            </div>
+
+            <div id="successMessage" class="success-message" style="display: none;">
+                <p>✓ 선글라스 견적 요청이 접수되었습니다!</p>
+                <p>빠른 시간 내에 담당자가 연락드리겠습니다.</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="estimate-common.js"></script>
+    <script src="sunglasses-estimate.js"></script>
+</body>
+
+</html>

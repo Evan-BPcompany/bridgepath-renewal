@@ -1,0 +1,282 @@
+/* ==================== Estimate Intro ==================== */
+.estimate-intro {
+    text-align: center;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.estimate-intro::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 500px;
+    height: 500px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    z-index: 0;
+}
+
+.estimate-intro h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    position: relative;
+    z-index: 1;
+    font-weight: 700;
+}
+
+.intro-subtitle {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.intro-description {
+    font-size: 1rem;
+    opacity: 0.9;
+    line-height: 1.8;
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+/* ==================== Estimate Container ==================== */
+.estimate-section {
+    background-color: white;
+    padding-bottom: 60px;
+}
+
+.estimate-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ==================== Estimate Grid ==================== */
+.estimate-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-bottom: 60px;
+}
+
+.estimate-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 2rem;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    animation: slideUp 0.6s ease-out;
+}
+
+.estimate-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+    border-color: #667eea;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-icon {
+    font-size: 2.5rem;
+}
+
+.card-header h3 {
+    font-size: 1.4rem;
+    color: #1e3c72;
+    margin: 0;
+    font-weight: 700;
+}
+
+.card-description {
+    color: #666;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: auto;
+    margin-top: 0.5rem;
+}
+
+.card-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    margin-top: 1.5rem;
+}
+
+.card-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* ==================== Info Section ==================== */
+.info-section {
+    background-color: #f8f9fa;
+    padding: 60px 20px;
+    margin: 60px 0 0 0;
+}
+
+.info-section h2 {
+    text-align: center;
+    font-size: 2rem;
+    color: #1e3c72;
+    margin-bottom: 3rem;
+    font-weight: 700;
+}
+
+.process-grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+
+.process-step {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.process-step h4 {
+    font-size: 1.2rem;
+    color: #1e3c72;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.process-step p {
+    color: #666;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* ==================== CTA Section ==================== */
+.cta-section {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.cta-section h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.cta-section p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    opacity: 0.95;
+}
+
+.cta-button {
+    display: inline-block;
+    background-color: white;
+    color: #667eea;
+    padding: 15px 40px;
+    border-radius: 50px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.cta-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* ==================== Responsive Design ==================== */
+@media (max-width: 768px) {
+    .estimate-intro h1 {
+        font-size: 1.8rem;
+    }
+
+    .intro-subtitle {
+        font-size: 1rem;
+    }
+
+    .info-section h2 {
+        font-size: 1.6rem;
+    }
+
+    .estimate-grid,
+    .process-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cta-section h2 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .estimate-intro {
+        padding: 40px 15px;
+    }
+
+    .estimate-intro h1 {
+        font-size: 1.5rem;
+    }
+
+    .intro-subtitle {
+        font-size: 0.95rem;
+    }
+
+    .estimate-container {
+        padding: 0 15px;
+    }
+
+    .estimate-card {
+        padding: 1.5rem;
+    }
+
+    .info-section {
+        padding: 40px 15px;
+    }
+
+    .process-step {
+        padding: 1.5rem;
+    }
+
+    .cta-section {
+        padding: 40px 15px;
+    }
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기타 맞춤형 제품 AI 문의 - Bridge Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="other-inquiry.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="inquiry-header">
+        <div class="header-container">
+            <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
+            <h1>기타 맞춤형 제품 AI 문의</h1>
+            <div></div>
+        </div>
+    </header>
+
+    <div class="inquiry-container">
+        <div class="inquiry-content">
+            <h2>맞춤형 제품에 대해 문의해주세요</h2>
+            <p class="inquiry-description">
+                원하시는 제품에 대한 정보와 이미지를 함께 보내주시면,
+                저희 팀이 최적의 솔루션을 제안해드리겠습니다.
+            </p>
+
+            <form id="inquiryForm" class="inquiry-form">
+                <!-- Image Upload Section -->
+                <div class="form-group full-width">
+                    <label for="productImage">제품 이미지 업로드</label>
+                    <p class="form-hint">제품 샘플, 설계도, 참고 이미지 등을 업로드해주세요. (선택)</p>
+                    <div class="image-upload-box" id="imageUploadBox">
+                        <div class="upload-icon">📷</div>
+                        <p>이미지를 클릭하거나 드래그해서 업로드</p>
+                        <input type="file" id="productImage" name="productImage" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+
+                <!-- Main Information -->
+                <div class="form-group full-width">
+                    <label for="productDescription">제품 설명 *</label>
+                    <p class="form-hint">만들고 싶은 제품에 대해 자세히 설명해주세요.</p>
+                    <textarea id="productDescription" name="productDescription" placeholder="예: 어떤 제품인지, 용도, 특별한 요구사항 등을 설명해주세요." rows="4" required></textarea>
+                </div>
+
+                <!-- Quantity -->
+                <div class="form-group full-width">
+                    <label for="quantity">수량 *</label>
+                    <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
+                </div>
+
+                <!-- Delivery Date -->
+                <div class="form-group full-width">
+                    <label for="deliveryDate">납기일 요청</label>
+                    <input type="date" id="deliveryDate" name="deliveryDate">
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn-submit">문의하기</button>
+            </form>
+
+            <div id="successMessage" class="success-message" style="display: none;">
+                <p>✓ 문의가 접수되었습니다!</p>
+                <p>빠른 시간 내에 담당자가 연락드리겠습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="other-inquiry.js"></script>
+</body>
+
+</html>

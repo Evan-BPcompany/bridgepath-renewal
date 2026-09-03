@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>골프용품 AI 가상견적 - Bridge Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="estimate-common.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="estimate-header">
+        <div class="header-container">
+            <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
+            <h1>골프용품 AI 가상견적</h1>
+            <div></div>
+        </div>
+    </header>
+
+    <div class="estimate-container">
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step active" id="step1">
+                <span class="step-number">1</span>
+                <span class="step-name">골프용품 선택</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" id="step2">
+                <span class="step-number">2</span>
+                <span class="step-name">상세 정보</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Golf Product Category Selection -->
+        <section class="step-content active" id="step1-content">
+            <h2>골프용품 종류를 선택해주세요</h2>
+            <p class="step-description">제조하고 싶은 골프용품의 종류를 선택해주세요. 정확한 선택이 견적에 도움이 됩니다.</p>
+
+            <div class="category-grid">
+                <div class="category-card" data-category="bags">
+                    <div class="category-icon">🎒</div>
+                    <p class="category-main">Golf Bags</p>
+                    <p class="category-sub">골프백</p>
+                </div>
+                <div class="category-card" data-category="gloves">
+                    <div class="category-icon">🧤</div>
+                    <p class="category-main">Golf Gloves</p>
+                    <p class="category-sub">골프 장갑</p>
+                </div>
+                <div class="category-card" data-category="headwear">
+                    <div class="category-icon">🧢</div>
+                    <p class="category-main">Golf Headwear</p>
+                    <p class="category-sub">골프 모자</p>
+                </div>
+                <div class="category-card" data-category="accessories">
+                    <div class="category-icon">⛳</div>
+                    <p class="category-main">Golf Accessories</p>
+                    <p class="category-sub">골프 액세서리</p>
+                </div>
+                <div class="category-card" data-category="covers">
+                    <div class="category-icon">🛡️</div>
+                    <p class="category-main">Golf Covers & Cases</p>
+                    <p class="category-sub">골프 커버·케이스</p>
+                </div>
+                <div class="category-card" data-category="training">
+                    <div class="category-icon">🎯</div>
+                    <p class="category-main">Golf Training</p>
+                    <p class="category-sub">골프 연습용품</p>
+                </div>
+            </div>
+
+            <button class="btn-primary" id="nextBtn1" disabled>다음 단계로</button>
+        </section>
+
+        <!-- Step 2: Detailed Information -->
+        <section class="step-content" id="step2-content">
+            <h2>상세 정보를 입력해주세요</h2>
+            <p class="step-description">선택하신 골프용품에 대한 상세 정보를 입력해주세요.</p>
+
+            <div class="form-section">
+                <div class="form-group full-width">
+                    <label for="golfImage">골프용품 이미지 업로드</label>
+                    <p class="form-hint">참고 이미지가 있으면 업로드해주세요. (옵션)</p>
+                    <div class="image-upload-box" id="imageUploadBox">
+                        <div class="upload-icon">📷</div>
+                        <p>이미지를 클릭하거나 드래그해서 업로드</p>
+                        <input type="file" id="golfImage" name="golfImage" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="productColor">색상</label>
+                        <input type="text" id="productColor" name="productColor" placeholder="예: 검정, 흰색, 빨강">
+                    </div>
+                    <div class="form-group">
+                        <label for="material">주요 재질</label>
+                        <select id="material" name="material">
+                            <option value="">선택해주세요</option>
+                            <option value="polyester">폴리에스터</option>
+                            <option value="nylon">나일론</option>
+                            <option value="leather">가죽</option>
+                            <option value="synthetic">인공가죽</option>
+                            <option value="rubber">고무</option>
+                            <option value="metal">금속</option>
+                            <option value="cotton">면</option>
+                            <option value="wool">울</option>
+                            <option value="mixed">혼합</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="size">사이즈</label>
+                        <input type="text" id="size" name="size" placeholder="예: One size, M/L/XL, 10~26cm">
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity">수량 *</label>
+                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="design">디자인 옵션</label>
+                        <input type="text" id="design" name="design" placeholder="예: 로고 인쇄, 커스텀 디자인">
+                    </div>
+                    <div class="form-group">
+                        <label for="deliveryDate">납기일 요청</label>
+                        <input type="date" id="deliveryDate" name="deliveryDate">
+                    </div>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="additionalInfo">추가 요청사항</label>
+                    <textarea id="additionalInfo" name="additionalInfo" placeholder="특별한 요청사항이 있으시면 입력해주세요. (예: 특수 기능, 패키징, 품질 기준 등)" rows="5"></textarea>
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn-secondary" onclick="goToStep(1)">이전 단계</button>
+                <button class="btn-primary" id="submitBtn">견적 요청하기</button>
+            </div>
+
+            <div id="successMessage" class="success-message" style="display: none;">
+                <p>✓ 골프용품 견적 요청이 접수되었습니다!</p>
+                <p>빠른 시간 내에 담당자가 연락드리겠습니다.</p>
+            </div>
+        </section>
+    </div>
+
+    <script src="estimate-common.js"></script>
+    <script src="golf-estimate.js"></script>
+</body>
+
+</html>
