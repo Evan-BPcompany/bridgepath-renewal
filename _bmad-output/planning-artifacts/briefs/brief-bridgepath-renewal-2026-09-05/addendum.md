@@ -19,14 +19,14 @@ updated: 2026-09-05
 | `script.js` | 스크롤 시 서비스 카드 fade-in 애니메이션(IntersectionObserver) + `#estimateForm` submit 핸들러(**버그**: `index.html`에 `#estimateForm`이 없어 콘솔 에러 발생) |
 | `estimate.html` | 견적 허브. 4개 카테고리 카드 → 각 카테고리 페이지로 이동 |
 | `estimate.css` | 허브 페이지 전용 스타일 |
-| `estimate-common.js` | 선글라스/신발/골프 3개 페이지가 공유하는 2단계 스텝 로직: 카테고리 카드 선택 → "다음 단계" 활성화 → 이미지 업로드(클릭/드래그앤드롭) |
+| `estimate-common.js` | 선글라스/신발/골프 3개 페이지가 공유하는 2단계 스텝 로직: 카테고리 카드 선택 → "다음 단계" 활성화 → 이미지 업로드(클릭/드래그앤드롭). **버그**: 이미지 입력 필드를 `shoeImage`/`sunglassImage`만 찾고 `golfImage`는 처리하지 않아, `golf-estimate.html`의 이미지 첨부 UI(클릭 선택·드래그앤드롭)가 동작하지 않음 |
 | `estimate-common.css` | 위 3개 페이지가 공유하는 스타일 |
 | `sunglasses-estimate.html` / `.js` | 선글라스 견적 폼(2단계). 자체 CSS 없음(공유 CSS만 사용) |
-| `shoes-estimate.html` / `.css` / `.js` | 신발 견적 폼(2단계). 3개 카테고리 중 유일하게 자체 CSS 보유 |
+| `shoes-estimate.html` / `.css` / `.js` | 신발 견적 폼(2단계). `shoes-estimate.css` 파일은 존재하지만 `shoes-estimate.html`이 실제로 불러오는 스타일시트는 `style.css`/`estimate-common.css`뿐 — `shoes-estimate.css`는 현재 미사용 또는 레거시 CSS로 보임 |
 | `golf-estimate.html` / `.js` | 골프용품 견적 폼(2단계, `estimate-common.js` 재사용). 자체 CSS 없음 |
 | `other-inquiry.html` / `.css` / `.js` | 기타 맞춤형 문의. 공유 스크립트를 쓰지 않는 독립 구현(단일 스텝) |
 
-**공통 폼 제출 패턴** (`shoes-estimate.js`/`golf-estimate.js`/`other-inquiry.js` 공통): 필수값(수량 등) 검증 → `console.log`로 폼 데이터 출력 → 성공 메시지 표시 → 3초 후 `index.html`로 리다이렉트. 서버 전송·저장 없음.
+**공통 폼 제출 패턴** (`sunglasses-estimate.js`/`shoes-estimate.js`/`golf-estimate.js`/`other-inquiry.js` 공통): 필수값(수량 등) 검증 → `console.log`로 폼 데이터 출력 → 성공 메시지 표시 → 3초 후 `index.html`로 리다이렉트. 서버 전송·저장 없음.
 
 **`script.js`의 `#estimateForm` 핸들러**는 다른 어떤 HTML 페이지에도 대응하는 `id="estimateForm"` 엘리먼트가 없어 보임 — 레거시 코드로 추정. 다음 build 작업 때 정리 대상 (기존에 이미 `AGENTS.md`에 알려진 이슈로 기록되어 있음).
 
@@ -62,9 +62,11 @@ updated: 2026-09-05
 
 ## 대화 중 확정된 작업 범위 제약 (재확인용)
 
+이 브리프 문서화 세션에서 Claude가 스스로 할 일의 범위였다 — 프로젝트의 영구 규칙이 아니다.
+
 - 기존 HTML/CSS/JS 수정 없음
 - 파일 삭제·이름 변경 없음
 - 기술 스택 변경 없음
-- Git commit/push 없음
+- Claude가 이 문서화 작업 중 자동으로 git commit/push를 실행하지 않음 (사용자가 별도로 커밋/푸시를 요청하면 그때는 수행함 — 실제로 이후 세션에서 사용자 요청으로 커밋·푸시함)
 - BMAD 문서(`brief.md`, `addendum.md`)만 생성
 - 초보 개발자도 이해할 수 있는 수준으로 작성
