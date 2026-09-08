@@ -1,0 +1,1512 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Path 관리자 목록·상세 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================================
+   Bridge Path — 관리자(내부용) 목록·상세 화면 프로토타입
+   이 목업이 반영(추적)하는 UX 스파인 결정 영역
+   ----------------------------------------------------------------------------
+   1. 관리자 목록화면 구조 (memlog 2026-09-08 "관리자 목록화면 확정" 결정)
+      - 기본 진입 순서: 처리 필요 요약 → 처리 필요 목록 → 진행 중/전체/종결·취소 탭
+      - 정렬 원칙: 미확인 신규 > 후속조치 필요 > 오래 대기 (임의 SLA "지연" 표시 금지)
+      - 신규/미확인 표시와 처리상태는 서로 다른 개념 (상세를 열어도 상태 자동 변경 안 함)
+      - 목록 최소 표시 항목, 필터·검색 항목 범위
+      - 칸반 뷰는 MVP 기본 화면에서 제외
+   2. 관리자 상세화면 구조 (memlog "관리자 상세화면 확정" 결정, C안 기본 + 섹션 정리)
+      - 상단 요약 바 + 좌(고객 원본, 읽기전용) / 우(담당자 업무 처리) 분할
+      - 긴 이력·과거 견적서·감사 로그는 하단 확장 섹션으로 분리
+      - 첨부파일: 고객 첨부 vs 관리자 업로드 정식견적서 구분
+   3. 처리상태 변경 UI — "다음 단계 추천형"(B안), 순서 강제 아님 (memlog 결정)
+      - 위험한 변경(보류/종결/취소, 역행)만 확인 + 사유 기록
+      - 상태 변경은 다른 업무(첨부 확인·메모 저장·견적서 첨부)로 자동 트리거되지 않음
+      - 정식견적서 "첨부"와 "발송 여부 기록"은 서로 독립된 컨트롤 (자동 발송완료 아님)
+   4. FR-5.5 처리상태 10개 값을 5~6개 의미 그룹으로 색상 절제 (신규/진행 중/응답·확인 대기/
+      주의·보류/완료·종료/취소) — "10색 무지개" 대신 그룹 컬러 + 항상 텍스트 라벨 병기
+   5. 관리자 모바일 = 읽기 중심 전용 (memlog "기기환경 확정" + "관리자 상세화면 확정" 결정)
+      - 상태변경/메모/견적서첨부 등 편집 기능은 데스크톱 전용, 모바일에는 노출하지 않음
+      - 모바일 목록도 필터·대량작업 없이 조회 전용
+   6. Voice & Tone — 관리자 화면 어조 (memlog "Voice and Tone 원칙 확정")
+      - 데이터/상태 라벨: 간결한 명사·동사형 (예: "신규 접수", "상태 변경", "내부 메모")
+      - 확인/도움말: 정중한 "~합니다/~하시겠습니까?"체, 고객용 "~해요"체는 사용하지 않음
+   7. 컬러 토큰 — DESIGN.md 확정안(그래파이트 에디토리얼 + 짙은 잉크블루 accent #234163),
+      타이포그래피 — 단일 한글 산세리프 계열(Noto Sans KR을 Pretendard 대체로 사용, 아래 표기),
+      모서리 — 관리자는 고객용보다 더 절제·각진 인상(≈4~6px), 표 행은 개별 카드화하지 않음,
+      elevation — 테두리 중심, 카드 그림자 없음. spacing — 관리자는 compact 밀도이되 CTA
+      크기·체크박스 히트영역·고객 원본 패널의 가독성은 축소하지 않음(memlog 결정 다수 참고).
+
+   ⚠ PRD GAP — "다음 행동 주체" 필드
+   ----------------------------------------------------------------------------
+   이 필드(예: BridgePath 처리 필요 / 고객 응답 대기 / 공장·외부 파트너 회신 대기 / 담당자
+   판단 대기)는 PRD FR-5.5(처리상태 10개)에 아직 정식으로 포함되지 않은, 이번 UX 세션에서
+   발견된 데이터 요구사항이다. PRD.md는 final 상태로 이번 세션에서 수정하지 않았으며,
+   Architecture 전달 또는 PRD 보완이 필요한 열린 항목으로 남아있다. 목업 안에서도 이 필드가
+   등장하는 모든 자리에 "PRD GAP" 표식을 시각적으로 남겨, 이미 확정된 기능처럼 보이지
+   않도록 한다.
+
+   폰트 표기: 실제 프로덕션 후보는 Pretendard이나(memlog 타이포그래피 최종 결정),
+   Google Fonts CDN에 없어 이 목업에서는 대체로 Noto Sans KR(400/500/600/700)을 사용한다.
+   ============================================================================ */
+
+:root{
+  --primary:#2B2E33;
+  --on-primary:#FFFFFF;
+  --accent:#234163;
+  --accent-tint:#DEE5EC;
+  --accent-border:#C4D2DE;
+  --bg:#F4F4F2;
+  --surface:#FFFFFF;
+  --border:#DFDFDC;
+  --border-strong:#CBCBC7;
+  --text:#202225;
+  --text-muted:#6B6D70;
+  --text-faint:#93958F;
+
+  --success:#3E7A52;
+  --success-tint:#E2EEE6;
+  --success-border:#C7DDCD;
+  --success-text:#2B5A3D;
+
+  --warning:#B08A3E;
+  --warning-tint:#F8F0DF;
+  --warning-border:#E6D6AE;
+  --warning-text:#85611F;
+
+  --destructive:#A13F32;
+  --destructive-tint:#F5E2DF;
+  --destructive-border:#E4C3BC;
+  --destructive-text:#7A2E24;
+
+  --neutral-tint:#EAEAE8;
+  --neutral-border:#DBDBD7;
+  --neutral-text:#4B4D51;
+
+  --wait-tint:#E4EEEE;
+  --wait-border:#C7DCDC;
+  --wait-text:#3D6262;
+
+  --radius-sm:4px;
+  --radius-md:6px;
+  --radius-lg:10px;
+  --radius-pill:999px;
+
+  --sp-1:4px;
+  --sp-2:8px;
+  --sp-3:12px;
+  --sp-4:16px;
+  --sp-5:24px;
+  --sp-6:32px;
+}
+
+*{ box-sizing:border-box; }
+
+html,body{
+  margin:0;
+  padding:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  font-size:13.5px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+body{ padding:var(--sp-5) var(--sp-5) 80px; }
+
+h1,h2,h3,h4{ margin:0; font-weight:700; color:var(--text); }
+p{ margin:0; }
+button{ font-family:inherit; }
+
+/* ---------- 상단 메타 안내 (실제 서비스 화면 아님을 표시) ---------- */
+.mock-banner{
+  max-width:1280px;
+  margin:0 auto var(--sp-4);
+  padding:var(--sp-3) var(--sp-4);
+  background:var(--primary);
+  color:var(--on-primary);
+  border-radius:var(--radius-md);
+  font-size:12.5px;
+  display:flex;
+  gap:var(--sp-3);
+  align-items:baseline;
+  flex-wrap:wrap;
+}
+.mock-banner b{ font-weight:700; }
+.mock-banner span{ opacity:.82; }
+
+/* ---------- 화면 전환 스위처 (CSS-only radio/label, JS 없음) ---------- */
+.view-toggle{ position:absolute; opacity:0; pointer-events:none; }
+
+.switcher-wrap{
+  max-width:1280px;
+  margin:0 auto var(--sp-5);
+  display:flex;
+  align-items:center;
+  gap:var(--sp-3);
+}
+.switcher-label-text{
+  font-size:12.5px;
+  color:var(--text-muted);
+  font-weight:500;
+}
+.switcher{
+  display:inline-flex;
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius-md);
+  overflow:hidden;
+  background:var(--surface);
+}
+.switcher label{
+  padding:9px 20px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--text-muted);
+  cursor:pointer;
+  user-select:none;
+  transition:background .18s ease, color .18s ease; /* 150-200ms 상태전환, 모션원칙 준수 */
+}
+.switcher label:not(:last-child){ border-right:1px solid var(--border); }
+
+#view-list:checked ~ .switcher-wrap .lbl-list,
+#view-detail:checked ~ .switcher-wrap .lbl-detail{
+  background:var(--accent);
+  color:var(--on-primary);
+}
+
+/* screen visibility */
+#screen-list{ display:block; }
+#screen-detail{ display:none; }
+#view-detail:checked ~ #screen-list{ display:none; }
+#view-detail:checked ~ #screen-detail{ display:block; }
+
+.page-wrap{ max-width:1280px; margin:0 auto; }
+
+/* ---------- 공통: 섹션/카드 ---------- */
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-4);
+}
+.section-gap{ margin-top:var(--sp-5); }
+.section-title{
+  font-size:14px;
+  font-weight:700;
+  margin:0 0 var(--sp-3);
+  display:flex;
+  align-items:center;
+  gap:var(--sp-2);
+}
+.section-sub{
+  font-size:12px;
+  color:var(--text-muted);
+  margin:2px 0 var(--sp-3);
+}
+
+/* ---------- PRD GAP 표식 ---------- */
+.gap-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:.02em;
+  color:var(--warning-text);
+  background:var(--warning-tint);
+  border:1px solid var(--warning-border);
+  border-radius:var(--radius-sm);
+  padding:1px 5px;
+  vertical-align:middle;
+  text-transform:uppercase;
+}
+.gap-callout{
+  margin-top:var(--sp-3);
+  background:var(--warning-tint);
+  border:1px solid var(--warning-border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3) var(--sp-4);
+  font-size:12.5px;
+  color:var(--warning-text);
+  line-height:1.65;
+  display:flex;
+  gap:var(--sp-2);
+}
+.gap-callout .gap-icon{
+  flex-shrink:0;
+  font-weight:700;
+  font-size:11px;
+  background:var(--warning);
+  color:#fff;
+  border-radius:var(--radius-sm);
+  padding:2px 6px;
+  height:fit-content;
+}
+.gap-callout b{ font-weight:700; }
+
+/* ---------- 처리 필요 요약 ---------- */
+.summary-row{
+  display:flex;
+  align-items:center;
+  gap:var(--sp-3);
+  flex-wrap:wrap;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3) var(--sp-4);
+}
+.summary-headline{
+  font-size:16px;
+  font-weight:700;
+}
+.summary-headline .num{ color:var(--accent); }
+.summary-chip{
+  font-size:12px;
+  color:var(--text-muted);
+  padding:3px 10px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-pill);
+  background:var(--bg);
+}
+.summary-chip.hl{
+  color:var(--accent);
+  border-color:var(--accent-border);
+  background:var(--accent-tint);
+  font-weight:600;
+}
+.summary-chip.hl2{
+  color:var(--wait-text);
+  border-color:var(--wait-border);
+  background:var(--wait-tint);
+  font-weight:600;
+}
+
+/* ---------- 탭 영역 ---------- */
+.tab-row{
+  display:flex;
+  gap:var(--sp-2);
+  margin-top:var(--sp-4);
+  flex-wrap:wrap;
+  align-items:center;
+}
+.tab{
+  font-size:12.5px;
+  font-weight:600;
+  padding:8px 14px;
+  border-radius:var(--radius-md);
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text-muted);
+}
+.tab.active{
+  background:var(--primary);
+  color:var(--on-primary);
+  border-color:var(--primary);
+}
+.tab-note{
+  font-size:11.5px;
+  color:var(--text-faint);
+  margin-left:var(--sp-1);
+}
+
+/* ---------- 필터 바 ---------- */
+.filter-bar{
+  margin-top:var(--sp-4);
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--sp-2);
+  align-items:center;
+}
+.filter-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:12px;
+  font-weight:500;
+  color:var(--text);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:7px 11px;
+  cursor:default;
+}
+.filter-chip .car{ font-size:9px; color:var(--text-muted); }
+.filter-chip.gap-related{ border-color:var(--warning-border); }
+.search-box{
+  flex:1 1 260px;
+  min-width:220px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:7px 11px;
+  font-size:12px;
+  color:var(--text-faint);
+}
+
+/* ---------- 표 ---------- */
+.table-wrap{
+  margin-top:var(--sp-3);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  overflow:hidden;
+  overflow-x:auto;
+}
+table.admin-table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:1180px;
+  background:var(--surface);
+}
+table.admin-table th{
+  text-align:left;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text-muted);
+  padding:10px 12px;
+  background:var(--bg);
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+table.admin-table td{
+  padding:11px 12px;
+  border-bottom:1px solid var(--border);
+  font-size:12.5px;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+table.admin-table tbody tr:last-child td{ border-bottom:none; }
+table.admin-table tbody tr:hover{ background:#FAFAF9; transition:background .16s ease; }
+table.admin-table tbody tr.row-unread{ background:#F9FBFC; }
+
+.col-flag{ width:34px; text-align:center; }
+.unread-dot{
+  width:8px; height:8px;
+  border-radius:50%;
+  background:var(--accent);
+  display:inline-block;
+}
+.read-dash{
+  width:8px; height:8px;
+  display:inline-block;
+  color:var(--text-faint);
+}
+
+.mono{ font-family:"Consolas","SFMono-Regular",Menlo,monospace; font-size:12px; }
+.cell-sub{ display:block; font-size:11px; color:var(--text-muted); font-weight:400; margin-top:1px; white-space:normal; }
+.cell-id{ font-weight:600; }
+.cell-name{ font-weight:600; }
+
+/* status badges (5-6 meaning groups, always text label, small icon differentiates within 완료·종료) */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11.5px;
+  font-weight:700;
+  padding:4px 10px;
+  border-radius:var(--radius-pill);
+  border:1px solid transparent;
+  white-space:nowrap;
+  transition:background .18s ease, color .18s ease;
+}
+.badge-new{ background:var(--accent-tint); color:var(--accent); border-color:var(--accent-border); }
+.badge-progress{ background:var(--neutral-tint); color:var(--neutral-text); border-color:var(--neutral-border); }
+.badge-wait{ background:var(--wait-tint); color:var(--wait-text); border-color:var(--wait-border); }
+.badge-caution{ background:var(--warning-tint); color:var(--warning-text); border-color:var(--warning-border); }
+.badge-done{ background:var(--success-tint); color:var(--success-text); border-color:var(--success-border); }
+.badge-cancel{ background:var(--destructive-tint); color:var(--destructive-text); border-color:var(--destructive-border); }
+
+.next-actor{
+  font-size:12px;
+  color:var(--text);
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+.icon-mini{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:18px; height:18px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  color:var(--text-muted);
+  font-size:10px;
+  background:var(--bg);
+}
+.icon-mini.on{ color:var(--accent); border-color:var(--accent-border); background:var(--accent-tint); }
+.icon-mini.off{ opacity:.4; }
+
+/* ---------- 범례 ---------- */
+.legend{
+  margin-top:var(--sp-4);
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--sp-3);
+  align-items:center;
+  padding:var(--sp-3) var(--sp-4);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+}
+.legend-title{ font-size:11.5px; font-weight:700; color:var(--text-muted); margin-right:var(--sp-2); }
+.legend-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:11.5px;
+  color:var(--text-muted);
+}
+.legend-swatch{
+  width:11px; height:11px;
+  border-radius:3px;
+  flex-shrink:0;
+}
+.legend-note{
+  width:100%;
+  font-size:11px;
+  color:var(--text-faint);
+  margin-top:2px;
+  line-height:1.6;
+}
+
+/* ---------- 읽음/신규 구분 캡션 ---------- */
+.caption-note{
+  margin-top:var(--sp-2);
+  font-size:11.5px;
+  color:var(--text-muted);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+/* ============================================================
+   상세 화면
+   ============================================================ */
+.detail-top{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-4);
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--sp-5);
+  align-items:flex-start;
+}
+.back-link{
+  font-size:12px;
+  color:var(--accent);
+  font-weight:600;
+  text-decoration:none;
+  display:block;
+  margin-bottom:var(--sp-3);
+}
+.detail-meta-grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:var(--sp-4) var(--sp-5);
+  width:100%;
+}
+.meta-item .k{
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  margin-bottom:4px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.meta-item .v{ font-size:13px; font-weight:600; color:var(--text); }
+.meta-item .v.mono{ font-weight:700; }
+
+.split{
+  display:grid;
+  grid-template-columns:1.15fr 1fr;
+  gap:var(--sp-4);
+  align-items:start;
+  margin-top:var(--sp-4);
+}
+
+.panel-left{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-5) var(--sp-4);
+}
+.readonly-flag{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--text-muted);
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  padding:3px 8px;
+  margin-bottom:var(--sp-4);
+}
+.readonly-flag .dot{ width:6px; height:6px; border-radius:50%; background:var(--text-faint); }
+
+.field-block{ margin-bottom:var(--sp-5); }
+.field-block:last-child{ margin-bottom:0; }
+.field-label{
+  font-size:11.5px;
+  font-weight:700;
+  color:var(--text-muted);
+  margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.field-value{
+  font-size:14px;
+  line-height:1.75;
+  color:var(--text);
+}
+.field-value.muted{ color:var(--text-muted); font-size:13px; }
+
+.spec-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:var(--sp-3);
+}
+.spec-row{
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3);
+  background:var(--bg);
+}
+.spec-row .k{ font-size:11.5px; color:var(--text-muted); font-weight:600; margin-bottom:5px; }
+.spec-row .v{ font-size:13.5px; font-weight:600; }
+
+.tag-row{ display:flex; flex-wrap:wrap; gap:6px; }
+.tag{
+  font-size:11px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:var(--radius-pill);
+  border:1px solid var(--border);
+  background:var(--bg);
+  color:var(--text);
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+.tag .src{
+  font-size:9px;
+  font-weight:700;
+  padding:1px 5px;
+  border-radius:3px;
+  text-transform:uppercase;
+}
+.src-ai{ background:var(--accent-tint); color:var(--accent); }
+.src-confirmed{ background:var(--success-tint); color:var(--success-text); }
+.src-unsure{ background:var(--warning-tint); color:var(--warning-text); }
+.src-free{ background:var(--neutral-tint); color:var(--neutral-text); }
+
+.file-chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.file-chip{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:8px 12px;
+  background:var(--bg);
+  font-size:12px;
+  min-width:180px;
+}
+.file-chip .fi{
+  width:26px; height:26px;
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700; color:var(--text-muted);
+  flex-shrink:0;
+}
+.file-chip .fname{ font-weight:600; display:block; }
+.file-chip .fsize{ color:var(--text-muted); font-size:10.5px; }
+
+.ai-price-line{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3);
+  display:flex;
+  align-items:flex-start;
+  gap:var(--sp-2);
+}
+.ai-price-line .lbl{ font-size:12px; font-weight:700; color:var(--text-muted); }
+.ai-price-line .val{ font-size:13px; font-weight:600; }
+
+.consult-note{
+  background:var(--warning-tint);
+  border:1px solid var(--warning-border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3);
+  font-size:12.5px;
+  color:var(--warning-text);
+  line-height:1.7;
+}
+.consult-note b{ font-weight:700; }
+
+/* ---------- 우측: 담당자 업무 처리 ---------- */
+.panel-right{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:var(--sp-4);
+}
+.right-block{
+  padding-bottom:var(--sp-4);
+  margin-bottom:var(--sp-4);
+  border-bottom:1px solid var(--border);
+}
+.right-block:last-child{ border-bottom:none; margin-bottom:0; padding-bottom:0; }
+.right-block-title{
+  font-size:12.5px;
+  font-weight:700;
+  margin-bottom:var(--sp-2);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.current-status-row{
+  display:flex;
+  align-items:center;
+  gap:var(--sp-2);
+  margin-bottom:var(--sp-3);
+}
+.current-status-row .lbl{ font-size:11.5px; color:var(--text-muted); }
+
+.btn{
+  font-family:inherit;
+  font-size:12.5px;
+  font-weight:700;
+  border-radius:var(--radius-md);
+  padding:10px 16px;
+  border:1px solid transparent;
+  cursor:default;
+  transition:background .16s ease, border-color .16s ease;
+}
+.btn-primary{ background:var(--accent); color:#fff; }
+.btn-secondary{ background:var(--surface); color:var(--text); border-color:var(--border-strong); }
+.btn-danger-outline{ background:var(--surface); color:var(--destructive); border-color:var(--destructive-border); }
+.btn-block{ width:100%; text-align:center; }
+.btn-sm{ padding:7px 12px; font-size:11.5px; }
+
+.recommend-box{
+  border:1px solid var(--accent-border);
+  background:var(--accent-tint);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3);
+  margin-bottom:var(--sp-3);
+}
+.recommend-box .rl{ font-size:11px; font-weight:700; color:var(--accent); margin-bottom:8px; text-transform:uppercase; letter-spacing:.02em; }
+.recommend-box .rr{ font-size:11px; color:var(--accent); margin-top:8px; }
+
+details.status-expand{ border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; }
+details.status-expand summary{
+  cursor:default;
+  list-style:none;
+  padding:9px 12px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text);
+  background:var(--bg);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+details.status-expand summary::-webkit-details-marker{ display:none; }
+details.status-expand summary .car{ color:var(--text-muted); font-size:10px; }
+.status-full-list{ padding:8px; display:flex; flex-direction:column; gap:4px; }
+.status-option{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 8px;
+  border-radius:var(--radius-sm);
+  font-size:12px;
+}
+.status-option input{ width:14px; height:14px; accent-color:var(--accent); flex-shrink:0; }
+.status-option.is-current{ background:var(--bg); font-weight:700; }
+.status-option .grp-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+.confirm-example{
+  margin-top:var(--sp-3);
+  border:1px solid var(--destructive-border);
+  background:var(--destructive-tint);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3);
+}
+.confirm-example .ct{ font-size:12.5px; font-weight:700; color:var(--destructive-text); margin-bottom:6px; }
+.confirm-example .cd{ font-size:11.5px; color:var(--destructive-text); margin-bottom:10px; line-height:1.6; }
+.confirm-example label.rf{ font-size:11px; font-weight:700; color:var(--destructive-text); display:block; margin-bottom:5px; }
+.confirm-example textarea.rf-input{
+  width:100%;
+  min-height:52px;
+  border:1px solid var(--destructive-border);
+  border-radius:var(--radius-sm);
+  padding:8px;
+  font-size:11.5px;
+  font-family:inherit;
+  color:var(--text);
+  background:var(--surface);
+  resize:none;
+  margin-bottom:10px;
+}
+.confirm-btn-row{ display:flex; gap:8px; }
+
+textarea.memo-input{
+  width:100%;
+  min-height:88px;
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius-md);
+  padding:10px;
+  font-size:12.5px;
+  font-family:inherit;
+  color:var(--text);
+  resize:none;
+}
+.memo-caption{ font-size:11px; color:var(--text-muted); margin-top:6px; }
+
+.upload-dropzone{
+  border:1px dashed var(--border-strong);
+  border-radius:var(--radius-md);
+  padding:var(--sp-3);
+  text-align:center;
+  font-size:11.5px;
+  color:var(--text-muted);
+  background:var(--bg);
+}
+.upload-dropzone .dz-title{ font-weight:600; color:var(--text); margin-bottom:3px; }
+
+.send-record-row{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin-top:var(--sp-3);
+  padding:var(--sp-3);
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+}
+.send-record-row input[type=checkbox]{
+  width:18px; height:18px;
+  accent-color:var(--accent);
+  margin-top:1px;
+  flex-shrink:0;
+}
+.send-record-row .srt{ font-size:12.5px; font-weight:600; }
+.send-record-row .srd{ font-size:11px; color:var(--text-muted); margin-top:3px; line-height:1.55; }
+.independence-note{
+  margin-top:8px;
+  font-size:10.5px;
+  color:var(--text-muted);
+  display:flex;
+  gap:5px;
+  align-items:flex-start;
+}
+
+.audit-log{ display:flex; flex-direction:column; gap:8px; }
+.audit-row{
+  display:flex;
+  gap:8px;
+  align-items:baseline;
+  font-size:11.5px;
+  color:var(--text-muted);
+}
+.audit-row .arrow{ color:var(--text-faint); }
+.audit-row .who{ margin-left:auto; font-weight:600; color:var(--text); white-space:nowrap; }
+.audit-row .t{ white-space:nowrap; color:var(--text-faint); font-size:11px; }
+.audit-from,.audit-to{ font-weight:600; color:var(--text); }
+
+/* ---------- 하단 확장 섹션 ---------- */
+.bottom-expand{ margin-top:var(--sp-5); }
+details.bottom-section{
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  background:var(--surface);
+  overflow:hidden;
+}
+details.bottom-section + details.bottom-section{ margin-top:var(--sp-2); }
+details.bottom-section summary{
+  list-style:none;
+  cursor:default;
+  padding:12px 16px;
+  font-size:13px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:var(--bg);
+}
+details.bottom-section summary::-webkit-details-marker{ display:none; }
+details.bottom-section summary .car{ font-size:11px; color:var(--text-muted); font-weight:500; }
+.bottom-body{ padding:14px 16px; }
+.hist-row{
+  display:flex;
+  gap:10px;
+  font-size:12px;
+  color:var(--text-muted);
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+}
+.hist-row:last-child{ border-bottom:none; }
+
+/* ============================================================
+   모바일 프레임 (같은 문서 안에서 375px 폭으로 축소 렌더)
+   ============================================================ */
+.mobile-frame-wrap{
+  margin-top:var(--sp-3);
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--sp-5);
+}
+.mobile-frame{
+  width:375px;
+  flex-shrink:0;
+  border:1px solid var(--border-strong);
+  border-radius:20px;
+  padding:10px;
+  background:#111214;
+}
+.mobile-frame .mscreen{
+  background:var(--bg);
+  border-radius:12px;
+  overflow:hidden;
+  min-height:520px;
+}
+.mobile-frame .mbar{
+  background:var(--primary);
+  color:var(--on-primary);
+  font-size:11px;
+  font-weight:600;
+  padding:8px 12px;
+  display:flex;
+  justify-content:space-between;
+}
+.mobile-frame .mbody{ padding:12px; display:flex; flex-direction:column; gap:12px; }
+.mobile-caption-block{
+  flex:1 1 260px;
+  min-width:220px;
+  font-size:12.5px;
+  color:var(--text-muted);
+  line-height:1.7;
+}
+.mobile-caption-block h4{ font-size:13px; margin-bottom:8px; color:var(--text); }
+.mobile-caption-block ul{ margin:0 0 12px; padding-left:18px; }
+.mobile-caption-block li{ margin-bottom:4px; }
+
+.m-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:10px 12px;
+}
+.m-card + .m-card{ margin-top:0; }
+.m-section-title{
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--text-muted);
+  text-transform:uppercase;
+  letter-spacing:.02em;
+  margin-bottom:6px;
+}
+.m-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:9px 0;
+  border-bottom:1px solid var(--border);
+  gap:8px;
+}
+.m-row:last-child{ border-bottom:none; }
+.m-row .mid{ font-weight:700; font-size:12px; }
+.m-row .mmeta{ font-size:10.5px; color:var(--text-muted); margin-top:2px; }
+.m-summary-stat{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:10px 12px;
+}
+.m-summary-stat .big{ font-size:16px; font-weight:700; color:var(--accent); }
+.m-readonly-banner{
+  background:var(--warning-tint);
+  border:1px solid var(--warning-border);
+  color:var(--warning-text);
+  border-radius:var(--radius-md);
+  padding:9px 11px;
+  font-size:11px;
+  line-height:1.6;
+}
+.m-field{ margin-bottom:10px; }
+.m-field:last-child{ margin-bottom:0; }
+.m-field .k{ font-size:10.5px; font-weight:700; color:var(--text-muted); margin-bottom:3px; }
+.m-field .v{ font-size:12.5px; }
+.m-disabled-ctrl{
+  border:1px dashed var(--border-strong);
+  border-radius:var(--radius-md);
+  padding:10px;
+  font-size:11px;
+  color:var(--text-faint);
+  text-align:center;
+  background:var(--bg);
+}
+
+/* ---------- 유틸 ---------- */
+.flex{ display:flex; }
+.gap-2{ gap:var(--sp-2); }
+.wrap{ flex-wrap:wrap; }
+.items-center{ align-items:center; }
+
+@media (max-width: 1100px){
+  .detail-meta-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .split{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="mock-banner">
+  <b>UX 목업 · 실제 코드 아님</b>
+  <span>Bridge Path 내부 관리자(담당자) 전용 화면 — 고객용 화면 아님 · 정적 프로토타입(실제 데이터 저장/전송 없음) · 예시 데이터는 전부 가상</span>
+</div>
+
+<!-- CSS-only 화면 스위처 -->
+<input class="view-toggle" type="radio" name="view" id="view-list" checked>
+<input class="view-toggle" type="radio" name="view" id="view-detail">
+
+<div class="switcher-wrap">
+  <span class="switcher-label-text">화면 보기</span>
+  <div class="switcher">
+    <label for="view-list" class="lbl-list">목록</label>
+    <label for="view-detail" class="lbl-detail">상세</label>
+  </div>
+  <span class="switcher-label-text" style="margin-left:8px;">문의번호 BP-20260908-014 (아이웨어 · 선글라스) 예시로 상세 화면을 확인할 수 있습니다.</span>
+</div>
+
+<!-- ============================================================
+     화면 1. 목록 (처리 필요 목록 기본 뷰)
+     ============================================================ -->
+<div id="screen-list" class="page-wrap">
+
+  <!-- 1. 처리 필요 요약 -->
+  <div class="summary-row">
+    <span class="summary-headline">처리 필요 <span class="num">5건</span></span>
+    <span class="summary-chip hl">신규 접수 1건</span>
+    <span class="summary-chip hl2">고객/공장 응답 대기 1건</span>
+    <span class="summary-chip">주의·보류 1건</span>
+    <span class="summary-chip">진행 중 2건</span>
+  </div>
+
+  <!-- 3. 탭 영역 -->
+  <div class="tab-row">
+    <span class="tab active">처리 필요</span>
+    <span class="tab">진행 중 문의로 이동</span>
+    <span class="tab">전체 문의 및 검색·필터</span>
+    <span class="tab">종결·취소 문의 조회</span>
+    <span class="tab-note">— "처리 필요" 외 탭은 동일한 표 구조를 다른 조건으로 필터링해 보여줍니다 (이 목업에서는 표를 4번 다시 그리지 않음)</span>
+  </div>
+
+  <!-- 4. 필터 바 -->
+  <div class="filter-bar">
+    <span class="filter-chip">처리상태 <span class="car">▾</span></span>
+    <span class="filter-chip gap-related">다음 행동 주체 <span class="gap-tag">PRD GAP</span> <span class="car">▾</span></span>
+    <span class="filter-chip">카테고리 <span class="car">▾</span></span>
+    <span class="filter-chip">고객유형 <span class="car">▾</span></span>
+    <span class="filter-chip">접수기간 <span class="car">▾</span></span>
+    <span class="filter-chip">AI 이용여부 <span class="car">▾</span></span>
+    <span class="filter-chip">첨부파일여부 <span class="car">▾</span></span>
+    <span class="search-box">🔍 접수번호, 고객명, 회사·브랜드명으로 검색</span>
+  </div>
+
+  <!-- 2. 처리 필요 목록 -->
+  <div class="table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th class="col-flag">신규</th>
+          <th>접수번호</th>
+          <th>접수일시</th>
+          <th>고객유형</th>
+          <th>고객/회사·브랜드</th>
+          <th>카테고리·세부품목</th>
+          <th>예상수량</th>
+          <th>현재 처리상태</th>
+          <th>다음 행동 주체 <span class="gap-tag">PRD GAP</span></th>
+          <th>마지막 활동</th>
+          <th>첨부</th>
+          <th>AI 이용</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-flag"><span class="read-dash">–</span></td>
+          <td class="mono cell-id">BP-20260908-014</td>
+          <td>2026-09-08 14:12</td>
+          <td>개인·창업 준비 중</td>
+          <td class="cell-name">예시고객A<span class="cell-sub">브랜드 미보유</span></td>
+          <td>아이웨어 · 선글라스</td>
+          <td>500개</td>
+          <td><span class="badge badge-progress">정보 확인 중</span></td>
+          <td><span class="next-actor">BridgePath 처리 필요</span></td>
+          <td>16:40</td>
+          <td><span class="icon-mini on" title="첨부 3건">📎</span></td>
+          <td><span class="icon-mini on" title="AI 이용 · 상담 전환">AI</span></td>
+        </tr>
+        <tr class="row-unread">
+          <td class="col-flag"><span class="unread-dot" title="미확인"></span></td>
+          <td class="mono cell-id">BP-20260909-018</td>
+          <td>2026-09-09 09:05</td>
+          <td>사업자·브랜드 운영 중</td>
+          <td class="cell-name">예시브랜드 스트라이드골프(가칭)<span class="cell-sub">담당 예시나</span></td>
+          <td>골프용품 · 골프백</td>
+          <td>200개</td>
+          <td><span class="badge badge-new">신규 접수</span></td>
+          <td><span class="next-actor">BridgePath 처리 필요</span></td>
+          <td>09:05</td>
+          <td><span class="icon-mini off">📎</span></td>
+          <td><span class="icon-mini off">AI</span></td>
+        </tr>
+        <tr>
+          <td class="col-flag"><span class="read-dash">–</span></td>
+          <td class="mono cell-id">BP-20260905-021</td>
+          <td>2026-09-05 11:20</td>
+          <td>개인·창업 준비 중</td>
+          <td class="cell-name">예시고객C<span class="cell-sub">브랜드 미보유</span></td>
+          <td>신발 · 운동화</td>
+          <td>1,000개</td>
+          <td><span class="badge badge-wait">추가정보 요청</span></td>
+          <td><span class="next-actor">고객 응답 대기</span></td>
+          <td>어제</td>
+          <td><span class="icon-mini off">📎</span></td>
+          <td><span class="icon-mini on" title="AI 이용 · 예상가격 표시">AI</span></td>
+        </tr>
+        <tr>
+          <td class="col-flag"><span class="read-dash">–</span></td>
+          <td class="mono cell-id">BP-20260904-007</td>
+          <td>2026-09-04 10:02</td>
+          <td>사업자·브랜드 운영 중</td>
+          <td class="cell-name">예시브랜드 나인우드(가칭)<span class="cell-sub">담당 예시다</span></td>
+          <td>골프용품 · 골프티</td>
+          <td>3,000개</td>
+          <td><span class="badge badge-caution">보류</span></td>
+          <td><span class="next-actor">담당자 판단 대기</span></td>
+          <td>2일 전</td>
+          <td><span class="icon-mini on" title="첨부 1건">📎</span></td>
+          <td><span class="icon-mini off">AI</span></td>
+        </tr>
+        <tr>
+          <td class="col-flag"><span class="read-dash">–</span></td>
+          <td class="mono cell-id">BP-20260901-002</td>
+          <td>2026-09-01 15:31</td>
+          <td>개인·창업 준비 중</td>
+          <td class="cell-name">예시고객E<span class="cell-sub">브랜드 미보유</span></td>
+          <td>아이웨어 · 안경테</td>
+          <td>300개</td>
+          <td><span class="badge badge-progress">공장 견적 확인 중</span></td>
+          <td><span class="next-actor">공장·외부 파트너 회신 대기</span></td>
+          <td>5일 전</td>
+          <td><span class="icon-mini on" title="첨부 2건">📎</span></td>
+          <td><span class="icon-mini off">AI</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 신규/미확인 vs 처리상태 구분 캡션 -->
+  <p class="caption-note">
+    <span class="unread-dot"></span>
+    "미확인" 점은 담당자가 아직 열람하지 않았다는 표시이며, <b>처리상태(예: 신규 접수)</b>와는 별개의 값입니다. 상세 화면을 여는 것만으로 처리상태가 자동으로 바뀌지 않습니다 — 위 표의 두 번째 행(BP-20260909-018)처럼 "신규 접수" 상태이면서 동시에 "미확인"인 경우가 이 둘이 별개임을 보여주는 예시입니다.
+  </p>
+
+  <!-- GAP 콜아웃 -->
+  <div class="gap-callout">
+    <span class="gap-icon">PRD GAP</span>
+    <span>"다음 행동 주체" 필드는 아직 PRD에 정식으로 포함되지 않은 UX 발견 데이터 요구사항입니다 — Architecture 전달 또는 PRD 보완이 필요한 항목으로 남아있습니다. 처리상태(FR-5.5, 10개 값)만으로는 지금 누가 행동해야 하는지 항상 판단할 수 없어(예: "추가정보 요청"은 고객 응답 대기일 수도, "공장 견적 확인 중"은 공장 회신 대기일 수도 있음) 이 목업에서 실험적으로 표시하고 있습니다.</span>
+  </div>
+
+  <!-- 범례 -->
+  <div class="legend">
+    <span class="legend-title">처리상태 색상 그룹 범례 (10개 원 상태 → 6개 의미 그룹)</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--accent)"></span>신규 — 신규 접수</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--neutral-text)"></span>진행 중 — 정보 확인 중 · 공장 견적 확인 중 · 정식견적 발송</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--wait-text)"></span>응답·확인 대기 — 추가정보 요청 · 고객 검토 중</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--warning)"></span>주의·보류 — 보류</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--success)"></span>완료·종료 — 진행 확정 · 종결</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--destructive)"></span>취소 — 취소</span>
+    <span class="legend-note">10개 처리상태를 색상마다 다르게 칠하지 않고, 의미가 같은 상태는 하나의 색으로 묶었습니다. "응답·확인 대기"는 문제 상황이 아니라 "다른 주체의 회신을 기다리는 중"이라는 뜻이라 경고색(주의·보류)과 다른 차분한 색을 사용합니다. "완료·종료" 그룹 안의 진행 확정 vs 종결은 같은 초록색을 쓰되 상태명 텍스트로 구분합니다.</span>
+  </div>
+
+  <!-- 모바일 목록 -->
+  <div class="section-gap">
+    <div class="section-title">모바일 관리자 화면 — 문의 목록 (375px 폭 예시, 조회 전용)</div>
+    <p class="section-sub">관리자 모바일은 읽기 중심으로만 지원합니다 — 다중 필터, 검색, 대량 작업은 데스크톱 전용입니다.</p>
+    <div class="mobile-frame-wrap">
+      <div class="mobile-frame">
+        <div class="mscreen">
+          <div class="mbar"><span>Bridge Path 관리자</span><span>지은</span></div>
+          <div class="mbody">
+            <div class="m-summary-stat">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);font-weight:600;">처리 필요 문의</div>
+                <div class="big">5건</div>
+              </div>
+              <span class="badge badge-new">신규 1건</span>
+            </div>
+            <div class="m-card">
+              <div class="m-section-title">문의 목록</div>
+              <div class="m-row">
+                <div>
+                  <div class="mid">BP-20260909-018</div>
+                  <div class="mmeta">골프용품 · 골프백 · 사업자·브랜드 운영 중</div>
+                </div>
+                <span class="badge badge-new">신규</span>
+              </div>
+              <div class="m-row">
+                <div>
+                  <div class="mid">BP-20260908-014</div>
+                  <div class="mmeta">아이웨어 · 선글라스 · 개인·창업 준비 중</div>
+                </div>
+                <span class="badge badge-progress">진행 중</span>
+              </div>
+              <div class="m-row">
+                <div>
+                  <div class="mid">BP-20260905-021</div>
+                  <div class="mmeta">신발 · 운동화 · 개인·창업 준비 중</div>
+                </div>
+                <span class="badge badge-wait">응답 대기</span>
+              </div>
+              <div class="m-row">
+                <div>
+                  <div class="mid">BP-20260904-007</div>
+                  <div class="mmeta">골프용품 · 골프티 · 사업자·브랜드 운영 중</div>
+                </div>
+                <span class="badge badge-caution">보류</span>
+              </div>
+            </div>
+            <span style="font-size:11.5px;color:var(--accent);font-weight:700;">문의 상세 조회 →</span>
+          </div>
+        </div>
+      </div>
+      <div class="mobile-caption-block">
+        <h4>모바일 목록에서 보여주는 것</h4>
+        <ul>
+          <li>신규 문의 존재 여부 (상단 배지)</li>
+          <li>처리 필요 문의 수 (요약 숫자)</li>
+          <li>문의 목록 (접수번호 · 카테고리 · 고객유형)</li>
+          <li>핵심 요약과 처리상태 (그룹 색 배지 + 텍스트)</li>
+          <li>문의 상세 조회 링크</li>
+        </ul>
+        <p>필터·검색·대량 작업 등 편집·조작 기능은 노출하지 않습니다. 상세 진입 시에도 아래 "상세 화면"의 모바일 예시처럼 읽기 전용으로만 표시됩니다.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     화면 2. 상세 — BP-20260908-014 (아이웨어 · 선글라스)
+     ============================================================ -->
+<div id="screen-detail" class="page-wrap">
+
+  <a class="back-link" href="#" onclick="return false;">← 목록으로</a>
+
+  <div class="detail-top">
+    <div class="detail-meta-grid">
+      <div class="meta-item">
+        <div class="k">접수번호</div>
+        <div class="v mono">BP-20260908-014</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">신규/확인여부</div>
+        <div class="v">확인 완료</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">접수일시</div>
+        <div class="v">2026-09-08 14:12</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">고객유형</div>
+        <div class="v">개인·창업 준비 중</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">식별명</div>
+        <div class="v">예시고객A</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">카테고리·세부품목</div>
+        <div class="v">아이웨어 · 선글라스</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">현재 처리상태</div>
+        <div class="v"><span class="badge badge-progress">정보 확인 중</span></div>
+      </div>
+      <div class="meta-item">
+        <div class="k">다음 행동 주체 <span class="gap-tag">PRD GAP</span></div>
+        <div class="v">BridgePath 처리 필요</div>
+      </div>
+      <div class="meta-item">
+        <div class="k">마지막 활동시각</div>
+        <div class="v">2026-09-08 16:40</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+
+    <!-- 좌측: 고객 제출 요청 정보 (읽기 전용) -->
+    <div class="panel-left">
+      <span class="readonly-flag"><span class="dot"></span>고객 원본 (읽기 전용)</span>
+
+      <div class="field-block">
+        <div class="field-label">고객유형 · 연락정보</div>
+        <div class="field-value">개인·창업 준비 중</div>
+        <div class="field-value muted">예시고객A · 010-0000-0000(예시) · example014@bridgepath-demo.invalid</div>
+      </div>
+
+      <div class="field-block">
+        <div class="field-label">카테고리 / 세부품목 / 지원유형</div>
+        <div class="field-value">아이웨어 &gt; 선글라스</div>
+        <div class="field-value muted">지원유형 선택은 카테고리 4(기타)에서만 적용됩니다 — 이 문의는 해당 없음</div>
+      </div>
+
+      <div class="field-block spec-grid">
+        <div class="spec-row">
+          <div class="k">예상수량</div>
+          <div class="v">500개</div>
+        </div>
+        <div class="spec-row">
+          <div class="k">희망 납기</div>
+          <div class="v">2026-11-30 희망</div>
+        </div>
+      </div>
+
+      <div class="field-block">
+        <div class="field-label">고객 작성 설명 · 요청사항</div>
+        <div class="field-value muted">"성인 남녀 공용 선글라스 브랜드 론칭을 준비하고 있습니다. 편광 렌즈로 제작하고 싶고, 로고 각인이 가능한 템플 샘플을 먼저 확인하고 싶습니다." (예시 텍스트)</div>
+      </div>
+
+      <div class="field-block">
+        <div class="field-label">카테고리별 사양 · "잘 모르겠음" 선택 내역</div>
+        <div class="tag-row">
+          <span class="tag">프레임 소재: 아세테이트 <span class="src src-ai">AI 제안</span></span>
+          <span class="tag">렌즈 형태: 그라데이션 편광 <span class="src src-confirmed">고객 확인</span></span>
+          <span class="tag">컬러: 잘 모르겠음 <span class="src src-unsure">담당자 확인 필요</span></span>
+          <span class="tag">로고 각인 위치: 템플 좌측 <span class="src src-free">고객 자유입력</span></span>
+        </div>
+      </div>
+
+      <div class="field-block">
+        <div class="field-label">첨부 이미지 · PDF (3건)</div>
+        <div class="file-chip-row">
+          <div class="file-chip"><span class="fi">JPG</span><span><span class="fname">reference-sunglasses-01.jpg</span><span class="fsize">2.1MB</span></span></div>
+          <div class="file-chip"><span class="fi">PDF</span><span><span class="fname">brand-logo-guide.pdf</span><span class="fsize">540KB</span></span></div>
+          <div class="file-chip"><span class="fi">PNG</span><span><span class="fname">sample-color-note.png</span><span class="fsize">1.4MB</span></span></div>
+        </div>
+      </div>
+
+      <div class="field-block">
+        <div class="field-label">AI 분석 결과 요약</div>
+        <div class="tag-row" style="margin-bottom:10px;">
+          <span class="tag">제품유형: 선글라스 <span class="src src-confirmed">고객 확인</span></span>
+          <span class="tag">프레임 소재: 아세테이트 <span class="src src-ai">AI 제안</span></span>
+          <span class="tag">컬러: 잘 모르겠음 <span class="src src-unsure">담당자 확인 필요</span></span>
+        </div>
+        <div class="ai-price-line">
+          <span class="lbl">AI 예상가격 표시 여부</span>
+          <span class="val">표시 안 됨 — 표준 사양 불일치(컬러 미확정)로 상담 전환</span>
+        </div>
+      </div>
+
+      <div class="field-block">
+        <div class="field-label">상담 전환 사유</div>
+        <div class="consult-note">
+          컬러 사양이 아직 확정되지 않았고, 로고 각인 위치가 표준 사양과 다른 <b>커스텀 요청</b>이라 승인된 기준가격표와 매칭할 수 없어 자동 예상가격을 표시하지 않고 담당자 상담으로 전환된 문의입니다. (참고용 사례 — 자동 예상가격 미표시가 오류를 의미하지 않습니다)
+        </div>
+      </div>
+    </div>
+
+    <!-- 우측: 담당자 업무 처리 영역 -->
+    <div class="panel-right">
+
+      <div class="right-block">
+        <div class="right-block-title">처리상태 변경</div>
+        <div class="current-status-row">
+          <span class="lbl">현재 상태</span>
+          <span class="badge badge-progress">정보 확인 중</span>
+        </div>
+
+        <div class="recommend-box">
+          <div class="rl">다음 단계 추천</div>
+          <button class="btn btn-primary btn-block">공장 견적 확인 중으로 변경</button>
+          <div class="rr">일반적으로 "정보 확인 중" 다음에 이어지는 상태입니다. 순서를 건너뛰거나 이전 상태로 되돌리는 것도 가능합니다.</div>
+        </div>
+
+        <details class="status-expand">
+          <summary>다른 상태로 변경 <span class="car">10개 상태 전체 보기 ▾</span></summary>
+          <div class="status-full-list">
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--accent)"></span>신규 접수</label>
+            <label class="status-option is-current"><input type="radio" name="statusfull" checked disabled><span class="grp-dot" style="background:var(--neutral-text)"></span>정보 확인 중 (현재)</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--wait-text)"></span>추가정보 요청</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--neutral-text)"></span>공장 견적 확인 중</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--neutral-text)"></span>정식견적 발송</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--wait-text)"></span>고객 검토 중</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--success)"></span>진행 확정</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--warning)"></span>보류</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--success)"></span>종결</label>
+            <label class="status-option"><input type="radio" name="statusfull" disabled><span class="grp-dot" style="background:var(--destructive)"></span>취소</label>
+          </div>
+        </details>
+
+        <div class="confirm-example">
+          <div class="ct">확인 필요 변경 예시 — "보류"로 변경</div>
+          <div class="cd">상태를 '보류'로 변경하시겠습니까? 보류·종결·취소로 변경할 때는 내부 사유를 함께 기록합니다.</div>
+          <label class="rf">보류 사유 (내부 메모, 필수)</label>
+          <textarea class="rf-input" readonly>예: 고객이 브랜드 로고 확정 전까지 진행을 잠시 멈춰달라고 요청함</textarea>
+          <div class="confirm-btn-row">
+            <button class="btn btn-danger-outline btn-sm">보류로 변경</button>
+            <button class="btn btn-secondary btn-sm">취소</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-block">
+        <div class="right-block-title">내부 메모</div>
+        <textarea class="memo-input" readonly>2026-09-08 16:40 지은: 컬러 미확정 건으로 상담 전환됨. 고객에게 컬러 옵션 3종 이미지 보내고 회신 받으면 공장 견적 확인 진행 예정.</textarea>
+        <div class="memo-caption">이 메모는 고객에게 표시되지 않습니다.</div>
+      </div>
+
+      <div class="right-block">
+        <div class="right-block-title">정식견적서 첨부</div>
+        <div class="upload-dropzone">
+          <div class="dz-title">엑셀 · PDF 파일을 여기로 끌어놓거나 선택</div>
+          아직 첨부된 정식견적서가 없습니다
+        </div>
+
+        <div class="send-record-row">
+          <input type="checkbox" disabled>
+          <div>
+            <div class="srt">고객에게 정식견적서를 발송했습니다</div>
+            <div class="srd">실제 발송은 이메일 등 외부 수단으로 진행하며, 이 체크박스는 발송 사실을 내부에 기록하는 용도입니다.</div>
+          </div>
+        </div>
+        <div class="independence-note">ⓘ 첨부와 발송 기록은 서로 독립된 항목입니다 — 견적서 파일을 첨부했다고 발송 여부가 자동으로 체크되지 않습니다.</div>
+      </div>
+
+      <div class="right-block">
+        <div class="right-block-title">최근 주요 처리 내역</div>
+        <div class="audit-log">
+          <div class="audit-row">
+            <span class="audit-from">신규 접수</span><span class="arrow">→</span><span class="audit-to">정보 확인 중</span>
+            <span class="who">지은</span>
+            <span class="t">09-08 16:40</span>
+          </div>
+          <div class="audit-row">
+            <span class="audit-from">(접수)</span><span class="arrow">→</span><span class="audit-to">신규 접수</span>
+            <span class="who">시스템</span>
+            <span class="t">09-08 14:12</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 하단 확장 섹션 -->
+  <div class="bottom-expand">
+    <details class="bottom-section">
+      <summary>전체 상태변경 이력 <span class="car">2건 · 더 보기 ▾</span></summary>
+      <div class="bottom-body">
+        <div class="hist-row"><span>09-08 16:40 · 신규 접수 → 정보 확인 중 · 지은</span></div>
+        <div class="hist-row"><span>09-08 14:12 · (접수) → 신규 접수 · 시스템</span></div>
+      </div>
+    </details>
+    <details class="bottom-section">
+      <summary>과거 견적서 <span class="car">0건</span></summary>
+      <div class="bottom-body">
+        <div class="hist-row"><span>아직 발송된 정식견적서가 없습니다.</span></div>
+      </div>
+    </details>
+    <details class="bottom-section">
+      <summary>감사 로그 <span class="car">3건 · 더 보기 ▾</span></summary>
+      <div class="bottom-body">
+        <div class="hist-row"><span>09-08 16:41 · 내부 메모 저장 · 지은</span></div>
+        <div class="hist-row"><span>09-08 16:40 · 처리상태 변경(신규 접수→정보 확인 중) · 지은</span></div>
+        <div class="hist-row"><span>09-08 14:30 · 상세 화면 최초 열람 · 지은</span></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- 모바일 상세 -->
+  <div class="section-gap">
+    <div class="section-title">모바일 관리자 화면 — 문의 상세 (375px 폭 예시, 읽기 전용)</div>
+    <div class="mobile-frame-wrap">
+      <div class="mobile-frame">
+        <div class="mscreen">
+          <div class="mbar"><span>← 목록</span><span>BP-20260908-014</span></div>
+          <div class="mbody">
+            <div class="m-readonly-banner">상태 변경 · 내부 메모 · 견적서 첨부 등 편집은 데스크톱에서 이용해주세요.</div>
+
+            <div class="m-card">
+              <div class="m-section-title">1. 문의 요약</div>
+              <div class="m-field"><div class="k">고객유형 · 카테고리</div><div class="v">개인·창업 준비 중 · 아이웨어 · 선글라스</div></div>
+              <div class="m-field"><div class="k">처리상태</div><div class="v"><span class="badge badge-progress">정보 확인 중</span></div></div>
+            </div>
+
+            <div class="m-card">
+              <div class="m-section-title">2. 고객 요청 내용</div>
+              <div class="m-field"><div class="k">수량 · 희망납기</div><div class="v">500개 · 2026-11-30 희망</div></div>
+              <div class="m-field"><div class="k">요청사항</div><div class="v">편광 렌즈, 로고 각인 템플 샘플 확인 희망 (예시)</div></div>
+            </div>
+
+            <div class="m-card">
+              <div class="m-section-title">3. 첨부파일</div>
+              <div class="m-field"><div class="v">이미지 2건 · PDF 1건 — 파일명·용량만 조회 가능</div></div>
+            </div>
+
+            <div class="m-card">
+              <div class="m-section-title">4. 현재 상태와 최근 처리 내역</div>
+              <div class="m-field"><div class="v">신규 접수 → 정보 확인 중 (09-08 16:40 · 지은)</div></div>
+            </div>
+
+            <div class="m-card">
+              <div class="m-section-title">5. 내부 메모 · 견적 관련 정보 (읽기 전용)</div>
+              <div class="m-field"><div class="v" style="color:var(--text-muted);">컬러 미확정 건으로 상담 전환됨. 정식견적서 첨부 없음.</div></div>
+              <div class="m-disabled-ctrl">상태 변경 / 메모 작성 / 견적서 첨부 — 데스크톱 전용</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mobile-caption-block">
+        <h4>모바일 상세 화면 원칙</h4>
+        <ul>
+          <li>단일 열 순서: 문의 요약 → 고객 요청 내용 → 첨부파일 → 현재 상태·최근 처리 내역 → 내부 메모·견적 관련 정보</li>
+          <li>모든 항목이 읽기 전용 — 상태변경/메모작성/견적서첨부 컨트롤은 노출하지 않고 대신 안내 문구로 대체</li>
+          <li>좌우 분할 데스크톱 레이아웃을 축소하지 않고 완전히 다른 단일 열 구조로 재구성</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

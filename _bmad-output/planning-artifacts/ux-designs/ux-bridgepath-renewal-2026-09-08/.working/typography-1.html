@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bridge Path — 한글 폰트 페어링 비교 (Graphite Editorial)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700&family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+KR:wght@500;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg: #F4F4F2;
+    --surface: #FFFFFF;
+    --text: #202225;
+    --muted: #6B6D70;
+    --graphite: #2B2E33;
+    --accent: #234163;
+    --border: #DFDFDC;
+    --success: #3E7A52;
+    --warning: #B08A3E;
+    --destructive: #A13F32;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  body {
+    font-family: "Noto Sans KR", sans-serif;
+    line-height: 1.6;
+    padding: 40px 24px 120px;
+  }
+
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Intro ---------- */
+  .intro {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+  .intro p {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 14.5px;
+  }
+  .intro p:last-child { margin-bottom: 0; }
+  .intro .note {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .doc-title {
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  /* ---------- Section ---------- */
+  section.pairing {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 32px clamp(20px, 4vw, 40px);
+    margin-bottom: 40px;
+  }
+
+  .pairing-heading {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--graphite);
+    font-family: "Noto Sans KR", sans-serif;
+  }
+
+  .pairing-caption {
+    margin: 0 0 28px;
+    font-size: 13px;
+    color: var(--muted);
+    font-family: "Noto Sans KR", sans-serif;
+  }
+
+  .sub-substitute-note {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px;
+  }
+
+  .block {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .block:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .block-label {
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-family: "Noto Sans KR", sans-serif;
+  }
+
+  /* Hero headline */
+  .hero-headline {
+    font-size: clamp(28px, 4vw, 40px);
+    line-height: 1.3;
+    margin: 0;
+    color: var(--graphite);
+  }
+
+  /* Secondary section title */
+  .section-title {
+    font-size: 24px;
+    line-height: 1.4;
+    margin: 0;
+    color: var(--graphite);
+  }
+
+  /* Body paragraph */
+  .body-copy {
+    max-width: 620px;
+    font-size: 16px;
+    line-height: 1.75;
+    color: var(--text);
+    margin: 0;
+  }
+
+  /* Form fields */
+  .form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 420px;
+  }
+  .form-field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .form-field .help {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0;
+  }
+  .form-field input {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    font-family: "Noto Sans KR", sans-serif;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  /* AI price result */
+  .price-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px 24px;
+    max-width: 480px;
+  }
+  .badge-chip {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border-radius: 999px;
+    padding: 4px 10px;
+    margin-bottom: 12px;
+    letter-spacing: 0.01em;
+  }
+  .price-line {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .price-meta {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: 0 0 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .price-id {
+    font-size: 13.5px;
+    color: var(--text);
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  /* Admin table */
+  table.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  table.admin-table th,
+  table.admin-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.admin-table th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  table.admin-table td {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  table.admin-table td:last-child,
+  table.admin-table th:last-child {
+    text-align: right;
+  }
+  .status-chip {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--graphite);
+    background: var(--surface);
+  }
+
+  /* Mobile frame */
+  .mobile-frame-wrap {
+    display: flex;
+    justify-content: flex-start;
+  }
+  .mobile-frame {
+    width: 360px;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--surface);
+    padding: 20px 18px;
+  }
+  .mobile-frame .m-headline {
+    font-size: 24px;
+    line-height: 1.35;
+    color: var(--graphite);
+    margin: 0 0 14px;
+  }
+  .mobile-frame .m-body {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text);
+    margin: 0;
+  }
+
+  hr.divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0 0 40px;
+  }
+
+  /* ---------- Font family assignments ---------- */
+
+  /* Pairing 1: Quiet Magazine */
+  .p1 .hero-headline,
+  .p1 .section-title {
+    font-family: "Noto Serif KR", serif;
+    font-weight: 700;
+  }
+  .p1 .section-title { font-weight: 600; }
+  .p1 .body-copy,
+  .p1 .form-field label,
+  .p1 .form-field .help,
+  .p1 .price-line,
+  .p1 .price-meta,
+  .p1 .price-id,
+  .p1 table.admin-table,
+  .p1 .m-body {
+    font-family: "Noto Sans KR", sans-serif;
+  }
+  .p1 .m-headline {
+    font-family: "Noto Serif KR", serif;
+    font-weight: 700;
+  }
+
+  /* Pairing 2: Confident Sans */
+  .p2 .hero-headline,
+  .p2 .section-title {
+    font-family: "IBM Plex Sans KR", sans-serif;
+    font-weight: 700;
+  }
+  .p2 .section-title { font-weight: 500; }
+  .p2 .body-copy,
+  .p2 .form-field label,
+  .p2 .form-field .help,
+  .p2 .price-line,
+  .p2 .price-meta,
+  .p2 .price-id,
+  .p2 table.admin-table,
+  .p2 .m-body {
+    font-family: "Noto Sans KR", sans-serif;
+  }
+  .p2 .m-headline {
+    font-family: "IBM Plex Sans KR", sans-serif;
+    font-weight: 700;
+  }
+
+  /* Pairing 3: Restrained Contrast (single family control) */
+  .p3 .hero-headline,
+  .p3 .section-title {
+    font-family: "Noto Sans KR", sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+  .p3 .section-title { font-weight: 800; }
+  .p3 .body-copy,
+  .p3 .form-field label,
+  .p3 .form-field .help,
+  .p3 .price-line,
+  .p3 .price-meta,
+  .p3 .price-id,
+  .p3 table.admin-table,
+  .p3 .m-body {
+    font-family: "Noto Sans KR", sans-serif;
+    font-weight: 400;
+  }
+  .p3 .form-field label { font-weight: 600; }
+  .p3 .m-headline {
+    font-family: "Noto Sans KR", sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  footer.page-footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12.5px;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="intro">
+    <p class="doc-title">Bridge Path · 타이포그래피 비교 초안</p>
+    <p>Graphite Editorial 방향 안에서 실제 페이지 문구를 사용해 한글 웹폰트 3가지 조합(제목+본문)을 비교한 자료입니다. 아직 아무것도 확정되지 않았으며, 이 미리보기는 Architecture 단계에서 실제 폰트를 결정하기 전 인상을 가늠하기 위한 것입니다.</p>
+    <p class="note">Pretendard와 Gmarket Sans는 Google Fonts에 없어 이 미리보기에서는 각각 Noto Sans KR, IBM Plex Sans KR로 대체했습니다 — 대체 위치는 각 섹션에 별도로 표시했습니다.</p>
+  </div>
+
+  <!-- ============ PAIRING 1 ============ -->
+  <section class="pairing p1">
+    <h2 class="pairing-heading">1. 잔잔한 매거진 (Quiet Magazine)</h2>
+    <p class="pairing-caption">제목: Noto Serif KR (600/700) · 본문: Noto Sans KR (400/500/600) — Pretendard 대체</p>
+    <div class="sub-substitute-note">미리보기에서는 Pretendard 대신 Google Fonts의 Noto Sans KR로 대체해 유사한 인상을 보여줍니다 — 실제 폰트는 Architecture 단계에서 확정합니다.</div>
+
+    <div class="block">
+      <p class="block-label">Hero Headline</p>
+      <h1 class="hero-headline">실거래 경험이 있는 중국 제조업체와 함께, 정직하게 만듭니다</h1>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Section Title</p>
+      <h3 class="section-title">검증된 레퍼런스로 상담을 시작하세요</h3>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Body Paragraph</p>
+      <p class="body-copy">Bridge Path는 자체 공장을 소유하거나 제품을 직접 생산하는 제조사가 아닙니다. 핵심 제조·소싱 수행 기반에는 실제 거래·협업 경험이 있는 중국 제조업체와 현지 포워딩 파트너가 포함됩니다. 고객을 대신해 제품 사양 정리, 중국어 소통, 공장 확인·매칭, 견적 확인, 생산 진행 관리, 검수·운송·수입 관련 업무를 지원합니다. 카테고리 4에서는 제품 조건에 따라 국내외 공장 매칭·소싱 가능성도 함께 검토합니다.</p>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Form Field Label + Help Text</p>
+      <div class="form-fields">
+        <div class="form-field">
+          <label for="p1-qty">예상 수량</label>
+          <input id="p1-qty" type="text" placeholder="예: 500개" />
+          <p class="help">정확한 수치를 모르셔도 괜찮아요. '아직 모름'을 선택할 수 있어요.</p>
+        </div>
+        <div class="form-field">
+          <label for="p1-email">이메일</label>
+          <input id="p1-email" type="text" placeholder="example@company.com" />
+          <p class="help">접수 확인과 처리 결과를 이 주소로 보내드려요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="block-label">AI 가격 결과</p>
+      <div class="price-card">
+        <span class="badge-chip">AI 사전 가격안내</span>
+        <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+        <p class="price-meta">2026.09.08 기준 · 유효기간 14일</p>
+        <p class="price-id">접수번호 예시: BP-20260908-014</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Admin 목록 테이블</p>
+      <table class="admin-table">
+        <thead>
+          <tr><th>접수번호</th><th>카테고리</th><th>상태</th><th>접수일시</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>BP-20260908-014</td><td>아이웨어</td><td><span class="status-chip">공장 견적 확인 중</span></td><td>2026.09.08 14:32</td></tr>
+          <tr><td>BP-20260907-009</td><td>신발</td><td><span class="status-chip">정식견적 발송</span></td><td>2026.09.07 11:05</td></tr>
+          <tr><td>BP-20260906-031</td><td>골프용품</td><td><span class="status-chip">신규 접수</span></td><td>2026.09.06 09:47</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="block">
+      <p class="block-label">모바일 (360px) 줄바꿈 미리보기</p>
+      <div class="mobile-frame-wrap">
+        <div class="mobile-frame">
+          <h1 class="m-headline">실거래 경험이 있는 중국 제조업체와 함께, 정직하게 만듭니다</h1>
+          <p class="m-body">Bridge Path는 자체 공장을 소유하거나 제품을 직접 생산하는 제조사가 아닙니다. 핵심 제조·소싱 수행 기반에는 실제 거래·협업 경험이 있는 중국 제조업체와 현지 포워딩 파트너가 포함됩니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ============ PAIRING 2 ============ -->
+  <section class="pairing p2">
+    <h2 class="pairing-heading">2. 확신에 찬 산세리프 (Confident Sans)</h2>
+    <p class="pairing-caption">제목: IBM Plex Sans KR (500/700) · 본문: Noto Sans KR (400/500/600) — 각각 Gmarket Sans, Pretendard 대체</p>
+    <div class="sub-substitute-note">미리보기에서는 Gmarket Sans 대신 Google Fonts의 IBM Plex Sans KR로 유사한 인상을 보여줍니다 — 실제 폰트는 라이선스 확인 후 Architecture 단계에서 확정합니다.</div>
+
+    <div class="block">
+      <p class="block-label">Hero Headline</p>
+      <h1 class="hero-headline">실거래 경험이 있는 중국 제조업체와 함께, 정직하게 만듭니다</h1>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Section Title</p>
+      <h3 class="section-title">검증된 레퍼런스로 상담을 시작하세요</h3>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Body Paragraph</p>
+      <p class="body-copy">Bridge Path는 자체 공장을 소유하거나 제품을 직접 생산하는 제조사가 아닙니다. 핵심 제조·소싱 수행 기반에는 실제 거래·협업 경험이 있는 중국 제조업체와 현지 포워딩 파트너가 포함됩니다. 고객을 대신해 제품 사양 정리, 중국어 소통, 공장 확인·매칭, 견적 확인, 생산 진행 관리, 검수·운송·수입 관련 업무를 지원합니다. 카테고리 4에서는 제품 조건에 따라 국내외 공장 매칭·소싱 가능성도 함께 검토합니다.</p>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Form Field Label + Help Text</p>
+      <div class="form-fields">
+        <div class="form-field">
+          <label for="p2-qty">예상 수량</label>
+          <input id="p2-qty" type="text" placeholder="예: 500개" />
+          <p class="help">정확한 수치를 모르셔도 괜찮아요. '아직 모름'을 선택할 수 있어요.</p>
+        </div>
+        <div class="form-field">
+          <label for="p2-email">이메일</label>
+          <input id="p2-email" type="text" placeholder="example@company.com" />
+          <p class="help">접수 확인과 처리 결과를 이 주소로 보내드려요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="block-label">AI 가격 결과</p>
+      <div class="price-card">
+        <span class="badge-chip">AI 사전 가격안내</span>
+        <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+        <p class="price-meta">2026.09.08 기준 · 유효기간 14일</p>
+        <p class="price-id">접수번호 예시: BP-20260908-014</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Admin 목록 테이블</p>
+      <table class="admin-table">
+        <thead>
+          <tr><th>접수번호</th><th>카테고리</th><th>상태</th><th>접수일시</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>BP-20260908-014</td><td>아이웨어</td><td><span class="status-chip">공장 견적 확인 중</span></td><td>2026.09.08 14:32</td></tr>
+          <tr><td>BP-20260907-009</td><td>신발</td><td><span class="status-chip">정식견적 발송</span></td><td>2026.09.07 11:05</td></tr>
+          <tr><td>BP-20260906-031</td><td>골프용품</td><td><span class="status-chip">신규 접수</span></td><td>2026.09.06 09:47</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="block">
+      <p class="block-label">모바일 (360px) 줄바꿈 미리보기</p>
+      <div class="mobile-frame-wrap">
+        <div class="mobile-frame">
+          <h1 class="m-headline">실거래 경험이 있는 중국 제조업체와 함께, 정직하게 만듭니다</h1>
+          <p class="m-body">Bridge Path는 자체 공장을 소유하거나 제품을 직접 생산하는 제조사가 아닙니다. 핵심 제조·소싱 수행 기반에는 실제 거래·협업 경험이 있는 중국 제조업체와 현지 포워딩 파트너가 포함됩니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ============ PAIRING 3 ============ -->
+  <section class="pairing p3">
+    <h2 class="pairing-heading">3. 절제된 대조 (Restrained Contrast, 기준안)</h2>
+    <p class="pairing-caption">제목: Pretendard ExtraBold/Black (800/900) · 본문: Pretendard Regular/Medium (400/500) — 단일 패밀리, Noto Sans KR로 대체</p>
+    <div class="sub-substitute-note">미리보기에서는 Pretendard 대신 Google Fonts의 Noto Sans KR로 대체해 유사한 인상을 보여줍니다 — 실제 폰트는 Architecture 단계에서 확정합니다. 제목과 본문에 동일 패밀리를 사용해 굵기·크기만으로 만든 대비를 보여주는 기준안입니다.</div>
+
+    <div class="block">
+      <p class="block-label">Hero Headline</p>
+      <h1 class="hero-headline">실거래 경험이 있는 중국 제조업체와 함께, 정직하게 만듭니다</h1>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Section Title</p>
+      <h3 class="section-title">검증된 레퍼런스로 상담을 시작하세요</h3>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Body Paragraph</p>
+      <p class="body-copy">Bridge Path는 자체 공장을 소유하거나 제품을 직접 생산하는 제조사가 아닙니다. 핵심 제조·소싱 수행 기반에는 실제 거래·협업 경험이 있는 중국 제조업체와 현지 포워딩 파트너가 포함됩니다. 고객을 대신해 제품 사양 정리, 중국어 소통, 공장 확인·매칭, 견적 확인, 생산 진행 관리, 검수·운송·수입 관련 업무를 지원합니다. 카테고리 4에서는 제품 조건에 따라 국내외 공장 매칭·소싱 가능성도 함께 검토합니다.</p>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Form Field Label + Help Text</p>
+      <div class="form-fields">
+        <div class="form-field">
+          <label for="p3-qty">예상 수량</label>
+          <input id="p3-qty" type="text" placeholder="예: 500개" />
+          <p class="help">정확한 수치를 모르셔도 괜찮아요. '아직 모름'을 선택할 수 있어요.</p>
+        </div>
+        <div class="form-field">
+          <label for="p3-email">이메일</label>
+          <input id="p3-email" type="text" placeholder="example@company.com" />
+          <p class="help">접수 확인과 처리 결과를 이 주소로 보내드려요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="block-label">AI 가격 결과</p>
+      <div class="price-card">
+        <span class="badge-chip">AI 사전 가격안내</span>
+        <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+        <p class="price-meta">2026.09.08 기준 · 유효기간 14일</p>
+        <p class="price-id">접수번호 예시: BP-20260908-014</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <p class="block-label">Admin 목록 테이블</p>
+      <table class="admin-table">
+        <thead>
+          <tr><th>접수번호</th><th>카테고리</th><th>상태</th><th>접수일시</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>BP-20260908-014</td><td>아이웨어</td><td><span class="status-chip">공장 견적 확인 중</span></td><td>2026.09.08 14:32</td></tr>
+          <tr><td>BP-20260907-009</td><td>신발</td><td><span class="status-chip">정식견적 발송</span></td><td>2026.09.07 11:05</td></tr>
+          <tr><td>BP-20260906-031</td><td>골프용품</td><td><span class="status-chip">신규 접수</span></td><td>2026.09.06 09:47</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="block">
+      <p class="block-label">모바일 (360px) 줄바꿈 미리보기</p>
+      <div class="mobile-frame-wrap">
+        <div class="mobile-frame">
+          <h1 class="m-headline">실거래 경험이 있는 중국 제조업체와 함께, 정직하게 만듭니다</h1>
+          <p class="m-body">Bridge Path는 자체 공장을 소유하거나 제품을 직접 생산하는 제조사가 아닙니다. 핵심 제조·소싱 수행 기반에는 실제 거래·협업 경험이 있는 중국 제조업체와 현지 포워딩 파트너가 포함됩니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="page-footer">Bridge Path UX · Graphite Editorial 타이포그래피 비교 초안 · 2026.09.09</footer>
+
+</div>
+</body>
+</html>

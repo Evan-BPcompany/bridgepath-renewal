@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Path — 홈페이지 UX 목업</title>
+
+<!--
+  폰트 대체 안내:
+  프로덕션 후보 서체는 "Pretendard"이나 Google Fonts에서 제공되지 않습니다.
+  이 목업에서는 근접한 무료 대안인 Noto Sans KR(weights 400/500/600/700/800/900)을
+  대신 사용합니다. 실제 구현 시 Pretendard로 교체 예정입니다.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   이 목업이 다루는 스펙 / 결정 영역 (Spine coverage checklist)
+   향후 리뷰 시 아래 항목별로 대조해 주세요.
+
+   1) Foundation / Device — 데스크톱(~1240px)과 모바일(~375px) 두 뷰를
+      한 파일에서 동시에 확인 가능하도록 구성.
+   2) Information Architecture — 홈 섹션 순서:
+      헤더 → 히어로(주/보조 CTA) → 회사 정체성·역할 요약 →
+      4개 카테고리 개요 → 레퍼런스 탭(아이웨어/신발/골프용품, 기타는 별도 콜아웃) →
+      AI 사전 가격안내 vs 정식 견적 비교 → 하단 CTA 반복 → 플로팅 문의 버튼.
+   3) Voice & Tone 레지스터 분리 — 정체성/설명 텍스트는 ~합니다·~드립니다체,
+      버튼/라벨은 짧은 동사구, 레퍼런스 탭 CTA 및 플로팅 버튼 메뉴는
+      중립 라벨(간판식 표기) 허용.
+   4) 색상 토큰 — graphite / ink-blue(accent) / on-accent / bg-page / surface /
+      border / text-primary / text-muted / success / warning(tint,border,text) / destructive.
+   5) 타이포 토큰 — Noto Sans KR 단일 패밀리(Pretendard 대체), 사이즈·굵기·행간만으로 위계 표현.
+      (2차 디스플레이/세리프 서체 사용 안 함 — 해당 방향은 기각됨)
+   6) 반경/그림자 토큰 — 카드 4~8px, 버튼/입력 6~8px, 알약형 버튼 금지
+      (플로팅 문의 버튼만 예외), 정적 카드에는 그림자 없음(border-first),
+      플로팅 문의 버튼에만 절제된 그림자 허용.
+   7) 여백 토큰 — 넉넉한 "comfortable" 밀도의 섹션 패딩, 섹션 간 여백 확보.
+   8) 모션 — 실제 애니메이션/JS 없음. hover 150~200ms color/opacity 전환 위치만
+      주석으로 표기. 자동 재생 캐러셀·펄스 없음.
+   9) CTA 위계 — "견적 요청하기"(주 CTA, ink-blue 채움, 최소 2회 이상 노출) vs
+      "AI 사전 가격안내"(보조 CTA, outline/ghost) — AI 섹션 내부에서만
+      AI CTA가 해당 섹션의 로컬 주 CTA로 전환됨.
+  10) 8% 서비스 수수료 비공개 정책 — 페이지 어디에도 구체적 금액·퍼센트 미노출.
+  11) 회사 포지셔닝 규칙 — 비제조사/에이전트 정체성 명시, "국내외 제조 파트너"가
+      헤드라인 프레이밍, 중국 관련 내용은 보조 디테일 문장에서만 언급,
+      미검증 수치(공장 수·거래 건수 등) 금지, 중국 클리셰 비주얼/문구 금지.
+  12) 레퍼런스 탭 — 아이웨어/신발/골프용품 3탭만 존재(기타는 탭이 아닌 별도 콜아웃),
+      "상담 가능 범위"와 "검증된 레퍼런스"를 문구로 구분, 활성 탭 표시는
+      색상 단독이 아닌 밑줄(또는 좌측 바)+굵기 변화로 접근성 확보.
+  13) 플레이스홀더 정책 — 실제 제품 사진 없음. 중립 회색 박스 + 캡션 텍스트만 사용.
+   ============================================================ */
+
+:root{
+  --graphite:#2B2E33;
+  --ink-blue:#234163;
+  --on-accent:#FFFFFF;
+  --bg-page:#F4F4F2;
+  --surface:#FFFFFF;
+  --border:#DFDFDC;
+  --text-primary:#202225;
+  --text-muted:#6B6D70;
+  --success:#3E7A52;
+  --warning:#B08A3E;
+  --warning-tint:#F8F0DF;
+  --warning-border:#E6D6AE;
+  --warning-text:#85611F;
+  --destructive:#A13F32;
+  --radius-sm:4px;
+  --radius-md:6px;
+  --radius-lg:8px;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Noto Sans KR', sans-serif;
+  background:var(--bg-page);
+  color:var(--text-primary);
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%;}
+
+/* ---------- 목업 전용 배너(실제 사이트 크롬 아님) ---------- */
+.mock-ribbon{
+  position:sticky;
+  top:0;
+  z-index:500;
+  background:var(--warning-tint);
+  border-bottom:1px solid var(--warning-border);
+  color:var(--warning-text);
+  text-align:center;
+  font-size:13px;
+  font-weight:600;
+  padding:10px 16px;
+  letter-spacing:.01em;
+}
+
+.mock-intro{
+  max-width:1264px;
+  margin:0 auto;
+  padding:28px 20px 4px;
+  text-align:center;
+}
+.mock-intro h1{
+  font-size:20px;
+  font-weight:700;
+  color:var(--graphite);
+  margin:0 0 4px;
+}
+.mock-intro p{
+  font-size:13px;
+  color:var(--text-muted);
+  margin:0;
+}
+
+/* ---------- 프레임 레이아웃 ---------- */
+.frames-wrap{
+  display:flex;
+  flex-wrap:wrap;
+  gap:56px;
+  justify-content:center;
+  align-items:flex-start;
+  padding:32px 20px 80px;
+}
+.frame-col{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+}
+.frame-label{
+  font-size:14px;
+  font-weight:700;
+  color:var(--graphite);
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:999px; /* 상태/라벨용 알약형: 작은 배지에만 허용되는 예외 */
+  padding:6px 16px;
+}
+
+/* device-frame: transform 속성이 있으면 그 내부의 position:fixed 요소는
+   뷰포트가 아니라 이 요소를 기준으로 고정됩니다. 이 트릭으로 데스크톱/모바일
+   프레임 각각에 독립적인 "플로팅 문의 버튼"을 재현합니다. */
+.device-frame{
+  position:relative;
+  background:var(--surface);
+  border:1px solid var(--border);
+  overflow:hidden;
+  transform:translateZ(0);
+}
+.desktop-frame{ width:1264px; border-radius:12px; }
+.mobile-frame{ width:375px; border-radius:28px; border-width:6px; }
+
+.viewport{
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.desktop-frame .viewport{ max-height:900px; }
+.mobile-frame .viewport{ max-height:760px; }
+
+/* ---------- 공통 섹션 리듬 ---------- */
+section{ border-bottom:1px solid var(--border); }
+section:last-of-type{ border-bottom:none; }
+.desktop-frame section{ padding:72px 64px; }
+.mobile-frame section{ padding:40px 22px; }
+
+.eyebrow{
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink-blue);
+  letter-spacing:.02em;
+  margin:0 0 10px;
+}
+.section-title{
+  font-weight:700;
+  color:var(--graphite);
+  line-height:1.35;
+  margin:0 0 14px;
+}
+.desktop-frame .section-title{ font-size:28px; }
+.mobile-frame .section-title{ font-size:21px; }
+
+.section-body{
+  font-size:15px;
+  line-height:1.7;
+  color:var(--text-primary);
+  font-weight:400;
+}
+.section-body + .section-body{ margin-top:10px; }
+
+/* ---------- 헤더 ---------- */
+header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.desktop-frame header{ padding:20px 64px; }
+.mobile-frame header{ padding:16px 22px; }
+
+.wordmark{
+  font-weight:800;
+  color:var(--graphite);
+  letter-spacing:-.01em;
+}
+.desktop-frame .wordmark{ font-size:20px; }
+.mobile-frame .wordmark{ font-size:17px; }
+
+.header-nav{ display:flex; gap:24px; }
+.header-nav a{
+  font-size:14px;
+  font-weight:500;
+  color:var(--text-muted);
+  text-decoration:none;
+  transition:color .18s ease; /* hover: 150-200ms color transition */
+}
+.header-nav a:hover{ color:var(--ink-blue); }
+.mobile-frame .header-nav{ gap:14px; }
+.mobile-frame .header-nav a{ font-size:12.5px; }
+
+/* ---------- 버튼 ---------- */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border-radius:var(--radius-lg);
+  font-weight:700;
+  text-decoration:none;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background-color .18s ease, color .18s ease, border-color .18s ease, opacity .18s ease; /* hover: 150-200ms */
+}
+.btn-primary{
+  background:var(--ink-blue);
+  color:var(--on-accent);
+  border:1.5px solid var(--ink-blue);
+}
+.btn-primary:hover{ background:#1B3350; border-color:#1B3350; }
+
+.btn-outline{
+  background:transparent;
+  color:var(--ink-blue);
+  border:1.5px solid var(--ink-blue);
+}
+.btn-outline:hover{ background:rgba(35,65,99,.06); }
+
+.btn-outline-graphite{
+  background:transparent;
+  color:var(--graphite);
+  border:1.5px solid var(--graphite);
+}
+.btn-outline-graphite:hover{ background:rgba(43,46,51,.05); }
+
+.btn-lg{ padding:15px 30px; font-size:16px; }
+.btn-md{ padding:11px 22px; font-size:14px; }
+.btn-sm{ padding:9px 18px; font-size:13px; }
+.btn-block{ width:100%; }
+
+.text-link{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink-blue);
+  text-decoration:none;
+  border-bottom:1px solid rgba(35,65,99,.35);
+  transition:border-color .18s ease, color .18s ease; /* hover: 150-200ms */
+}
+.text-link:hover{ border-color:var(--ink-blue); }
+
+/* ---------- 히어로 ---------- */
+.hero{ background:var(--surface); }
+.hero-headline{
+  font-weight:800;
+  color:var(--graphite);
+  line-height:1.28;
+  margin:0 0 18px;
+  letter-spacing:-.01em;
+}
+.desktop-frame .hero-headline{ font-size:40px; max-width:720px; }
+.mobile-frame .hero-headline{ font-size:26px; }
+
+.hero-sub{
+  font-size:16px;
+  line-height:1.7;
+  color:var(--text-muted);
+  font-weight:400;
+  margin:0 0 32px;
+  max-width:560px;
+}
+.mobile-frame .hero-sub{ font-size:14px; margin-bottom:28px; }
+
+.hero-cta-row{ display:flex; gap:14px; }
+.desktop-frame .hero-cta-row{ flex-direction:row; }
+.mobile-frame .hero-cta-row{ flex-direction:column; gap:10px; }
+
+/* ---------- 회사 정체성 섹션 ---------- */
+.identity-steps{
+  display:flex;
+  gap:14px;
+  margin-top:28px;
+  flex-wrap:wrap;
+}
+.mobile-frame .identity-steps{ flex-direction:column; gap:10px; }
+.identity-step{
+  flex:1;
+  min-width:150px;
+  background:var(--bg-page);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:16px 14px;
+}
+.identity-step .step-num{
+  display:inline-block;
+  font-size:11px;
+  font-weight:700;
+  color:var(--ink-blue);
+  margin-bottom:6px;
+}
+.identity-step .step-label{
+  font-size:14px;
+  font-weight:600;
+  color:var(--graphite);
+}
+.identity-detail{
+  margin-top:22px;
+  font-size:13.5px;
+  color:var(--text-muted);
+  line-height:1.7;
+  border-left:2px solid var(--border);
+  padding-left:14px;
+}
+
+/* ---------- 4 카테고리 ---------- */
+.category-grid{
+  display:grid;
+  gap:16px;
+  margin-top:8px;
+}
+.desktop-frame .category-grid{ grid-template-columns:repeat(4,1fr); }
+.mobile-frame .category-grid{ grid-template-columns:1fr; }
+
+.category-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:20px 18px;
+}
+.category-card .cat-name{
+  font-size:16px;
+  font-weight:700;
+  color:var(--graphite);
+  margin:0 0 8px;
+}
+.category-card .cat-line{
+  font-size:13px;
+  line-height:1.6;
+  color:var(--text-muted);
+  margin:0;
+}
+
+/* ---------- 레퍼런스 탭 ---------- */
+.tabs{ margin-top:8px; }
+.tab-radio{ position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
+
+.tab-labels{ display:flex; border-bottom:1px solid var(--border); }
+.desktop-frame .tab-labels{ gap:8px; }
+.mobile-frame .tab-labels{ flex-direction:column; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; }
+
+.tab-label{
+  cursor:pointer;
+  font-size:15px;
+  color:var(--text-muted);
+  user-select:none;
+  transition:color .18s ease, border-color .18s ease, background-color .18s ease; /* hover/active: 150-200ms */
+}
+.desktop-frame .tab-label{
+  padding:12px 6px;
+  margin-right:26px;
+  font-weight:500;
+  border-bottom:3px solid transparent; /* 활성 표시: 밑줄(색상 단독 아님) */
+}
+.mobile-frame .tab-label{
+  padding:14px 16px;
+  font-weight:500;
+  border-left:4px solid transparent; /* 활성 표시: 좌측 바 + 배경(색상 단독 아님) */
+  border-bottom:1px solid var(--border);
+}
+.mobile-frame .tab-labels .tab-label:last-child{ border-bottom:none; }
+
+.tab-panels{ margin-top:28px; }
+.tab-panel{ display:none; }
+
+.ref-photo-box{
+  background:#E9E9E6;
+  border:1px dashed #C9C9C4;
+  border-radius:var(--radius-md);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  color:var(--text-muted);
+  font-size:13px;
+  line-height:1.5;
+  padding:16px;
+}
+.desktop-frame .ref-photo-box{ height:200px; max-width:320px; }
+.mobile-frame .ref-photo-box{ height:150px; }
+
+.ref-panel-grid{ display:flex; gap:32px; align-items:flex-start; }
+.desktop-frame .ref-panel-grid{ flex-direction:row; }
+.mobile-frame .ref-panel-grid{ flex-direction:column; gap:18px; }
+
+.ref-product-name{
+  font-size:19px;
+  font-weight:700;
+  color:var(--graphite);
+  margin:0 0 8px;
+}
+.ref-scope-line{
+  font-size:13.5px;
+  font-weight:500;
+  color:var(--ink-blue);
+  margin:0 0 10px;
+}
+.ref-support-line{
+  font-size:13.5px;
+  color:var(--text-muted);
+  line-height:1.6;
+  margin:0 0 18px;
+}
+
+/* 아이웨어(-d/-m 각 기본 선택) 탭 활성 상태 */
+#tab-eyewear-d:checked ~ .tab-labels .label-eyewear-d,
+#tab-eyewear-m:checked ~ .tab-labels .label-eyewear-m{
+  color:var(--ink-blue); font-weight:700;
+}
+.desktop-frame #tab-eyewear-d:checked ~ .tab-labels .label-eyewear-d{ border-bottom-color:var(--ink-blue); }
+.mobile-frame #tab-eyewear-m:checked ~ .tab-labels .label-eyewear-m{ border-left-color:var(--ink-blue); background:var(--bg-page); }
+
+#tab-shoes-d:checked ~ .tab-labels .label-shoes-d,
+#tab-shoes-m:checked ~ .tab-labels .label-shoes-m{
+  color:var(--ink-blue); font-weight:700;
+}
+.desktop-frame #tab-shoes-d:checked ~ .tab-labels .label-shoes-d{ border-bottom-color:var(--ink-blue); }
+.mobile-frame #tab-shoes-m:checked ~ .tab-labels .label-shoes-m{ border-left-color:var(--ink-blue); background:var(--bg-page); }
+
+#tab-golf-d:checked ~ .tab-labels .label-golf-d,
+#tab-golf-m:checked ~ .tab-labels .label-golf-m{
+  color:var(--ink-blue); font-weight:700;
+}
+.desktop-frame #tab-golf-d:checked ~ .tab-labels .label-golf-d{ border-bottom-color:var(--ink-blue); }
+.mobile-frame #tab-golf-m:checked ~ .tab-labels .label-golf-m{ border-left-color:var(--ink-blue); background:var(--bg-page); }
+
+/* 패널 전환 */
+#tab-eyewear-d:checked ~ .tab-panels .panel-eyewear-d,
+#tab-eyewear-m:checked ~ .tab-panels .panel-eyewear-m{ display:block; }
+#tab-shoes-d:checked ~ .tab-panels .panel-shoes-d,
+#tab-shoes-m:checked ~ .tab-panels .panel-shoes-m{ display:block; }
+#tab-golf-d:checked ~ .tab-panels .panel-golf-d,
+#tab-golf-m:checked ~ .tab-panels .panel-golf-m{ display:block; }
+/* 실제로는 라디오+라벨 없이 JS로 클릭 시 콘텐츠를 전환하지만, 정적 목업이므로 CSS-only 탭으로 대체 구현했습니다. */
+
+.etc-callout{
+  margin-top:28px;
+  background:var(--bg-page);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:18px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+}
+.etc-callout p{
+  font-size:13.5px;
+  color:var(--text-muted);
+  line-height:1.6;
+  margin:0;
+  max-width:520px;
+}
+
+/* ---------- AI vs 정식견적 ---------- */
+.ai-compare-grid{ display:grid; gap:18px; margin-top:8px; }
+.desktop-frame .ai-compare-grid{ grid-template-columns:1fr 1fr; }
+.mobile-frame .ai-compare-grid{ grid-template-columns:1fr; }
+
+.compare-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:24px 22px;
+}
+.compare-card.is-local-primary{ border-color:var(--ink-blue); }
+.compare-card .badge{
+  display:inline-block;
+  font-size:11px;
+  font-weight:700;
+  padding:4px 10px;
+  border-radius:999px; /* 작은 상태 배지: 알약형 예외 */
+  margin-bottom:12px;
+}
+.compare-card.is-local-primary .badge{ background:var(--ink-blue); color:var(--on-accent); }
+.compare-card:not(.is-local-primary) .badge{ background:var(--bg-page); color:var(--text-muted); border:1px solid var(--border); }
+
+.compare-card h3{ font-size:18px; font-weight:700; color:var(--graphite); margin:0 0 10px; }
+.compare-card p{ font-size:13.5px; line-height:1.7; color:var(--text-primary); margin:0 0 18px; }
+.compare-card ul{ margin:0 0 18px; padding-left:18px; }
+.compare-card li{ font-size:13.5px; line-height:1.7; color:var(--text-muted); }
+
+/* ---------- 하단 CTA 반복 ---------- */
+.footer-cta{
+  text-align:center;
+  background:var(--surface);
+}
+.footer-cta h2{
+  font-weight:700;
+  color:var(--graphite);
+  margin:0 0 24px;
+}
+.desktop-frame .footer-cta h2{ font-size:24px; }
+.mobile-frame .footer-cta h2{ font-size:19px; }
+
+.footer-cta-actions{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:20px;
+  flex-wrap:wrap;
+}
+.mobile-frame .footer-cta-actions{ flex-direction:column; gap:14px; }
+
+.site-footer{
+  padding:24px 22px;
+  text-align:center;
+  font-size:12px;
+  color:var(--text-muted);
+  border-top:1px solid var(--border);
+  background:var(--bg-page);
+}
+
+/* ---------- 플로팅 문의 버튼 ---------- */
+.fab-root{
+  position:fixed;
+  z-index:200;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:10px;
+}
+.desktop-frame .fab-root{ right:24px; bottom:24px; }
+.mobile-frame .fab-root{ right:16px; bottom:16px; }
+
+.fab-panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  box-shadow:0 6px 18px rgba(32,34,37,.12); /* 플로팅 요소에만 허용된 절제된 그림자 */
+  padding:10px;
+  width:236px;
+  /* opened 상태를 정적으로 항상 노출. 실제로는 버튼 클릭 시
+     150-200ms opacity 전환으로 열림/닫힘. */
+}
+.mobile-frame .fab-panel{ width:208px; }
+
+.fab-panel-title{
+  font-size:12px;
+  font-weight:700;
+  color:var(--text-muted);
+  padding:6px 8px 8px;
+}
+.fab-menu-item{
+  display:block;
+  font-size:13.5px;
+  font-weight:500;
+  color:var(--text-primary);
+  text-decoration:none;
+  padding:10px 8px;
+  border-radius:var(--radius-sm);
+  transition:background-color .18s ease; /* hover: 150-200ms */
+}
+.fab-menu-item:hover{ background:var(--bg-page); }
+.fab-menu-item + .fab-menu-item{ border-top:1px solid var(--border); }
+
+.fab-btn{
+  width:56px; height:56px;
+  border-radius:50%; /* 아이콘형 플로팅 버튼: 알약/원형 예외로 명시된 요소 */
+  background:var(--ink-blue);
+  color:var(--on-accent);
+  border:none;
+  box-shadow:0 6px 16px rgba(35,65,99,.35); /* 절제된 그림자, 글로우/펄스 없음 */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:background-color .18s ease, transform .18s ease; /* hover: 150-200ms, 펄스/자동애니메이션 없음 */
+}
+.fab-btn:hover{ background:#1B3350; }
+.mobile-frame .fab-btn{ width:48px; height:48px; }
+</style>
+</head>
+<body>
+
+<div class="mock-ribbon">UX 검토용 초안 — 카피는 확정본이 아닙니다 (Draft for UX review only)</div>
+
+<div class="mock-intro">
+  <h1>Bridge Path — 홈페이지 UX 목업</h1>
+  <p>데스크톱(~1240px)과 모바일(~375px) 두 뷰를 동시에 표시합니다. 각 프레임 내부는 독립적으로 스크롤됩니다.</p>
+</div>
+
+<!-- 자동 재생 캐러셀, 펄스 애니메이션 등은 이 페이지 어디에도 사용하지 않습니다. -->
+
+<div class="frames-wrap">
+
+  <!-- ======================= 데스크톱 ======================= -->
+  <div class="frame-col">
+    <div class="frame-label">데스크톱 (~1240px)</div>
+    <div class="device-frame desktop-frame">
+      <div class="viewport">
+
+        <header>
+          <div class="wordmark">Bridge Path</div>
+          <nav class="header-nav">
+            <a href="#reference">레퍼런스</a>
+            <a href="#quote">견적요청</a>
+          </nav>
+        </header>
+
+        <!-- 히어로 -->
+        <section class="hero">
+          <h1 class="hero-headline">국내외 제조 파트너와 함께,<br>정직하게 제품을 만듭니다</h1>
+          <p class="hero-sub">Bridge Path는 사양 정리부터 공장 소통, 생산 관리, 선적까지 제품 제작의 전 과정을 함께하는 소싱·무역 에이전트입니다.</p>
+          <div class="hero-cta-row">
+            <a href="#quote" class="btn btn-primary btn-lg">견적 요청하기</a>
+            <a href="#ai" class="btn btn-outline btn-lg">AI 사전 가격안내</a>
+          </div>
+        </section>
+
+        <!-- 회사 정체성 / 역할 요약 -->
+        <section>
+          <p class="eyebrow">Bridge Path는 이렇게 일합니다</p>
+          <h2 class="section-title">공장을 소유하지 않는 소싱·무역 에이전트입니다</h2>
+          <p class="section-body">Bridge Path는 자체 공장을 운영하지 않습니다. 고객의 제품 아이디어를 바탕으로 사양을 정리하고, 국내외 제조 파트너와 소통하며, 생산 진행 상황을 관리하고, 완성된 제품의 선적과 수입까지 지원합니다.</p>
+          <div class="identity-steps">
+            <div class="identity-step"><span class="step-num">STEP 1</span><br><span class="step-label">사양 정리</span></div>
+            <div class="identity-step"><span class="step-num">STEP 2</span><br><span class="step-label">공장 소통</span></div>
+            <div class="identity-step"><span class="step-num">STEP 3</span><br><span class="step-label">생산 관리</span></div>
+            <div class="identity-step"><span class="step-num">STEP 4</span><br><span class="step-label">선적·수입 지원</span></div>
+          </div>
+          <p class="identity-detail">특히 중국 현지 제조·물류 파트너와의 협업 경험을 바탕으로, 사양 전달과 생산 커뮤니케이션이 원활하게 이루어지도록 지원합니다.</p>
+        </section>
+
+        <!-- 4 카테고리 -->
+        <section>
+          <p class="eyebrow">상담 가능 분야</p>
+          <h2 class="section-title">4개 카테고리를 중심으로 상담해 드립니다</h2>
+          <div class="category-grid">
+            <div class="category-card">
+              <p class="cat-name">아이웨어</p>
+              <p class="cat-line">선글라스, 안경 등 다양한 아이웨어 제품 상담이 가능합니다. 검증된 레퍼런스는 아래에서 확인하세요.</p>
+            </div>
+            <div class="category-card">
+              <p class="cat-name">신발</p>
+              <p class="cat-line">다양한 신발 제품 제작에 대해 폭넓게 상담해 드립니다. 검증된 레퍼런스는 아래에서 확인하세요.</p>
+            </div>
+            <div class="category-card">
+              <p class="cat-name">골프용품</p>
+              <p class="cat-line">골프용품 전반에 대한 상담이 가능합니다. 검증된 레퍼런스는 아래에서 확인하세요.</p>
+            </div>
+            <div class="category-card">
+              <p class="cat-name">기타 제품 · 국내외 공장 매칭 및 컨설팅</p>
+              <p class="cat-line">세 카테고리 외 제품도 조건 확인 후 국내외 공장 매칭 가능성을 검토해 드립니다.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 레퍼런스 탭 -->
+        <section id="reference">
+          <p class="eyebrow">검증된 레퍼런스</p>
+          <h2 class="section-title">카테고리별 레퍼런스</h2>
+
+          <div class="tabs">
+            <input type="radio" class="tab-radio" name="ref-tabs-d" id="tab-eyewear-d" checked>
+            <input type="radio" class="tab-radio" name="ref-tabs-d" id="tab-shoes-d">
+            <input type="radio" class="tab-radio" name="ref-tabs-d" id="tab-golf-d">
+
+            <div class="tab-labels">
+              <label for="tab-eyewear-d" class="tab-label label-eyewear-d">아이웨어</label>
+              <label for="tab-shoes-d" class="tab-label label-shoes-d">신발</label>
+              <label for="tab-golf-d" class="tab-label label-golf-d">골프용품</label>
+            </div>
+
+            <div class="tab-panels">
+              <div class="tab-panel panel-eyewear-d">
+                <div class="ref-panel-grid">
+                  <div class="ref-photo-box">실제 제품 사진이 들어갈 자리<br>(선글라스 완성품 사진 준비 예정)</div>
+                  <div>
+                    <p class="ref-product-name">선글라스</p>
+                    <p class="ref-scope-line">아이웨어 전반 상담 가능 · 대표 레퍼런스: 선글라스</p>
+                    <p class="ref-support-line">사양 정리, 공장 소통, 생산 관리 등을 지원한 사례입니다.</p>
+                    <a href="#quote" class="btn btn-outline btn-sm">선글라스 견적 요청</a>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-panel panel-shoes-d">
+                <div class="ref-panel-grid">
+                  <div class="ref-photo-box">실제 제품 사진이 들어갈 자리<br>(레퍼런스 사진 준비 예정)</div>
+                  <div>
+                    <p class="ref-product-name">레퍼런스 준비 중</p>
+                    <p class="ref-scope-line">신발 전반 상담 가능 · 대표 레퍼런스는 준비 중입니다</p>
+                    <p class="ref-support-line">사양 정리, 공장 소통, 생산 관리 등을 지원할 수 있습니다.</p>
+                    <a href="#quote" class="btn btn-outline btn-sm">신발 견적 요청</a>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-panel panel-golf-d">
+                <div class="ref-panel-grid">
+                  <div class="ref-photo-box">실제 제품 사진이 들어갈 자리<br>(레퍼런스 사진 준비 예정)</div>
+                  <div>
+                    <p class="ref-product-name">레퍼런스 준비 중</p>
+                    <p class="ref-scope-line">골프용품 전반 상담 가능 · 대표 레퍼런스는 준비 중입니다</p>
+                    <p class="ref-support-line">사양 정리, 공장 소통, 생산 관리 등을 지원할 수 있습니다.</p>
+                    <a href="#quote" class="btn btn-outline btn-sm">골프용품 견적 요청</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="etc-callout">
+            <p>찾으시는 제품이 세 카테고리에 없나요? 제품 조건을 확인한 뒤 국내외 제조·소싱 및 공장 매칭 가능성을 검토해드립니다.</p>
+            <a href="#quote" class="text-link">기타 제품 문의하기 →</a>
+          </div>
+        </section>
+
+        <!-- AI vs 정식견적 -->
+        <section id="ai">
+          <p class="eyebrow">가격 안내 방식</p>
+          <h2 class="section-title">AI 사전 가격안내와 정식 견적, 무엇이 다른가요</h2>
+          <p class="section-body">Bridge Path는 두 가지 방식으로 가격 정보를 안내해 드립니다.</p>
+
+          <div class="ai-compare-grid">
+            <div class="compare-card is-local-primary">
+              <span class="badge">참고용</span>
+              <h3>AI 사전 가격안내</h3>
+              <p>제품 정보를 입력하면 참고용 예상 EXW 가격 범위를 바로 확인하실 수 있습니다.</p>
+              <ul>
+                <li>서비스 수수료·부대비용은 포함되어 있지 않습니다</li>
+                <li>담당자 배정 후 세부 비용을 안내해 드립니다</li>
+              </ul>
+              <a href="#ai-tool" class="btn btn-primary btn-md">AI 사전 가격안내</a>
+            </div>
+            <div class="compare-card">
+              <span class="badge">공식 문서</span>
+              <h3>정식 견적</h3>
+              <p>담당자가 공장 확인을 거쳐 발행하는 견적입니다.</p>
+              <ul>
+                <li>EXW 가격, 서비스 수수료, 부대비용을 항목별로 구분 표시합니다</li>
+                <li>공장 확인 이후 발행되는 공식 문서입니다</li>
+              </ul>
+              <a href="#quote" class="btn btn-outline btn-md">견적 요청하기</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 하단 CTA 반복 -->
+        <section class="footer-cta" id="quote">
+          <h2>지금 제품 제작을 시작해보세요</h2>
+          <div class="footer-cta-actions">
+            <a href="#" class="btn btn-primary btn-lg">견적 요청하기</a>
+            <a href="#" class="text-link">일반 문의</a>
+          </div>
+        </section>
+
+        <div class="site-footer">Bridge Path · 사업자 정보는 추후 게시 예정 (플레이스홀더)</div>
+
+        <!-- 플로팅 문의 버튼: expanded 상태 고정 노출 -->
+        <div class="fab-root">
+          <div class="fab-panel">
+            <div class="fab-panel-title">문의하기</div>
+            <a href="#" class="fab-menu-item">제품 제작·견적 문의</a>
+            <a href="#" class="fab-menu-item">AI 이용 관련 문의</a>
+            <a href="#" class="fab-menu-item">사이트 이용·기타 문의</a>
+          </div>
+          <button class="fab-btn" aria-label="문의하기" type="button">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 모바일 ======================= -->
+  <div class="frame-col">
+    <div class="frame-label">모바일 (~375px)</div>
+    <div class="device-frame mobile-frame">
+      <div class="viewport">
+
+        <header>
+          <div class="wordmark">Bridge Path</div>
+          <nav class="header-nav">
+            <a href="#reference-m">레퍼런스</a>
+            <a href="#quote-m">견적요청</a>
+          </nav>
+        </header>
+
+        <!-- 히어로 -->
+        <section class="hero">
+          <h1 class="hero-headline">국내외 제조 파트너와 함께, 정직하게 제품을 만듭니다</h1>
+          <p class="hero-sub">Bridge Path는 사양 정리부터 공장 소통, 생산 관리, 선적까지 제품 제작의 전 과정을 함께하는 소싱·무역 에이전트입니다.</p>
+          <div class="hero-cta-row">
+            <a href="#quote-m" class="btn btn-primary btn-lg btn-block">견적 요청하기</a>
+            <a href="#ai-m" class="btn btn-outline btn-lg btn-block">AI 사전 가격안내</a>
+          </div>
+        </section>
+
+        <!-- 회사 정체성 / 역할 요약 -->
+        <section>
+          <p class="eyebrow">Bridge Path는 이렇게 일합니다</p>
+          <h2 class="section-title">공장을 소유하지 않는 소싱·무역 에이전트입니다</h2>
+          <p class="section-body">Bridge Path는 자체 공장을 운영하지 않습니다. 고객의 제품 아이디어를 바탕으로 사양을 정리하고, 국내외 제조 파트너와 소통하며, 생산 진행 상황을 관리하고, 완성된 제품의 선적과 수입까지 지원합니다.</p>
+          <div class="identity-steps">
+            <div class="identity-step"><span class="step-num">STEP 1</span><br><span class="step-label">사양 정리</span></div>
+            <div class="identity-step"><span class="step-num">STEP 2</span><br><span class="step-label">공장 소통</span></div>
+            <div class="identity-step"><span class="step-num">STEP 3</span><br><span class="step-label">생산 관리</span></div>
+            <div class="identity-step"><span class="step-num">STEP 4</span><br><span class="step-label">선적·수입 지원</span></div>
+          </div>
+          <p class="identity-detail">특히 중국 현지 제조·물류 파트너와의 협업 경험을 바탕으로, 사양 전달과 생산 커뮤니케이션이 원활하게 이루어지도록 지원합니다.</p>
+        </section>
+
+        <!-- 4 카테고리 -->
+        <section>
+          <p class="eyebrow">상담 가능 분야</p>
+          <h2 class="section-title">4개 카테고리를 중심으로 상담해 드립니다</h2>
+          <div class="category-grid">
+            <div class="category-card">
+              <p class="cat-name">아이웨어</p>
+              <p class="cat-line">선글라스, 안경 등 다양한 아이웨어 제품 상담이 가능합니다. 검증된 레퍼런스는 아래에서 확인하세요.</p>
+            </div>
+            <div class="category-card">
+              <p class="cat-name">신발</p>
+              <p class="cat-line">다양한 신발 제품 제작에 대해 폭넓게 상담해 드립니다. 검증된 레퍼런스는 아래에서 확인하세요.</p>
+            </div>
+            <div class="category-card">
+              <p class="cat-name">골프용품</p>
+              <p class="cat-line">골프용품 전반에 대한 상담이 가능합니다. 검증된 레퍼런스는 아래에서 확인하세요.</p>
+            </div>
+            <div class="category-card">
+              <p class="cat-name">기타 제품 · 국내외 공장 매칭 및 컨설팅</p>
+              <p class="cat-line">세 카테고리 외 제품도 조건 확인 후 국내외 공장 매칭 가능성을 검토해 드립니다.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 레퍼런스 탭 (모바일: 가로 스크롤/오버플로우 숨김 없이 전체 폭 스택) -->
+        <section id="reference-m">
+          <p class="eyebrow">검증된 레퍼런스</p>
+          <h2 class="section-title">카테고리별 레퍼런스</h2>
+
+          <div class="tabs">
+            <input type="radio" class="tab-radio" name="ref-tabs-m" id="tab-eyewear-m" checked>
+            <input type="radio" class="tab-radio" name="ref-tabs-m" id="tab-shoes-m">
+            <input type="radio" class="tab-radio" name="ref-tabs-m" id="tab-golf-m">
+
+            <div class="tab-labels">
+              <label for="tab-eyewear-m" class="tab-label label-eyewear-m">아이웨어</label>
+              <label for="tab-shoes-m" class="tab-label label-shoes-m">신발</label>
+              <label for="tab-golf-m" class="tab-label label-golf-m">골프용품</label>
+            </div>
+
+            <div class="tab-panels">
+              <div class="tab-panel panel-eyewear-m">
+                <div class="ref-panel-grid">
+                  <div class="ref-photo-box">실제 제품 사진이 들어갈 자리<br>(선글라스 완성품 사진 준비 예정)</div>
+                  <div>
+                    <p class="ref-product-name">선글라스</p>
+                    <p class="ref-scope-line">아이웨어 전반 상담 가능 · 대표 레퍼런스: 선글라스</p>
+                    <p class="ref-support-line">사양 정리, 공장 소통, 생산 관리 등을 지원한 사례입니다.</p>
+                    <a href="#quote-m" class="btn btn-outline btn-sm btn-block">선글라스 견적 요청</a>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-panel panel-shoes-m">
+                <div class="ref-panel-grid">
+                  <div class="ref-photo-box">실제 제품 사진이 들어갈 자리<br>(레퍼런스 사진 준비 예정)</div>
+                  <div>
+                    <p class="ref-product-name">레퍼런스 준비 중</p>
+                    <p class="ref-scope-line">신발 전반 상담 가능 · 대표 레퍼런스는 준비 중입니다</p>
+                    <p class="ref-support-line">사양 정리, 공장 소통, 생산 관리 등을 지원할 수 있습니다.</p>
+                    <a href="#quote-m" class="btn btn-outline btn-sm btn-block">신발 견적 요청</a>
+                  </div>
+                </div>
+              </div>
+              <div class="tab-panel panel-golf-m">
+                <div class="ref-panel-grid">
+                  <div class="ref-photo-box">실제 제품 사진이 들어갈 자리<br>(레퍼런스 사진 준비 예정)</div>
+                  <div>
+                    <p class="ref-product-name">레퍼런스 준비 중</p>
+                    <p class="ref-scope-line">골프용품 전반 상담 가능 · 대표 레퍼런스는 준비 중입니다</p>
+                    <p class="ref-support-line">사양 정리, 공장 소통, 생산 관리 등을 지원할 수 있습니다.</p>
+                    <a href="#quote-m" class="btn btn-outline btn-sm btn-block">골프용품 견적 요청</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="etc-callout">
+            <p>찾으시는 제품이 세 카테고리에 없나요? 제품 조건을 확인한 뒤 국내외 제조·소싱 및 공장 매칭 가능성을 검토해드립니다.</p>
+            <a href="#quote-m" class="text-link">기타 제품 문의하기 →</a>
+          </div>
+        </section>
+
+        <!-- AI vs 정식견적 -->
+        <section id="ai-m">
+          <p class="eyebrow">가격 안내 방식</p>
+          <h2 class="section-title">AI 사전 가격안내와 정식 견적, 무엇이 다른가요</h2>
+          <p class="section-body">Bridge Path는 두 가지 방식으로 가격 정보를 안내해 드립니다.</p>
+
+          <div class="ai-compare-grid">
+            <div class="compare-card is-local-primary">
+              <span class="badge">참고용</span>
+              <h3>AI 사전 가격안내</h3>
+              <p>제품 정보를 입력하면 참고용 예상 EXW 가격 범위를 바로 확인하실 수 있습니다.</p>
+              <ul>
+                <li>서비스 수수료·부대비용은 포함되어 있지 않습니다</li>
+                <li>담당자 배정 후 세부 비용을 안내해 드립니다</li>
+              </ul>
+              <a href="#ai-tool" class="btn btn-primary btn-md btn-block">AI 사전 가격안내</a>
+            </div>
+            <div class="compare-card">
+              <span class="badge">공식 문서</span>
+              <h3>정식 견적</h3>
+              <p>담당자가 공장 확인을 거쳐 발행하는 견적입니다.</p>
+              <ul>
+                <li>EXW 가격, 서비스 수수료, 부대비용을 항목별로 구분 표시합니다</li>
+                <li>공장 확인 이후 발행되는 공식 문서입니다</li>
+              </ul>
+              <a href="#quote-m" class="btn btn-outline btn-md btn-block">견적 요청하기</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 하단 CTA 반복 -->
+        <section class="footer-cta" id="quote-m">
+          <h2>지금 제품 제작을 시작해보세요</h2>
+          <div class="footer-cta-actions">
+            <a href="#" class="btn btn-primary btn-lg btn-block">견적 요청하기</a>
+            <a href="#" class="text-link">일반 문의</a>
+          </div>
+        </section>
+
+        <div class="site-footer">Bridge Path · 사업자 정보는 추후 게시 예정 (플레이스홀더)</div>
+
+        <!-- 플로팅 문의 버튼: expanded 상태 고정 노출, 하단 CTA/텍스트와 겹치지 않도록 여백 확보 -->
+        <div class="fab-root">
+          <div class="fab-panel">
+            <div class="fab-panel-title">문의하기</div>
+            <a href="#" class="fab-menu-item">제품 제작·견적 문의</a>
+            <a href="#" class="fab-menu-item">AI 이용 관련 문의</a>
+            <a href="#" class="fab-menu-item">사이트 이용·기타 문의</a>
+          </div>
+          <button class="fab-btn" aria-label="문의하기" type="button">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

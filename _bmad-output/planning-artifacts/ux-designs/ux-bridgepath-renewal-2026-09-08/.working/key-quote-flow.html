@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bridge Path — 공유 카테고리/품목 선택 + 3단계 견적 입력 흐름 (목업)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   이 목업이 다루는 스파인 / 결정 영역 (Spine & Decision Areas)
+   ------------------------------------------------------------
+   1. 공유 카테고리·품목 선택 화면 — "견적 요청하기" / "AI 사전 가격안내"
+      두 진입점이 동일한 화면을 공유하되, 문구·1차 액션만 달라지는 구조
+      (CSS 라디오 토글로 두 상태를 실제로 전환하며 확인 가능)
+   2. AI 지원/미지원 품목의 비차단(non-blocking) 원칙 — 미지원 품목도
+      정식 견적 요청이 항상 가능함을 시각적으로 증명
+   3. 진입 경로 전환이 카테고리·품목 선택을 리셋하지 않는다는 원칙(캡션 문구)
+   4. 3단계 견적 입력 흐름의 정보 구조
+      1) 제품과 요청 정보 → 2) 참고자료와 분석·확인(경량) → 3) 고객정보·최종확인·제출
+   5. "잘 모르겠음 / 추천 필요", "수량 미정" — 필수값을 강제하지 않는 입력 패턴
+   6. 파일 업로드 성공/실패 상태 구분 + 에러 카피 구조(원인 → 위치 → 다음 행동)
+   7. AI 분석·확인 화면은 별도 목업(key-ai-result.html)에 위임 — 중복 구현 방지
+   8. 고객유형(개인·창업 / 사업자·브랜드)에 따른 필수·선택 필드 전환
+   9. 필수 "개인정보 처리 동의" vs 선택 "마케팅 수신 동의"의 시각적 구분
+   10. 최종 확인 요약에서 "AI가 제안한 내용" vs "고객이 확인·수정한 내용"의 출처 구분
+   11. 제출 후 접수완료 화면 — 접수번호/접수일시 노출, SLA(처리기한) 수치 미표기
+   12. 데스크톱 + 모바일(~375-390px) 레이아웃, 포커스 링 유지, 보더 중심 표면
+
+   폰트 안내: 실제 프로덕션 후보 서체는 Pretendard이며, 이 목업에서는
+   구조·굵기 체계가 유사한 Google Fonts "Noto Sans KR"로 대체했습니다.
+
+   모션 안내: 이 파일은 정적 목업입니다. 실제 구현에서는 스텝 전환 시
+   150–200ms의 콘텐츠 페이드만 사용하고 큰 슬라이드 전환은 사용하지
+   않으며, prefers-reduced-motion 설정 시 해당 페이드조차 생략합니다.
+   ============================================================ */
+
+:root{
+  --bg:#F4F4F2;
+  --surface:#FFFFFF;
+  --graphite:#2B2E33;
+  --accent:#234163;
+  --on-primary:#FFFFFF;
+  --border:#DFDFDC;
+  --text:#202225;
+  --muted:#6B6D70;
+  --success:#3E7A52;
+  --warning:#B08A3E;
+  --warning-tint:#F8F0DF;
+  --warning-border:#E6D6AE;
+  --warning-text:#85611F;
+  --destructive:#A13F32;
+  --radius-sm:6px;
+  --radius-md:8px;
+}
+
+*{box-sizing:border-box;}
+
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
+
+body{
+  font-family:"Noto Sans KR",-apple-system,"Malgun Gothic",sans-serif;
+  line-height:1.6;
+  padding:36px 20px 120px;
+  -webkit-font-smoothing:antialiased;
+}
+
+.page{max-width:920px;margin:0 auto;}
+
+a{color:var(--accent);}
+
+h1,h2,h3,h4{font-weight:800;margin:0 0 8px;color:var(--text);letter-spacing:-0.01em;}
+p{margin:0 0 8px;}
+
+/* focus states — visible accent outline everywhere, never removed */
+input:focus-visible,select:focus-visible,textarea:focus-visible,
+button:focus-visible,a:focus-visible,label.toggle-btn:focus-within{
+  outline:3px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* ---------- doc intro ---------- */
+.doc-intro{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:20px 24px;
+  margin-bottom:32px;
+}
+.doc-intro .doc-kicker{
+  font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;
+}
+.doc-intro p{font-size:14px;color:var(--muted);}
+.doc-intro p:last-child{margin-bottom:0;}
+
+.part-title{
+  display:flex;align-items:baseline;gap:10px;margin:44px 0 6px;
+}
+.part-title .part-eyebrow{
+  font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
+}
+.part-title h2{margin:0;}
+.part-desc{color:var(--muted);font-size:13.5px;margin-bottom:20px;}
+
+/* ============================================================
+   PART A — 공유 카테고리/품목 선택 + 진입 경로 토글
+   ============================================================ */
+
+.entry-toggle{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:24px clamp(16px,4vw,28px);
+  margin-bottom:40px;
+  scroll-margin-top:20px;
+}
+
+/* visually-hidden but focusable radios driving the whole Part A state */
+.vh-radio{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+
+.toggle-label-row{
+  display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin-bottom:8px;
+}
+.toggle-label-row .tlabel{font-size:13px;font-weight:700;color:var(--muted);}
+
+.toggle-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+label.toggle-btn{
+  display:inline-block;padding:9px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:13.5px;font-weight:600;color:var(--text);background:#fff;cursor:pointer;user-select:none;
+}
+/* default checked = 견적 요청하기 진입 */
+label[for="intent-quote"]{background:var(--accent);color:var(--on-primary);border-color:var(--accent);}
+#intent-ai:checked ~ .picker-body .toggle-row label[for="intent-quote"]{
+  background:#fff;color:var(--text);border-color:var(--border);
+}
+#intent-ai:checked ~ .picker-body .toggle-row label[for="intent-ai"]{
+  background:var(--accent);color:var(--on-primary);border-color:var(--accent);
+}
+
+.toggle-caption{
+  font-size:12.5px;color:var(--muted);margin:0 0 22px;padding-left:1px;
+}
+
+.state-quote,.state-title,.entry-title{scroll-margin-top:20px;}
+.state-ai{display:none;}
+.state-quote{display:block;}
+#intent-ai:checked ~ .picker-body .state-ai{display:block;}
+#intent-ai:checked ~ .picker-body .state-quote{display:none;}
+
+.entry-heading h3{font-size:19px;margin-bottom:4px;}
+.entry-heading p{color:var(--muted);font-size:13.5px;margin-bottom:24px;}
+
+.only-ai-entry{display:none;}
+.only-quote-entry{display:block;}
+#intent-ai:checked ~ .picker-body .only-ai-entry{display:block;}
+#intent-ai:checked ~ .picker-body .only-quote-entry{display:none;}
+
+/* category grid */
+.category-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;
+}
+.cat-tile{
+  border:1px solid var(--border);border-radius:var(--radius-md);background:#fff;
+  padding:14px 12px;font-size:13.5px;
+}
+.cat-tile .cat-icon{font-size:20px;display:block;margin-bottom:8px;}
+.cat-tile .cat-name{font-weight:700;display:block;}
+.cat-tile .cat-sub{color:var(--muted);font-size:11.5px;display:block;margin-top:2px;}
+.cat-tile.is-selected{
+  border-color:var(--accent);border-width:2px;background:#EDF1F5;padding:13px 11px;
+}
+.cat-tile .cat-check{
+  display:none;
+}
+.cat-tile.is-selected .cat-check{
+  display:inline-block;margin-top:8px;font-size:11px;font-weight:700;color:var(--accent);
+}
+
+.item-panel{
+  border:1px solid var(--border);border-radius:var(--radius-md);background:#FBFBFA;
+  padding:16px clamp(12px,3vw,20px);margin-bottom:8px;
+}
+.item-panel .item-panel-label{
+  font-size:12px;color:var(--muted);font-weight:700;margin-bottom:10px;
+}
+.item-row{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:14px 16px;margin-bottom:10px;
+}
+.item-row:last-child{margin-bottom:0;}
+.item-row.is-selected{border-color:var(--accent);border-width:2px;padding:13px 15px;}
+.item-row-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+.item-radio-dot{
+  width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:inline-block;
+}
+.item-row.is-selected .item-radio-dot{
+  border-color:var(--accent);background:radial-gradient(circle,var(--accent) 0 5px,transparent 6px);
+}
+.item-name{font-weight:700;font-size:14.5px;}
+
+.badge-ai{
+  display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;
+  font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;
+}
+.item-note{
+  font-size:12.5px;color:var(--muted);margin:4px 0 0 24px;
+}
+.ai-unsupported-note{
+  margin:10px 0 0 24px;padding:10px 12px;background:var(--warning-tint);
+  border:1px solid var(--warning-border);border-radius:var(--radius-sm);font-size:12.5px;color:var(--warning-text);
+}
+.ai-unsupported-note .btn-secondary{margin-top:8px;}
+
+.cta-row{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+.cta-row .secondary-link{
+  display:inline-block;margin-left:12px;font-size:13px;color:var(--accent);text-decoration:underline;
+}
+
+.btn-primary{
+  background:var(--accent);color:var(--on-primary);border:none;border-radius:var(--radius-sm);
+  padding:12px 22px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:inherit;
+}
+.btn-secondary{
+  background:#fff;color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:12px 22px;font-size:14.5px;font-weight:700;cursor:pointer;font-family:inherit;
+}
+.btn-sm{padding:8px 14px;font-size:13px;}
+.btn-block{width:100%;}
+
+/* ============================================================
+   PART B — 3단계 견적 입력 흐름
+   ============================================================ */
+
+.step-indicator{
+  list-style:none;display:flex;gap:0;margin:0 0 28px;padding:0;
+  border:1px solid var(--border);border-radius:var(--radius-md);background:#fff;overflow:hidden;
+}
+.step-indicator li{
+  flex:1;display:flex;align-items:center;gap:8px;padding:14px 16px;font-size:13px;color:var(--muted);
+  border-right:1px solid var(--border);
+}
+.step-indicator li:last-child{border-right:none;}
+.step-num{
+  width:22px;height:22px;border-radius:50%;border:1.5px solid var(--border);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);
+}
+.step-indicator li.is-current{color:var(--text);}
+.step-indicator li.is-current .step-num{background:var(--accent);border-color:var(--accent);color:#fff;}
+.step-indicator li.is-current .step-label{font-weight:800;text-decoration:underline;text-underline-offset:3px;color:var(--accent);}
+
+.step-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  padding:24px clamp(16px,4vw,30px);margin-bottom:20px;scroll-margin-top:20px;
+}
+.step-card.is-current{border-left:4px solid var(--accent);}
+.step-card:not(.is-current){border-left:4px solid var(--border);}
+
+.step-card-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
+.step-tag{
+  font-size:11px;font-weight:700;letter-spacing:.03em;padding:3px 9px;border-radius:999px;
+}
+.step-tag.current{background:var(--accent);color:#fff;}
+.step-tag.upcoming{background:#EEEEEC;color:var(--muted);}
+.step-card-head h3{margin:0;font-size:17px;}
+
+/* details used for step 2 / 3 so they read as toggleable sections,
+   but shipped open so nothing is hidden from a reviewer by default */
+details.step-card{padding:0;}
+details.step-card > summary{
+  list-style:none;cursor:pointer;padding:24px clamp(16px,4vw,30px) 0;
+}
+details.step-card > summary::-webkit-details-marker{display:none;}
+details.step-card > summary::after{
+  content:"펼쳐서 보기 ▾";float:right;font-size:12px;font-weight:600;color:var(--muted);
+}
+details.step-card[open] > summary::after{content:"접기 ▴";}
+details.step-card > .step-card-body{padding:18px clamp(16px,4vw,30px) 24px;}
+
+.selected-item-bar{
+  display:flex;align-items:center;gap:10px;background:#F7F7F5;border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 14px;font-size:13.5px;font-weight:600;margin-bottom:22px;
+}
+.selected-item-bar .link-change{font-size:12.5px;font-weight:700;text-decoration:underline;}
+
+.field-group{margin-bottom:22px;}
+.field-group:last-child{margin-bottom:0;}
+label.field-group{display:block;cursor:pointer;}
+.field-group > label,.field-group > .flabel{
+  display:block;font-size:13.5px;font-weight:700;margin-bottom:4px;
+}
+.field-group .help{font-size:12.5px;color:var(--muted);margin:0 0 8px;}
+.req{color:var(--accent);font-weight:800;margin-left:2px;}
+.opt{color:var(--muted);font-weight:500;font-size:12px;margin-left:4px;}
+
+input[type="text"],input[type="email"],select,textarea{
+  width:100%;font-family:inherit;font-size:14px;color:var(--text);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 12px;background:#fff;
+}
+textarea{min-height:88px;resize:vertical;}
+select{appearance:auto;}
+
+.field-row-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:22px;}
+.field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:22px;}
+
+label.alt-checkbox{
+  display:inline-flex;align-items:center;gap:7px;margin-top:9px;padding:6px 10px 6px 8px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text);
+  cursor:pointer;background:#fff;
+}
+label.alt-checkbox input{margin:0;}
+label.alt-checkbox:has(input:checked){
+  background:var(--warning-tint);border-color:var(--warning-border);color:var(--warning-text);
+}
+
+.illustrative-note{
+  margin-top:26px;border:1px dashed var(--border);border-radius:var(--radius-md);
+  padding:16px 18px;background:#FAFAF9;
+}
+.illustrative-label{
+  display:inline-block;font-size:11px;font-weight:700;color:var(--muted);
+  background:#EEEEEC;border-radius:999px;padding:3px 10px;margin-bottom:12px;
+}
+.illustrative-block .flabel{font-size:13px;font-weight:700;margin-bottom:8px;}
+.radio-options{display:flex;flex-direction:column;gap:8px;}
+.radio-options label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+.footnote{font-size:12px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+
+.step-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:26px;}
+.step-actions.two{justify-content:space-between;}
+
+/* step 2 upload */
+.dropzone{
+  border:1.5px dashed var(--border);border-radius:var(--radius-md);background:#FAFAF9;
+  padding:26px 16px;text-align:center;font-size:13.5px;color:var(--muted);margin-bottom:14px;
+}
+.dropzone strong{color:var(--text);}
+.file-chip{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;font-size:13px;
+}
+.file-chip.success{border-left:3px solid var(--success);}
+.file-chip.failed{border-left:3px solid var(--destructive);align-items:flex-start;flex-direction:column;gap:4px;}
+.file-chip .icon-ok{color:var(--success);font-weight:800;}
+.file-chip .icon-fail{color:var(--destructive);font-weight:800;}
+.file-chip .chip-meta{color:var(--muted);font-size:12px;}
+.file-chip .chip-delete{margin-left:auto;color:var(--destructive);font-size:12px;text-decoration:underline;}
+.file-chip .retry-link{color:var(--accent);font-weight:700;font-size:12.5px;text-decoration:underline;}
+
+.ai-placeholder-card{
+  margin-top:18px;border:1px solid var(--border);border-radius:var(--radius-md);
+  background:#F7F7F5;padding:16px 18px;
+}
+.placeholder-label{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;}
+.ai-placeholder-card p:last-child{font-size:13px;color:var(--text);margin-bottom:0;}
+
+/* step 3 customer type toggle */
+.customer-type-toggle{margin-bottom:24px;}
+.ct-body .toggle-row{margin-bottom:16px;}
+label[for="type-business"]{background:var(--accent);color:var(--on-primary);border-color:var(--accent);}
+#type-personal:checked ~ .ct-body .toggle-row label[for="type-business"]{
+  background:#fff;color:var(--text);border-color:var(--border);
+}
+#type-personal:checked ~ .ct-body .toggle-row label[for="type-personal"]{
+  background:var(--accent);color:var(--on-primary);border-color:var(--accent);
+}
+.label-business-text,.label-personal-text{display:block;font-size:13.5px;font-weight:700;margin-bottom:4px;}
+.label-personal-text{display:none;}
+#type-personal:checked ~ .ct-body .label-business-text{display:none;}
+#type-personal:checked ~ .ct-body .label-personal-text{display:block;}
+
+.consent-group{margin:22px 0 26px;}
+.consent-required{
+  display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-left:3px solid var(--accent);
+  border-radius:var(--radius-sm);background:#F5F7F9;padding:12px 14px;font-size:13px;margin-bottom:10px;cursor:pointer;
+}
+.consent-required input{margin-top:2px;}
+.consent-required .req-tag{color:var(--accent);font-weight:800;font-size:11px;margin-left:6px;}
+.consent-optional{
+  display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);padding:4px 2px;cursor:pointer;
+}
+.consent-optional input{margin-top:2px;}
+.consent-optional .opt-tag{color:var(--muted);font-size:11px;margin-left:6px;}
+
+.summary-block{border:1px solid var(--border);border-radius:var(--radius-md);padding:16px 18px;margin-bottom:24px;background:#FAFAF9;}
+.summary-block h4{font-size:14.5px;margin-bottom:12px;}
+.summary-row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border);font-size:13px;
+}
+.summary-row:first-of-type{border-top:none;}
+.tag{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;flex-shrink:0;}
+.tag-ai{background:var(--accent);color:#fff;}
+.tag-customer{background:#fff;border:1px solid var(--border);color:var(--text);}
+.summary-text{flex:1;min-width:160px;}
+.edit-link{font-size:12px;font-weight:700;text-decoration:underline;}
+
+/* post-submit */
+.submit-divider{
+  display:flex;align-items:center;gap:12px;margin:36px 0 20px;color:var(--muted);font-size:12px;font-weight:700;
+}
+.submit-divider::before,.submit-divider::after{content:"";flex:1;border-top:1px dashed var(--border);}
+.submitted-card{text-align:center;padding:36px 24px;}
+.submitted-icon{
+  width:44px;height:44px;border-radius:50%;background:var(--success);color:#fff;font-size:22px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+}
+.submitted-card h3{font-size:19px;}
+.submitted-meta{
+  display:flex;justify-content:center;gap:28px;margin:16px 0;flex-wrap:wrap;
+}
+.submitted-meta dt{font-size:11.5px;color:var(--muted);margin-bottom:2px;}
+.submitted-meta dd{margin:0;font-size:14.5px;font-weight:700;}
+.submitted-message{
+  max-width:520px;margin:14px auto 0;font-size:13.5px;color:var(--text);background:#F5F7F9;
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;text-align:left;
+}
+
+/* ============================================================
+   Mobile preview frame (~375-390px static snapshot)
+   ============================================================ */
+.mobile-preview{margin-top:48px;}
+.mobile-note{font-size:13px;color:var(--muted);margin-bottom:18px;max-width:640px;}
+.phone-frame{
+  width:375px;max-width:100%;margin:0 auto;border:1px solid var(--border);border-radius:26px;
+  padding:8px;background:#fff;
+}
+.phone-screen{
+  height:560px;overflow-y:auto;background:var(--bg);border-radius:18px;padding:16px 14px;
+}
+.phone-bottom-bar{
+  display:flex;gap:8px;padding:12px 10px 4px;border-top:1px solid var(--border);margin-top:6px;background:#fff;
+}
+.phone-bottom-bar .btn-primary,.phone-bottom-bar .btn-secondary{flex:1;padding:12px 10px;font-size:13.5px;}
+
+.m-toggle-row{display:flex;gap:6px;margin-bottom:14px;}
+.m-toggle-btn{
+  flex:1;text-align:center;font-size:11.5px;font-weight:700;padding:8px 6px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:#fff;color:var(--text);
+}
+.m-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.m-title{font-size:16px;margin-bottom:14px;}
+.m-category-list{margin-bottom:18px;}
+.m-tile{
+  border:2px solid var(--accent);background:#EDF1F5;border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:13px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;
+}
+.m-tile .badge-check{font-size:10.5px;font-weight:700;color:var(--accent);}
+.m-item{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;
+  font-size:13px;margin:0 0 8px 14px;display:flex;flex-direction:column;gap:4px;
+}
+.m-item .badge-ai{align-self:flex-start;}
+.m-item .m-note{font-size:11px;color:var(--muted);}
+.m-step-indicator{
+  font-size:12px;font-weight:800;color:var(--accent);text-decoration:underline;text-underline-offset:3px;
+  margin-bottom:16px;
+}
+.m-field{margin-bottom:18px;}
+.m-field label{display:block;font-size:12.5px;font-weight:700;margin-bottom:6px;}
+.m-field input,.m-field select{
+  width:100%;font-family:inherit;font-size:13.5px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:10px 11px;background:#fff;
+}
+.m-field label.m-alt{
+  display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:7px 10px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);font-size:12px;background:#fff;
+}
+
+@media (max-width:640px){
+  .category-grid{grid-template-columns:1fr 1fr;}
+  .field-row-2,.field-row-3{grid-template-columns:1fr;}
+  .step-indicator{flex-direction:column;}
+  .step-indicator li{border-right:none;border-bottom:1px solid var(--border);}
+  .step-indicator li:last-child{border-bottom:none;}
+  .step-actions{flex-direction:column-reverse;}
+  .step-actions .btn-primary,.step-actions .btn-secondary{width:100%;}
+  .submitted-meta{gap:16px;}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important;}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="doc-intro">
+    <p class="doc-kicker">UX 결정 지원 목업 · 최종 코드 아님</p>
+    <p><strong>Bridge Path</strong> — 공유 카테고리/품목 선택 화면(Part A)과 3단계 견적 입력 흐름(Part B)을 하나의 파일로 보여줍니다. Part A의 "진입 경로 보기" 토글은 실제로 클릭해 상태를 바꿀 수 있어요.</p>
+    <p>대표 예시 품목은 아이웨어 &gt; <strong>선글라스</strong>이며, Part B는 이 품목 기준으로 전체 3단계를 구성했습니다.</p>
+  </div>
+
+  <!-- ============================================================
+       PART A
+       ============================================================ -->
+  <div class="part-title">
+    <span class="part-eyebrow">Part A</span>
+    <h2>공유 카테고리/품목 선택 화면</h2>
+  </div>
+  <p class="part-desc">"견적 요청하기"와 "AI 사전 가격안내" 두 홈 버튼이 도달하는 동일한 화면입니다. 아래 토글로 진입 상태를 바꿔보세요.</p>
+
+  <div class="entry-toggle" id="part-a">
+    <input class="vh-radio" type="radio" name="entry-intent" id="intent-quote" checked>
+    <input class="vh-radio" type="radio" name="entry-intent" id="intent-ai">
+
+    <div class="picker-body">
+      <div class="toggle-label-row"><span class="tlabel">진입 경로 보기</span></div>
+      <div class="toggle-row">
+        <label class="toggle-btn" for="intent-quote">견적 요청하기에서 진입</label>
+        <label class="toggle-btn" for="intent-ai">AI 사전 가격안내에서 진입</label>
+      </div>
+      <p class="toggle-caption">고객은 언제든 AI로 먼저 확인할지, 바로 정식 요청할지를 바꿀 수 있어요 — 처음 누른 버튼이 이후 선택을 막지 않아요. 진입 경로를 바꿔도 아래 카테고리·품목 선택은 그대로 유지돼요.</p>
+
+      <div class="entry-heading">
+        <div class="state-quote">
+          <h3>정식 견적·상담을 시작합니다</h3>
+          <p>제품 카테고리와 품목을 선택하면, 다음 단계에서 사양과 요청사항을 입력해요. AI 참고 가격이 필요하면 언제든 선택할 수 있어요.</p>
+        </div>
+        <div class="state-ai">
+          <h3>AI로 참고용 예상 가격을 확인합니다</h3>
+          <p>선택한 품목이 AI 사전 가격안내 대상이면 참고용 예상 가격을 먼저 보여드려요. 실제 견적과 다를 수 있으며, 정식 견적은 별도로 진행돼요.</p>
+        </div>
+      </div>
+
+      <div class="category-grid">
+        <div class="cat-tile is-selected">
+          <span class="cat-icon">👓</span>
+          <span class="cat-name">아이웨어</span>
+          <span class="cat-check">✓ 선택됨</span>
+        </div>
+        <div class="cat-tile">
+          <span class="cat-icon">👟</span>
+          <span class="cat-name">신발</span>
+        </div>
+        <div class="cat-tile">
+          <span class="cat-icon">⛳</span>
+          <span class="cat-name">골프용품</span>
+        </div>
+        <div class="cat-tile">
+          <span class="cat-icon">🏭</span>
+          <span class="cat-name">기타 제품</span>
+          <span class="cat-sub">국내외 공장 매칭 및 컨설팅</span>
+        </div>
+      </div>
+
+      <div class="item-panel">
+        <p class="item-panel-label">아이웨어 — 품목 선택</p>
+
+        <div class="item-row is-selected">
+          <div class="item-row-head">
+            <span class="item-radio-dot"></span>
+            <span class="item-name">선글라스</span>
+            <span class="badge-ai">AI 사전 가격안내 가능</span>
+          </div>
+          <p class="item-note">대표 예시 품목 — 승인된 기준 데이터가 있어 AI 참고 가격 제공이 가능해요.</p>
+
+          <div class="cta-row">
+            <div class="only-quote-entry">
+              <button class="btn-primary">다음 (제품 사양 입력)</button>
+              <a class="secondary-link" href="#step-1">AI로 먼저 가격 참고해보기</a>
+            </div>
+            <div class="only-ai-entry">
+              <button class="btn-primary">다음 (AI 사전 가격안내 시작)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="item-row">
+          <div class="item-row-head">
+            <span class="item-radio-dot"></span>
+            <span class="item-name">일반 안경테</span>
+          </div>
+          <p class="item-note">ⓘ AI 사전 가격안내 미지원 — 일반 상담·정식 견적 요청 가능</p>
+
+          <div class="only-ai-entry ai-unsupported-note">
+            현재 이 품목은 AI 사전 가격안내 대상이 아니지만, 담당자 상담과 정식 견적 요청은 가능해요.
+            <div><button class="btn-secondary btn-sm">정식 견적 요청으로 계속</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       PART B
+       ============================================================ -->
+  <div class="part-title">
+    <span class="part-eyebrow">Part B</span>
+    <h2>3단계 견적 입력 흐름 — 선글라스 예시</h2>
+  </div>
+  <p class="part-desc">Part A에서 선글라스를 선택하고 "다음"을 누르면 이어지는 흐름이에요. 아래 세 단계 모두 내용을 확인할 수 있도록 펼쳐 두었습니다(2·3단계는 접기/펼치기 가능).</p>
+
+  <ol class="step-indicator" id="part-b">
+    <li class="is-current"><span class="step-num">1</span><span class="step-label">제품과 요청 정보</span></li>
+    <li><span class="step-num">2</span><span class="step-label">참고자료와 분석·확인</span></li>
+    <li><span class="step-num">3</span><span class="step-label">고객정보·최종 확인·제출</span></li>
+  </ol>
+
+  <!-- ---------- STEP 1 ---------- -->
+  <section class="step-card is-current" id="step-1">
+    <div class="step-card-head">
+      <span class="step-tag current">현재 단계 · 1/3</span>
+      <h3>제품과 요청 정보</h3>
+    </div>
+
+    <div class="selected-item-bar">
+      <span>아이웨어 &gt; 선글라스</span>
+      <a class="link-change" href="#part-a">변경</a>
+    </div>
+
+    <div class="field-group">
+      <label>제품 설명<span class="req">*</span></label>
+      <p class="help">어떤 제품을 만들고 싶으신지 간단히 적어주세요.</p>
+      <input type="text" placeholder="예: 편광 렌즈 선글라스, 캐주얼 브랜드용" />
+    </div>
+
+    <div class="field-row-2">
+      <div class="field-group">
+        <label>프레임 소재</label>
+        <select>
+          <option>아세테이트</option>
+          <option>메탈</option>
+          <option>TR90</option>
+          <option>콤비(아세테이트+메탈)</option>
+        </select>
+        <label class="alt-checkbox"><input type="checkbox" /> 잘 모르겠음 / 추천 필요</label>
+      </div>
+      <div class="field-group">
+        <label>렌즈 색상/타입</label>
+        <select>
+          <option>그레이 편광</option>
+          <option>브라운 편광</option>
+          <option>미러 코팅</option>
+          <option>클리어(도수용)</option>
+        </select>
+        <label class="alt-checkbox"><input type="checkbox" checked /> 잘 모르겠음 / 추천 필요</label>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <label>예상 수량</label>
+      <input type="text" placeholder="예: 500개" />
+      <label class="alt-checkbox"><input type="checkbox" /> 수량 미정</label>
+    </div>
+
+    <div class="field-group">
+      <label>희망 납기일<span class="opt">(선택)</span></label>
+      <p class="help">아직 정해지지 않았다면 비워두셔도 괜찮아요.</p>
+      <input type="text" placeholder="예: 2026년 11월 중" />
+    </div>
+
+    <div class="field-group">
+      <label>기타 요청사항<span class="opt">(선택)</span></label>
+      <textarea placeholder="추가로 전달하고 싶은 내용을 자유롭게 적어주세요."></textarea>
+    </div>
+
+    <div class="illustrative-note">
+      <span class="illustrative-label">예시 · 카테고리 4(기타) 선택 시 추가로 표시되는 항목</span>
+      <div class="illustrative-block">
+        <div class="flabel">지원 유형</div>
+        <div class="radio-options">
+          <label><input type="radio" name="support-type-example" disabled /> 제조·생산 의뢰</label>
+          <label><input type="radio" name="support-type-example" disabled /> 제품 소싱·공장 매칭 상담</label>
+          <label><input type="radio" name="support-type-example" disabled /> 어떤 방식이 맞는지 상담 필요</label>
+        </div>
+      </div>
+      <p class="footnote">골프용품을 선택하면 이 사양 항목들이 골프 관련 항목(예: 헤드 소재, 샤프트 강도)으로 바뀌어요. 이 화면은 선글라스 기준으로만 전체 구성을 보여줍니다.</p>
+    </div>
+
+    <div class="step-actions">
+      <button class="btn-primary">다음</button>
+    </div>
+  </section>
+
+  <!-- ---------- STEP 2 ---------- -->
+  <details class="step-card" id="step-2" open>
+    <summary>
+      <div class="step-card-head">
+        <span class="step-tag upcoming">다음 단계 · 2/3</span>
+        <h3>참고자료와 분석·확인</h3>
+      </div>
+    </summary>
+    <div class="step-card-body">
+      <div class="field-group">
+        <label>참고 자료 첨부<span class="opt">(선택 사항)</span></label>
+        <p class="help">JPG, PNG, WEBP, PDF 파일을 올려주시면 검토에 도움이 돼요. 올리지 않아도 요청을 진행할 수 있어요.</p>
+        <div class="dropzone">파일을 이 영역으로 끌어다 놓거나 <strong>클릭해서 선택</strong>해요</div>
+
+        <div class="file-chip success">
+          <span class="icon-ok">✓</span>
+          <span>reference-sunglasses-01.jpg</span>
+          <span class="chip-meta">업로드 완료 · 2.1MB</span>
+          <a class="chip-delete" href="#">삭제</a>
+        </div>
+        <div class="file-chip failed">
+          <div><span class="icon-fail">!</span> spec-sheet.pdf 파일을 업로드하지 못했어요</div>
+          <div class="chip-meta">10MB 이하 파일로, 위 첨부 영역에서 다시 선택해 주세요.</div>
+          <a class="retry-link" href="#">파일 다시 선택</a>
+        </div>
+      </div>
+
+      <div class="ai-placeholder-card">
+        <p class="placeholder-label">(AI 분석·확인 화면 예시는 별도 목업 key-ai-result.html 참고)</p>
+        <p>첨부한 자료와 입력한 사양을 바탕으로 AI가 표준 사양 후보와 참고 가격을 제안하고, 고객님이 내용을 그대로 확인하거나 직접 수정할 수 있어요.</p>
+      </div>
+
+      <div class="step-actions two">
+        <button class="btn-secondary">이전</button>
+        <button class="btn-primary">다음</button>
+      </div>
+    </div>
+  </details>
+
+  <!-- ---------- STEP 3 ---------- -->
+  <details class="step-card" id="step-3" open>
+    <summary>
+      <div class="step-card-head">
+        <span class="step-tag upcoming">다음 단계 · 3/3</span>
+        <h3>고객정보·최종 확인·제출</h3>
+      </div>
+    </summary>
+    <div class="step-card-body">
+
+      <div class="customer-type-toggle">
+        <input class="vh-radio" type="radio" name="customer-type" id="type-personal">
+        <input class="vh-radio" type="radio" name="customer-type" id="type-business" checked>
+        <div class="ct-body">
+          <div class="flabel" style="margin-bottom:8px;">고객 유형</div>
+          <div class="toggle-row">
+            <label class="toggle-btn" for="type-personal">개인·창업 준비 중</label>
+            <label class="toggle-btn" for="type-business">사업자·브랜드 운영 중</label>
+          </div>
+          <!-- 기본값은 "사업자·브랜드 운영 중"으로 표시. "개인·창업 준비 중"을 선택하면
+               아래 필드 라벨이 "브랜드명(선택)"으로 바뀌고 필수 표시가 사라져요. -->
+          <label class="field-group company-field">
+            <span class="label-business-text">사업자명·브랜드명<span class="req">*</span></span>
+            <span class="label-personal-text">브랜드명<span class="opt">(선택)</span></span>
+            <input type="text" placeholder="예: 브릿지패스" style="margin-top:6px;" />
+          </label>
+        </div>
+      </div>
+
+      <div class="field-row-3">
+        <div class="field-group"><label>성명<span class="req">*</span></label><input type="text" placeholder="홍길동" /></div>
+        <div class="field-group"><label>이메일<span class="req">*</span></label><input type="email" placeholder="example@email.com" /></div>
+        <div class="field-group"><label>휴대전화번호<span class="req">*</span></label><input type="text" placeholder="010-0000-0000" /></div>
+      </div>
+
+      <div class="consent-group">
+        <label class="consent-required">
+          <input type="checkbox" />
+          <span><strong>개인정보 처리 동의</strong><span class="req-tag">필수</span><br>입력한 정보는 견적·상담 목적에 한해 사용하고 안전하게 보관해요.</span>
+        </label>
+        <label class="consent-optional">
+          <input type="checkbox" />
+          <span>마케팅 정보 수신 동의<span class="opt-tag">선택</span><br>새로운 소식과 혜택 안내를 받아보실 수 있어요.</span>
+        </label>
+      </div>
+
+      <div class="summary-block">
+        <h4>입력 내용 확인</h4>
+        <div class="summary-row"><span class="tag tag-customer">고객 확인</span><span class="summary-text">선글라스 · 편광 렌즈, 캐주얼 브랜드용</span><a class="edit-link" href="#step-1">수정</a></div>
+        <div class="summary-row"><span class="tag tag-ai">AI 제안</span><span class="summary-text">프레임 소재: 아세테이트 (AI 추천)</span><a class="edit-link" href="#step-1">수정</a></div>
+        <div class="summary-row"><span class="tag tag-customer">고객 확인</span><span class="summary-text">렌즈 색상/타입: 잘 모르겠음 / 추천 필요로 표시</span><a class="edit-link" href="#step-1">수정</a></div>
+        <div class="summary-row"><span class="tag tag-customer">고객 확인</span><span class="summary-text">예상 수량: 500개</span><a class="edit-link" href="#step-1">수정</a></div>
+        <div class="summary-row"><span class="tag tag-customer">고객 확인</span><span class="summary-text">첨부파일 1건 · reference-sunglasses-01.jpg</span><a class="edit-link" href="#step-2">수정</a></div>
+      </div>
+
+      <p class="help" style="margin-bottom:16px;">제출 후에도 담당자와의 상담 과정에서 내용을 조정할 수 있어요.</p>
+
+      <div class="step-actions">
+        <button class="btn-primary">제출</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="submit-divider">제출 후 화면 예시</div>
+
+  <!-- ---------- POST-SUBMIT ---------- -->
+  <section class="step-card submitted-card" id="post-submit">
+    <div class="submitted-icon">✓</div>
+    <h3>요청이 접수됐어요</h3>
+    <dl class="submitted-meta">
+      <div><dt>접수번호</dt><dd>BP-20260908-014</dd></div>
+      <div><dt>접수일시</dt><dd>2026-09-08 14:32</dd></div>
+    </dl>
+    <p class="submitted-message">요청이 정상적으로 저장되었습니다. 담당자가 요청 내용과 제품 사양을 검토한 후 필요한 경우 추가정보를 요청하고, 공장 확인을 거쳐 정식견적을 안내드립니다.</p>
+  </section>
+
+  <!-- ============================================================
+       MOBILE PREVIEW (~375-390px)
+       ============================================================ -->
+  <div class="mobile-preview">
+    <div class="part-title"><span class="part-eyebrow">Mobile</span><h2>모바일 화면 예시 (~375px)</h2></div>
+    <p class="mobile-note">데스크톱 섹션과 같은 상태(견적 요청하기 진입 · 선글라스 선택 · Step 1)를 375px 너비 기준 정적 스냅샷으로 보여줘요. 실제 구현에서는 위 데스크톱 레이아웃과 동일한 반응형 규칙(1열 스택, 하단 액션 바)을 공유해요.</p>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="m-toggle-row">
+          <span class="m-toggle-btn active">견적 요청하기 진입</span>
+          <span class="m-toggle-btn">AI 사전 가격안내 진입</span>
+        </div>
+        <h3 class="m-title">정식 견적·상담을 시작합니다</h3>
+        <div class="m-category-list">
+          <div class="m-tile">👓 아이웨어 <span class="badge-check">✓ 선택됨</span></div>
+          <div class="m-item">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <strong>선글라스</strong><span class="badge-ai">AI 가능</span>
+            </div>
+          </div>
+          <div class="m-item">
+            <strong>일반 안경테</strong>
+            <span class="m-note">ⓘ AI 미지원 — 일반 상담·정식 견적 요청 가능</span>
+          </div>
+        </div>
+        <div class="m-step-indicator">1/3 제품과 요청 정보</div>
+        <div class="m-field">
+          <label>제품 설명 *</label>
+          <input type="text" placeholder="예: 편광 렌즈 선글라스" />
+        </div>
+        <div class="m-field">
+          <label>프레임 소재</label>
+          <select><option>아세테이트</option><option>메탈</option></select>
+          <label class="m-alt"><input type="checkbox" /> 잘 모르겠음 / 추천 필요</label>
+        </div>
+        <div class="m-field">
+          <label>예상 수량</label>
+          <input type="text" placeholder="예: 500개" />
+          <label class="m-alt"><input type="checkbox" /> 수량 미정</label>
+        </div>
+      </div>
+      <div class="phone-bottom-bar">
+        <button class="btn-secondary">이전</button>
+        <button class="btn-primary">다음</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

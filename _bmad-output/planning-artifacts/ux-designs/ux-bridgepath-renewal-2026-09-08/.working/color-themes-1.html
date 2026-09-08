@@ -1,0 +1,724 @@
+<title>Bridge Path 컬러 방향 옵션</title>
+<style>
+  /*
+    ============================================================
+    변형 1. 잉크 네이비 (Ink Navy)
+    ------------------------------------------------------------
+    primary            #1F3A5F  진한 잉크 네이비 (플랫, 그라디언트 없음)
+    on-primary         #FFFFFF
+    accent/secondary   #B9754A  따뜻한 클레이(테라코타 계열) 액센트
+    background         #F7F5F0  따뜻한 오프화이트
+    surface/card       #FFFFFF
+    border             #E3DFD6
+    text-primary       #23262B
+    text-muted         #6B6F76
+    success            #2E7D5B
+    warning(attention) #B8853A  차분한 앰버 (경고/에러 느낌 배제)
+    destructive        #B14A34  절제된 브릭레드 (관리자 취소 등 한정)
+    ============================================================
+
+    ============================================================
+    변형 2. 딥 틸 (Deep Teal)
+    ------------------------------------------------------------
+    primary            #1C4B47  깊은 틸(청록)
+    on-primary         #FFFFFF
+    accent/secondary   #C97B44  머스터드 톤이 아닌 번트오렌지 액센트
+    background         #F4F7F5  아주 옅은 민트 오프화이트
+    surface/card       #FFFFFF
+    border             #DCE6E2
+    text-primary       #1B2523
+    text-muted         #5C6E6A
+    success            #3C8562
+    warning(attention) #C08A3E
+    destructive        #A9503A
+    ============================================================
+
+    ============================================================
+    변형 3. 스톤 테라코타 (Stone & Terracotta)
+    ------------------------------------------------------------
+    primary            #A2552F  자신감 있는 테라코타
+    on-primary         #FFFFFF
+    accent/secondary   #5B6B4E  차분한 올리브/포레스트 그린
+    background         #F6F1E7  웜스톤 오프화이트
+    surface/card       #FFFFFF
+    border             #E5DCC8
+    text-primary       #2B2520
+    text-muted         #7C7266
+    success            #4C7A4A
+    warning(attention) #B8863E
+    destructive        #9B3A2E  (primary와 구분되도록 더 붉고 어둡게)
+    ============================================================
+
+    ============================================================
+    변형 4. 그래파이트 에디토리얼 (Graphite Editorial)
+    ------------------------------------------------------------
+    primary            #2B2E33  차콜 그래파이트
+    on-primary         #FFFFFF
+    accent/secondary   #4A6FA5  절제된 블루 (단일 포인트 컬러)
+    background         #F5F5F3
+    surface/card       #FFFFFF
+    border             #DFDFDC
+    text-primary        #202225
+    text-muted          #6B6D70
+    success             #3E7A52
+    warning(attention)  #B08A3E
+    destructive         #A13F32
+    ============================================================
+
+    ============================================================
+    변형 5. 세이지 슬레이트 (Sage Slate)
+    ------------------------------------------------------------
+    primary             #5C7568  세이지 그린 슬레이트
+    on-primary          #FFFFFF
+    accent/secondary    #C9A26A  웜 샌드/탠 액센트
+    background          #FAF6EF  웜 오프화이트
+    surface/card        #FFFFFF
+    border              #E6DFD1
+    text-primary         #2A2E2A
+    text-muted           #767E74
+    success              #3E8A5C
+    warning(attention)   #BB8A42
+    destructive           #A6483A
+    ============================================================
+  */
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 32px 20px 80px;
+    background: #EFEDE7;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", Roboto, Helvetica, Arial, sans-serif;
+    color: #22262B;
+    line-height: 1.5;
+  }
+
+  .page-intro {
+    max-width: 920px;
+    margin: 0 auto 36px;
+  }
+
+  .page-intro h1 {
+    font-size: 24px;
+    margin: 0 0 10px;
+  }
+
+  .page-intro p {
+    font-size: 14.5px;
+    color: #55595F;
+    margin: 0 0 6px;
+  }
+
+  .themes-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    max-width: 1500px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+
+  .theme-card {
+    flex: 1 1 400px;
+    max-width: 480px;
+    min-width: 320px;
+    border-radius: 18px;
+    padding: 22px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .theme-head {
+    margin-bottom: 16px;
+  }
+
+  .theme-head h2 {
+    margin: 0 0 4px;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+  }
+
+  .theme-head p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* token chips */
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 10px 4px 4px;
+    font-size: 10.5px;
+    color: var(--text);
+  }
+
+  .chip .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.12);
+    flex-shrink: 0;
+  }
+
+  .chip .hex {
+    color: var(--text-muted);
+    font-family: "Consolas", "SFMono-Regular", Menlo, monospace;
+    font-size: 10px;
+  }
+
+  /* mockup container */
+  .mock {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .mock-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+
+  /* hero fragment */
+  .hero h3 {
+    margin: 0 0 14px;
+    font-size: 17px;
+    line-height: 1.4;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: var(--on-primary);
+    border: none;
+    border-radius: 9px;
+    padding: 11px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: default;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 11px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: default;
+  }
+
+  /* AI price card */
+  .badge {
+    display: inline-block;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+
+  .price-line {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 6px;
+  }
+
+  .price-caption {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  /* consult transition card */
+  .consult {
+    border: 1px solid var(--warning-border);
+    background: var(--warning-tint);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .consult-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--warning-text);
+    margin: 0 0 6px;
+  }
+
+  .consult-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    flex-shrink: 0;
+  }
+
+  .consult p {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+  }
+
+  .btn-warning {
+    background: var(--warning);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: default;
+  }
+
+  /* reference tabs */
+  .tabs {
+    display: flex;
+    gap: 18px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding-bottom: 10px;
+    position: relative;
+  }
+
+  .tab.active {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .tab.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  /* ---- THEME 1: 잉크 네이비 ---- */
+  .theme-1 {
+    --primary: #1F3A5F;
+    --on-primary: #FFFFFF;
+    --accent: #B9754A;
+    --accent-tint: #F3E5D8;
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --border: #E3DFD6;
+    --text: #23262B;
+    --text-muted: #6B6F76;
+    --success: #2E7D5B;
+    --warning: #B8853A;
+    --warning-tint: #FBF3E6;
+    --warning-border: #ECDBB9;
+    --warning-text: #8A5F26;
+    --destructive: #B14A34;
+  }
+
+  /* ---- THEME 2: 딥 틸 ---- */
+  .theme-2 {
+    --primary: #1C4B47;
+    --on-primary: #FFFFFF;
+    --accent: #C97B44;
+    --accent-tint: #F5E4D5;
+    --bg: #F4F7F5;
+    --surface: #FFFFFF;
+    --border: #DCE6E2;
+    --text: #1B2523;
+    --text-muted: #5C6E6A;
+    --success: #3C8562;
+    --warning: #C08A3E;
+    --warning-tint: #FBF1E1;
+    --warning-border: #EEDAB4;
+    --warning-text: #8C6224;
+    --destructive: #A9503A;
+  }
+
+  /* ---- THEME 3: 스톤 테라코타 ---- */
+  .theme-3 {
+    --primary: #A2552F;
+    --on-primary: #FFFFFF;
+    --accent: #5B6B4E;
+    --accent-tint: #E4E8DD;
+    --bg: #F6F1E7;
+    --surface: #FFFDF8;
+    --border: #E5DCC8;
+    --text: #2B2520;
+    --text-muted: #7C7266;
+    --success: #4C7A4A;
+    --warning: #B8863E;
+    --warning-tint: #FAF0DE;
+    --warning-border: #EAD9AF;
+    --warning-text: #8A6023;
+    --destructive: #9B3A2E;
+  }
+
+  /* ---- THEME 4: 그래파이트 에디토리얼 ---- */
+  .theme-4 {
+    --primary: #2B2E33;
+    --on-primary: #FFFFFF;
+    --accent: #4A6FA5;
+    --accent-tint: #E1E9F3;
+    --bg: #F5F5F3;
+    --surface: #FFFFFF;
+    --border: #DFDFDC;
+    --text: #202225;
+    --text-muted: #6B6D70;
+    --success: #3E7A52;
+    --warning: #B08A3E;
+    --warning-tint: #F8F0DF;
+    --warning-border: #E6D6AE;
+    --warning-text: #85611F;
+    --destructive: #A13F32;
+  }
+
+  /* ---- THEME 5: 세이지 슬레이트 ---- */
+  .theme-5 {
+    --primary: #5C7568;
+    --on-primary: #FFFFFF;
+    --accent: #C9A26A;
+    --accent-tint: #F3E8D4;
+    --bg: #FAF6EF;
+    --surface: #FFFFFF;
+    --border: #E6DFD1;
+    --text: #2A2E2A;
+    --text-muted: #767E74;
+    --success: #3E8A5C;
+    --warning: #BB8A42;
+    --warning-tint: #FBF1E0;
+    --warning-border: #ECDBB0;
+    --warning-text: #8C6425;
+    --destructive: #A6483A;
+  }
+
+  @media (max-width: 460px) {
+    .theme-card { max-width: 100%; }
+  }
+</style>
+
+<div class="page-intro">
+  <h1>Bridge Path 컬러 방향 옵션 (초안)</h1>
+  <p>아래 5가지는 웹사이트에 적용할 수 있는 색상 방향 후보이며, 아직 최종 결정된 색상은 없습니다.</p>
+  <p>각 카드의 헤더 문구, 토큰 칩(색상 값), 실제 화면 예시를 보고 가장 마음에 드는 방향을 골라주시면 됩니다.</p>
+</div>
+
+<div class="themes-grid">
+
+  <!-- ========== THEME 1: 잉크 네이비 ========== -->
+  <section class="theme-card theme-1">
+    <div class="theme-head">
+      <h2>잉크 네이비</h2>
+      <p>차분한 네이비 + 절제된 신뢰감</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#1F3A5F"></span>primary <span class="hex">#1F3A5F</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#B9754A"></span>accent <span class="hex">#B9754A</span></span>
+      <span class="chip"><span class="swatch" style="background:#F7F5F0"></span>background <span class="hex">#F7F5F0</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>surface <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#E3DFD6"></span>border <span class="hex">#E3DFD6</span></span>
+      <span class="chip"><span class="swatch" style="background:#23262B"></span>text <span class="hex">#23262B</span></span>
+      <span class="chip"><span class="swatch" style="background:#6B6F76"></span>text-muted <span class="hex">#6B6F76</span></span>
+      <span class="chip"><span class="swatch" style="background:#2E7D5B"></span>success <span class="hex">#2E7D5B</span></span>
+      <span class="chip"><span class="swatch" style="background:#B8853A"></span>warning <span class="hex">#B8853A</span></span>
+      <span class="chip"><span class="swatch" style="background:#B14A34"></span>destructive <span class="hex">#B14A34</span></span>
+    </div>
+
+    <div class="mock hero">
+      <p class="mock-label">홈페이지 히어로</p>
+      <h3>실거래 경험이 있는 중국 제조업체와 함께,<br>정직하게 만듭니다</h3>
+      <div class="btn-row">
+        <button class="btn-primary">견적 요청하기</button>
+        <button class="btn-secondary">AI 사전 가격안내</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 탭</p>
+      <div class="tabs">
+        <span class="tab active">아이웨어</span>
+        <span class="tab">신발</span>
+        <span class="tab">골프용품</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== THEME 2: 딥 틸 ========== -->
+  <section class="theme-card theme-2">
+    <div class="theme-head">
+      <h2>딥 틸</h2>
+      <p>깊은 청록 + 담백한 실무 신뢰감</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#1C4B47"></span>primary <span class="hex">#1C4B47</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#C97B44"></span>accent <span class="hex">#C97B44</span></span>
+      <span class="chip"><span class="swatch" style="background:#F4F7F5"></span>background <span class="hex">#F4F7F5</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>surface <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#DCE6E2"></span>border <span class="hex">#DCE6E2</span></span>
+      <span class="chip"><span class="swatch" style="background:#1B2523"></span>text <span class="hex">#1B2523</span></span>
+      <span class="chip"><span class="swatch" style="background:#5C6E6A"></span>text-muted <span class="hex">#5C6E6A</span></span>
+      <span class="chip"><span class="swatch" style="background:#3C8562"></span>success <span class="hex">#3C8562</span></span>
+      <span class="chip"><span class="swatch" style="background:#C08A3E"></span>warning <span class="hex">#C08A3E</span></span>
+      <span class="chip"><span class="swatch" style="background:#A9503A"></span>destructive <span class="hex">#A9503A</span></span>
+    </div>
+
+    <div class="mock hero">
+      <p class="mock-label">홈페이지 히어로</p>
+      <h3>실거래 경험이 있는 중국 제조업체와 함께,<br>정직하게 만듭니다</h3>
+      <div class="btn-row">
+        <button class="btn-primary">견적 요청하기</button>
+        <button class="btn-secondary">AI 사전 가격안내</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 탭</p>
+      <div class="tabs">
+        <span class="tab active">아이웨어</span>
+        <span class="tab">신발</span>
+        <span class="tab">골프용품</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== THEME 3: 스톤 테라코타 ========== -->
+  <section class="theme-card theme-3">
+    <div class="theme-head">
+      <h2>스톤 테라코타</h2>
+      <p>따뜻한 스톤 + 손맛 나는 신뢰감</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#A2552F"></span>primary <span class="hex">#A2552F</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#5B6B4E"></span>accent <span class="hex">#5B6B4E</span></span>
+      <span class="chip"><span class="swatch" style="background:#F6F1E7"></span>background <span class="hex">#F6F1E7</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFDF8"></span>surface <span class="hex">#FFFDF8</span></span>
+      <span class="chip"><span class="swatch" style="background:#E5DCC8"></span>border <span class="hex">#E5DCC8</span></span>
+      <span class="chip"><span class="swatch" style="background:#2B2520"></span>text <span class="hex">#2B2520</span></span>
+      <span class="chip"><span class="swatch" style="background:#7C7266"></span>text-muted <span class="hex">#7C7266</span></span>
+      <span class="chip"><span class="swatch" style="background:#4C7A4A"></span>success <span class="hex">#4C7A4A</span></span>
+      <span class="chip"><span class="swatch" style="background:#B8863E"></span>warning <span class="hex">#B8863E</span></span>
+      <span class="chip"><span class="swatch" style="background:#9B3A2E"></span>destructive <span class="hex">#9B3A2E</span></span>
+    </div>
+
+    <div class="mock hero">
+      <p class="mock-label">홈페이지 히어로</p>
+      <h3>실거래 경험이 있는 중국 제조업체와 함께,<br>정직하게 만듭니다</h3>
+      <div class="btn-row">
+        <button class="btn-primary">견적 요청하기</button>
+        <button class="btn-secondary">AI 사전 가격안내</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 탭</p>
+      <div class="tabs">
+        <span class="tab active">아이웨어</span>
+        <span class="tab">신발</span>
+        <span class="tab">골프용품</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== THEME 4: 그래파이트 에디토리얼 ========== -->
+  <section class="theme-card theme-4">
+    <div class="theme-head">
+      <h2>그래파이트 에디토리얼</h2>
+      <p>차분한 그래파이트 + 담백한 포인트 블루</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#2B2E33"></span>primary <span class="hex">#2B2E33</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#4A6FA5"></span>accent <span class="hex">#4A6FA5</span></span>
+      <span class="chip"><span class="swatch" style="background:#F5F5F3"></span>background <span class="hex">#F5F5F3</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>surface <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#DFDFDC"></span>border <span class="hex">#DFDFDC</span></span>
+      <span class="chip"><span class="swatch" style="background:#202225"></span>text <span class="hex">#202225</span></span>
+      <span class="chip"><span class="swatch" style="background:#6B6D70"></span>text-muted <span class="hex">#6B6D70</span></span>
+      <span class="chip"><span class="swatch" style="background:#3E7A52"></span>success <span class="hex">#3E7A52</span></span>
+      <span class="chip"><span class="swatch" style="background:#B08A3E"></span>warning <span class="hex">#B08A3E</span></span>
+      <span class="chip"><span class="swatch" style="background:#A13F32"></span>destructive <span class="hex">#A13F32</span></span>
+    </div>
+
+    <div class="mock hero">
+      <p class="mock-label">홈페이지 히어로</p>
+      <h3>실거래 경험이 있는 중국 제조업체와 함께,<br>정직하게 만듭니다</h3>
+      <div class="btn-row">
+        <button class="btn-primary">견적 요청하기</button>
+        <button class="btn-secondary">AI 사전 가격안내</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 탭</p>
+      <div class="tabs">
+        <span class="tab active">아이웨어</span>
+        <span class="tab">신발</span>
+        <span class="tab">골프용품</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== THEME 5: 세이지 슬레이트 ========== -->
+  <section class="theme-card theme-5">
+    <div class="theme-head">
+      <h2>세이지 슬레이트</h2>
+      <p>부드러운 세이지 + 따뜻한 오프화이트</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#5C7568"></span>primary <span class="hex">#5C7568</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#C9A26A"></span>accent <span class="hex">#C9A26A</span></span>
+      <span class="chip"><span class="swatch" style="background:#FAF6EF"></span>background <span class="hex">#FAF6EF</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>surface <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#E6DFD1"></span>border <span class="hex">#E6DFD1</span></span>
+      <span class="chip"><span class="swatch" style="background:#2A2E2A"></span>text <span class="hex">#2A2E2A</span></span>
+      <span class="chip"><span class="swatch" style="background:#767E74"></span>text-muted <span class="hex">#767E74</span></span>
+      <span class="chip"><span class="swatch" style="background:#3E8A5C"></span>success <span class="hex">#3E8A5C</span></span>
+      <span class="chip"><span class="swatch" style="background:#BB8A42"></span>warning <span class="hex">#BB8A42</span></span>
+      <span class="chip"><span class="swatch" style="background:#A6483A"></span>destructive <span class="hex">#A6483A</span></span>
+    </div>
+
+    <div class="mock hero">
+      <p class="mock-label">홈페이지 히어로</p>
+      <h3>실거래 경험이 있는 중국 제조업체와 함께,<br>정직하게 만듭니다</h3>
+      <div class="btn-row">
+        <button class="btn-primary">견적 요청하기</button>
+        <button class="btn-secondary">AI 사전 가격안내</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 탭</p>
+      <div class="tabs">
+        <span class="tab active">아이웨어</span>
+        <span class="tab">신발</span>
+        <span class="tab">골프용품</span>
+      </div>
+    </div>
+  </section>
+
+</div>

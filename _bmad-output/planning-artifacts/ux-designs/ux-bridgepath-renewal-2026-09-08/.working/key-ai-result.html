@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Path — AI 분석·결과 화면 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/*
+  BRIDGE PATH — AI 분석·결과 화면 UX 목업 (의사결정 지원용 static mockup, 실제 서비스 코드 아님)
+
+  이 파일이 추적하는 스파인 / 결정 영역
+  --------------------------------------------------------------
+  1) State 1(분석·확인): AI 특징 확인 카드 + 표준사양 3지선다가 한 화면에 결합된 플로우.
+     ①번(예상가격 확인)은 시스템이 자동 선택하지 않고, 고객이 명시적으로 클릭해야만 진행됨.
+  2. 태그/상태 표기는 "AI 제안(미확인) / 고객 확인 / 고객 수정 / 잘 모르겠음" 4종을
+     색상에만 의존하지 않고 아이콘 글리프 + 텍스트 라벨로 구분함.
+  3. 가격·기준일 공개 정책: 노출되는 모든 금액/기준일/유효기간은 "예시 데이터" 명시가 항상 동반됨.
+     서비스비/운송·검수·통관·세금 등 부대비용 미포함 고지 문구를 항상 붙임.
+     수수료 8% 등 구체 수수료 수치는 이 화면 어디에도 노출하지 않음 (8%-non-disclosure rule).
+  4. State 3(정상 상담전환) vs State 4(기술 오류) — 이 파일에서 가장 트러스트에 민감한 톤 구분:
+       - State 3 = 비즈니스 조건에 의한 정상 분기. 차분/평상 톤. warning(amber) 팔레트만 사용.
+         "죄송" 계열 사과 문구를 쓰지 않음. 아이콘도 정보성(ℹ)만 사용, 빨강/경고삼각형/에러 아이콘 금지.
+       - State 4 = 진짜 시스템 오류. destructive(red) 팔레트를 아주 절제해서 소량만 사용
+         (썸네일 아이콘 하나, 좌측 accent 정도). 짧고 진솔한 사과 문구는 이 화면에서만 허용.
+         "잘못된 입력입니다"류 사용자 책임 전가 문구·원시 에러코드는 쓰지 않음.
+  5. AI는 어디서도 "확정" 또는 "보장"하지 않음 — 항상 "참고 / 예상 / 후보" 프레이밍만 사용.
+     "확정견적", "정확한 가격", "최저가", "가격 보장" 표현은 전 화면에서 금지.
+  6. success(#3E7A52) 컬러는 "가격 표시 가능" 류의 긍정 마커 용도로만 아주 가볍게 사용하고,
+     accent(#234163)는 AI 관련 배지·선택된 상태·주요 CTA에, warning(amber)은 오직 State 3
+     상담전환 배너에만 쓰는 것으로 토큰 용도를 좁게 유지함.
+  7. 모션: 정적 목업이므로 실제 트랜지션은 구현하지 않음 — 상태 전환 시 150–200ms ease,
+     화려한 이펙트 없음, prefers-reduced-motion 사용자에게는 트랜지션을 끔(주석상 명시).
+  8. Pretendard의 스탠드인으로 Google Fonts "Noto Sans KR"을 사용함 (실제 최종 폰트 아님).
+  --------------------------------------------------------------
+*/
+
+:root{
+  --primary:#2B2E33;
+  --accent:#234163;
+  --accent-tint:#EAF0F6;
+  --accent-border:#C9D6E4;
+  --on-primary:#FFFFFF;
+  --bg:#F4F4F2;
+  --surface:#FFFFFF;
+  --border:#DFDFDC;
+  --text:#202225;
+  --text-muted:#6B6D70;
+  --success:#3E7A52;
+  --success-tint:#E9F2EC;
+  --warn:#B08A3E;
+  --warn-tint:#F8F0DF;
+  --warn-border:#E6D6AE;
+  --warn-text:#85611F;
+  --danger:#A13F32;
+  --danger-tint:#F7EBE9;
+  --r-s:4px;
+  --r-m:6px;
+  --r-l:8px;
+  --motion-fast:180ms; /* static mock: no real transition; documents intended timing only */
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Noto Sans KR","Malgun Gothic",sans-serif; /* stand-in for Pretendard */
+  font-weight:400;
+  line-height:1.55;
+  padding:32px 20px 80px;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;}
+}
+
+h1,h2,h3,h4{margin:0;font-weight:700;color:var(--text);}
+p{margin:0;}
+
+.page-head{max-width:1160px;margin:0 auto 28px;}
+.page-head .eyebrow{
+  font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--accent);
+  text-transform:uppercase;margin-bottom:6px;
+}
+.page-head h1{font-size:22px;color:var(--primary);}
+.page-head .sub{font-size:13px;color:var(--text-muted);margin-top:6px;max-width:720px;}
+
+/* ---------- state switcher (CSS-only, radio driven) ---------- */
+.switcher-wrap{max-width:1160px;margin:0 auto;}
+.switcher-wrap > input[type=radio]{
+  position:absolute;opacity:0;pointer-events:none;
+}
+.switcher-bar{
+  display:flex;flex-wrap:wrap;gap:8px;
+  border:1px solid var(--border);background:var(--surface);
+  padding:8px;border-radius:var(--r-l);margin-bottom:24px;
+}
+.switcher-bar .tab-label{
+  flex:1 1 auto;text-align:center;
+  padding:10px 14px;border-radius:var(--r-m);
+  font-size:13px;font-weight:600;color:var(--text-muted);
+  border:1px solid transparent;cursor:pointer;user-select:none;
+  transition:background var(--motion-fast) ease, color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+.switcher-bar .tab-label .tag{
+  display:block;font-size:11px;font-weight:500;color:var(--text-muted);margin-top:2px;
+}
+
+#s1:checked ~ .switcher-bar label[for="s1"],
+#s2:checked ~ .switcher-bar label[for="s2"],
+#s3:checked ~ .switcher-bar label[for="s3"],
+#s4:checked ~ .switcher-bar label[for="s4"]{
+  background:var(--accent);color:var(--on-primary);border-color:var(--accent);
+}
+#s1:checked ~ .switcher-bar label[for="s1"] .tag,
+#s2:checked ~ .switcher-bar label[for="s2"] .tag,
+#s3:checked ~ .switcher-bar label[for="s3"] .tag,
+#s4:checked ~ .switcher-bar label[for="s4"] .tag{color:#D8E2EC;}
+
+.panel{display:none;}
+#s1:checked ~ .panel.p1{display:block;}
+#s2:checked ~ .panel.p2{display:block;}
+#s3:checked ~ .panel.p3{display:block;}
+#s4:checked ~ .panel.p4{display:block;}
+
+/* ---------- shared card / layout ---------- */
+.device-row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;}
+.desktop-frame{
+  flex:1 1 640px;min-width:320px;max-width:820px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r-l);
+  padding:28px;
+}
+.desktop-frame.narrow{max-width:640px;}
+.mobile-frame-shell{
+  flex:0 0 auto;width:380px;max-width:100%;
+}
+.mobile-frame-shell .label{
+  font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;
+  text-transform:uppercase;letter-spacing:.03em;
+}
+.mobile-frame{
+  width:100%;border:1px solid var(--border);border-radius:20px;
+  background:var(--surface);padding:18px 16px;
+}
+.desktop-frame .label,.mobile-frame .label{
+  font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;
+  text-transform:uppercase;letter-spacing:.03em;
+}
+
+.section-title{font-size:12px;font-weight:600;color:var(--text-muted);margin:0 0 4px;}
+
+/* item context header */
+.item-ctx{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px;
+}
+.item-ctx h2{font-size:18px;color:var(--primary);}
+.item-ctx .cap{font-size:12.5px;color:var(--text-muted);}
+
+/* AI candidate pill */
+.pill{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;
+  border:1px solid var(--border);color:var(--text-muted);white-space:nowrap;
+}
+.pill.ai{border:1px dashed var(--accent-border);color:var(--accent);background:var(--accent-tint);}
+.pill.confirmed{background:var(--accent);color:var(--on-primary);border-color:var(--accent);}
+.pill.unsure{background:var(--bg);color:var(--text-muted);border-color:var(--border);}
+.pill.success{background:var(--success-tint);color:var(--success);border-color:#CFE3D6;}
+
+/* feature confirmation cards */
+.feature-card{
+  border:1px solid var(--border);border-radius:var(--r-m);
+  padding:16px;margin-bottom:12px;background:var(--surface);
+}
+.feature-card .fc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;}
+.feature-card .fc-title{font-size:14.5px;font-weight:700;}
+.feature-card .fc-value{font-size:13.5px;color:var(--accent);font-weight:600;margin-top:2px;}
+.feature-card .fc-explain{font-size:12.5px;color:var(--text-muted);margin:6px 0 12px;}
+.fc-actions{display:flex;flex-wrap:wrap;gap:8px;}
+.fc-btn{
+  font-family:inherit;font-size:12.5px;font-weight:600;
+  padding:8px 12px;border-radius:var(--r-m);border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:default;
+}
+.fc-btn.is-selected{
+  border-color:var(--accent);background:var(--accent-tint);color:var(--accent);
+}
+.fc-btn.is-selected.unsure-selected{
+  border-color:#B7B9BC;background:var(--bg);color:var(--text-muted);
+}
+
+/* supplemental textarea */
+.supp-field{margin:18px 0 22px;}
+.supp-field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+.supp-field textarea{
+  width:100%;min-height:64px;border:1px solid var(--border);border-radius:var(--r-m);
+  padding:10px 12px;font-family:inherit;font-size:13px;color:var(--text);resize:vertical;background:var(--surface);
+}
+.supp-field .hint{font-size:11.5px;color:var(--text-muted);margin-top:4px;}
+
+/* demo note */
+.demo-note{
+  font-size:11.5px;color:var(--text-muted);font-style:italic;
+  border-left:2px solid var(--border);padding:6px 10px;margin:0 0 16px;background:var(--bg);border-radius:0 var(--r-s) var(--r-s) 0;
+}
+
+/* tags */
+.tag-summary{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 22px;}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--border);border-radius:999px;padding:5px 6px 5px 10px;
+  font-size:12px;background:var(--surface);
+}
+.chip .glyph{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:50%;font-size:10px;font-weight:700;flex:0 0 auto;
+}
+.chip .glyph.g-ai{background:var(--accent-tint);color:var(--accent);}
+.chip .glyph.g-confirm{background:var(--accent);color:var(--on-primary);}
+.chip .glyph.g-edit{background:var(--bg);color:var(--text);border:1px solid var(--border);}
+.chip .glyph.g-unsure{background:var(--bg);color:var(--text-muted);border:1px solid var(--border);}
+.chip .chip-txt{font-weight:500;}
+.chip .chip-state{font-size:10.5px;color:var(--text-muted);font-weight:600;}
+.chip .chip-close{
+  width:16px;height:16px;border-radius:50%;border:1px solid var(--border);
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);
+  cursor:default;margin-left:2px;
+}
+
+/* standard spec box */
+.spec-box{
+  border:1px solid var(--border);border-radius:var(--r-m);padding:16px;background:var(--bg);margin-bottom:22px;
+}
+.spec-box h3{font-size:14px;margin-bottom:10px;}
+.spec-list{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px;}
+.spec-list li{font-size:13px;display:flex;gap:8px;}
+.spec-list li .k{color:var(--text-muted);min-width:96px;flex:0 0 auto;}
+.spec-meta{font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px;margin-top:8px;}
+.spec-meta strong{color:var(--text);font-weight:600;}
+.spec-disclosure{font-size:11.5px;color:var(--text-muted);margin-top:6px;}
+
+/* choice block */
+.choice-grid{display:grid;gap:12px;grid-template-columns:1fr;}
+@media(min-width:640px){.choice-grid{grid-template-columns:1fr 1fr 1fr;}}
+.choice-card{
+  border:1px solid var(--border);border-radius:var(--r-m);padding:16px;text-align:left;background:var(--surface);
+}
+.choice-card .num{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;}
+.choice-card .ct{font-size:14px;font-weight:700;margin-bottom:6px;}
+.choice-card .cd{font-size:12px;color:var(--text-muted);}
+.choice-card.primary{
+  background:var(--accent);border-color:var(--accent);
+}
+.choice-card.primary .num,.choice-card.primary .ct{color:var(--on-primary);}
+.choice-card.primary .cd{color:#D8E2EC;}
+.choice-caption{font-size:11.5px;color:var(--text-muted);margin-top:10px;}
+.choice-caption.tight{margin-top:6px;}
+
+/* buttons (real CTA row) */
+.btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+.btn{
+  font-family:inherit;font-size:13.5px;font-weight:700;padding:12px 20px;border-radius:var(--r-m);
+  border:1px solid var(--border);cursor:default;text-align:center;
+}
+.btn-primary{background:var(--accent);color:var(--on-primary);border-color:var(--accent);}
+.btn-outline{background:var(--surface);color:var(--text);border-color:var(--border);}
+.btn-outline.muted{color:var(--text-muted);}
+.btn-danger-primary{background:var(--danger);color:var(--on-primary);border-color:var(--danger);}
+
+/* price result card (state 2) */
+.result-card{border:1px solid var(--border);border-radius:var(--r-l);padding:24px;background:var(--surface);}
+.result-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+.price-figure{font-size:26px;font-weight:800;color:var(--primary);}
+.price-figure .unit{font-size:14px;font-weight:600;color:var(--text-muted);}
+.example-tag{font-size:11.5px;color:var(--text-muted);margin-top:4px;}
+.success-mark{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--success);background:var(--success-tint);border:1px solid #CFE3D6;padding:4px 9px;border-radius:999px;margin-top:6px;}
+.basis-box{border:1px solid var(--border);border-radius:var(--r-m);background:var(--bg);padding:14px 16px;margin:14px 0;}
+.basis-box .k{font-size:11.5px;color:var(--text-muted);margin-bottom:4px;}
+.basis-box .v{font-size:13px;font-weight:600;}
+.meta-line{font-size:12.5px;color:var(--text-muted);margin-top:10px;}
+.disclosure-box{
+  font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);
+  padding-top:14px;margin-top:16px;line-height:1.6;
+}
+
+/* warning / consult-transition banner (state 3) — calm amber, no error iconography */
+.banner-warn{
+  background:var(--warn-tint);border:1px solid var(--warn-border);border-radius:var(--r-l);
+  padding:26px;
+}
+.banner-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
+.info-icon{
+  flex:0 0 auto;width:28px;height:28px;border-radius:50%;
+  background:var(--warn);color:var(--on-primary);font-size:14px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.banner-warn h2{font-size:18px;color:var(--warn-text);}
+.banner-warn .body-copy{font-size:13.5px;color:#5F4A17;margin:12px 0 16px;line-height:1.7;}
+.reason-chip{
+  display:inline-block;background:var(--surface);border:1px solid var(--warn-border);
+  border-radius:var(--r-m);padding:10px 14px;font-size:12.5px;color:#5F4A17;margin-bottom:16px;
+}
+.preserved-note{
+  font-size:12px;color:#5F4A17;background:rgba(255,255,255,.5);border:1px solid var(--warn-border);
+  border-radius:var(--r-s);padding:9px 12px;margin-bottom:16px;
+}
+
+/* technical error card (state 4) — restrained red usage */
+.error-card{
+  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--danger);
+  border-radius:var(--r-l);padding:26px;
+}
+.error-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;}
+.error-icon{
+  flex:0 0 auto;width:28px;height:28px;border-radius:50%;
+  background:var(--danger-tint);color:var(--danger);font-size:14px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;border:1px solid #E7C9C3;
+}
+.error-card .apology{font-size:12px;color:var(--text-muted);margin-bottom:4px;}
+.error-card h2{font-size:17px;color:var(--text);}
+.error-card .body-copy{font-size:13.5px;color:var(--text-muted);margin:10px 0 16px;line-height:1.7;}
+
+.mock-badge{
+  position:absolute;top:-10px;right:14px;background:var(--primary);color:#fff;font-size:10px;
+  font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.02em;
+}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <div class="eyebrow">Bridge Path · UX 의사결정 지원 목업 (Not final code)</div>
+  <h1>AI 분석 · 결과 화면</h1>
+  <p class="sub">AI 특징 확인 → 표준사양 3지선다 → 가격 표시 / 상담전환 / 오류, 네 가지 화면 상태를 한 파일에서 전환하며 검토할 수 있어요. 아래 탭을 눌러 상태를 바꿔보세요.</p>
+</div>
+
+<div class="switcher-wrap">
+  <input type="radio" name="state" id="s1" checked>
+  <input type="radio" name="state" id="s2">
+  <input type="radio" name="state" id="s3">
+  <input type="radio" name="state" id="s4">
+
+  <div class="switcher-bar">
+    <label class="tab-label" for="s1">① 분석·확인<span class="tag">AI 특징확인 + 3지선다</span></label>
+    <label class="tab-label" for="s2">② 가격 표시 성공<span class="tag">예상 EXW 가격 노출</span></label>
+    <label class="tab-label" for="s3">③ 정상 상담 전환<span class="tag">비즈니스 조건, 차분한 톤</span></label>
+    <label class="tab-label" for="s4">④ 기술 오류<span class="tag">시스템 오류, 짧은 사과</span></label>
+  </div>
+
+  <!-- ================= STATE 1 ================= -->
+  <section class="panel p1">
+    <div class="device-row">
+
+      <!-- desktop render -->
+      <div class="desktop-frame">
+        <div class="label">Desktop</div>
+
+        <div class="item-ctx">
+          <h2>선글라스 · 사진 분석 결과</h2>
+        </div>
+        <p class="item-ctx cap" style="margin-bottom:18px;">AI가 사진에서 보이는 특징을 참고용으로 제안해요. 실제 소재·공법을 확정하지는 않아요.</p>
+
+        <p class="demo-note">아래 세 카드는 화면에 나타날 수 있는 확인 상태(확인됨 / 미확인 / 잘 모르겠음)를 한 화면에서 함께 보여드리기 위한 예시예요. 실제로는 고객이 하나씩 눌러 확인해요.</p>
+
+        <!-- feature 1: confirmed -->
+        <div class="feature-card">
+          <div class="fc-head">
+            <div>
+              <div class="fc-title">프레임 소재가 메탈로 보여요</div>
+              <div class="fc-value">AI 제안 후보: 메탈</div>
+            </div>
+            <span class="pill confirmed">✓ 확인됨</span>
+          </div>
+          <p class="fc-explain">사진 속 프레임 표면의 광택과 두께감이 금속 소재 특징과 비슷해요.</p>
+          <div class="fc-actions">
+            <button class="fc-btn is-selected">✓ 맞아요</button>
+            <button class="fc-btn">다른 항목 선택</button>
+            <button class="fc-btn">잘 모르겠어요</button>
+            <button class="fc-btn">담당자 확인이 필요해요</button>
+          </div>
+        </div>
+
+        <!-- feature 2: unanswered / AI 제안 baseline -->
+        <div class="feature-card">
+          <div class="fc-head">
+            <div>
+              <div class="fc-title">렌즈는 위에서 아래로 옅어지는 그라데이션 형태로 보여요</div>
+              <div class="fc-value">AI 제안 후보: 그라데이션 렌즈</div>
+            </div>
+            <span class="pill ai">AI 제안 · 미확인</span>
+          </div>
+          <p class="fc-explain">렌즈 위쪽은 색이 진하고 아래로 갈수록 옅어지는 코팅 패턴이 보여요.</p>
+          <div class="fc-actions">
+            <button class="fc-btn">맞아요</button>
+            <button class="fc-btn">다른 항목 선택</button>
+            <button class="fc-btn">잘 모르겠어요</button>
+            <button class="fc-btn">담당자 확인이 필요해요</button>
+          </div>
+        </div>
+
+        <!-- feature 3: unsure selected -->
+        <div class="feature-card">
+          <div class="fc-head">
+            <div>
+              <div class="fc-title">템플(다리) 안쪽에 로고가 작게 각인되어 있는 것으로 보여요</div>
+              <div class="fc-value">AI 제안 후보: 템플 내측 각인 1곳</div>
+            </div>
+            <span class="pill unsure">? 잘 모르겠음</span>
+          </div>
+          <p class="fc-explain">각인 위치와 크기가 사진만으로는 정확히 구분되지 않아요.</p>
+          <div class="fc-actions">
+            <button class="fc-btn">맞아요</button>
+            <button class="fc-btn">다른 항목 선택</button>
+            <button class="fc-btn is-selected unsure-selected">잘 모르겠어요</button>
+            <button class="fc-btn">담당자 확인이 필요해요</button>
+          </div>
+        </div>
+
+        <div class="supp-field">
+          <label for="supp1">사진과 다른 점이나 꼭 반영하고 싶은 내용을 알려주세요</label>
+          <textarea id="supp1" placeholder="예: 로고는 렌즈 아래쪽에 넣고 싶어요 (선택 입력)"></textarea>
+          <div class="hint">선택 입력이며, 담당자 확인 시 함께 전달돼요.</div>
+        </div>
+
+        <div class="section-title">지금까지 확인한 내용</div>
+        <div class="tag-summary">
+          <span class="chip"><span class="glyph g-ai">i</span><span class="chip-txt">제품 유형: 선글라스</span></span>
+          <span class="chip"><span class="glyph g-confirm">✓</span><span class="chip-txt">프레임 소재: 메탈</span><span class="chip-state">— 확인됨</span><span class="chip-close">✎</span></span>
+          <span class="chip"><span class="glyph g-confirm">✓</span><span class="chip-txt">렌즈: 그라데이션</span><span class="chip-state">— 확인됨</span><span class="chip-close">✎</span></span>
+          <span class="chip"><span class="glyph g-unsure">?</span><span class="chip-txt">로고 적용</span><span class="chip-state">— 잘 모르겠음</span><span class="chip-close">✎</span></span>
+        </div>
+        <p class="hint" style="margin:-8px 0 18px;">아이콘 의미 — <b style="color:var(--accent)">i AI 제안(미확인)</b> · <b style="color:var(--accent)">✓ 고객 확인</b> · <b>✎ 고객 수정</b> · <b>? 잘 모르겠음</b></p>
+
+        <div class="spec-box">
+          <h3>이 제품의 표준 사양이에요</h3>
+          <ul class="spec-list">
+            <li><span class="k">프레임 소재</span><span>메탈 (일반 합금)</span></li>
+            <li><span class="k">렌즈 가공</span><span>그라데이션 컬러 코팅</span></li>
+            <li><span class="k">로고 각인</span><span>템플 내측 1곳, 각인 방식</span></li>
+          </ul>
+          <div class="spec-meta">기준가격 기준일: <strong>2026.09.01</strong> · 유효기간 <strong>14일</strong> <span style="color:var(--text-muted);font-weight:400;">(예시 데이터)</span></div>
+          <p class="spec-disclosure">서비스 비용과 운송·검수·통관·세금 등은 이 가격에 포함되지 않아요.</p>
+        </div>
+
+        <div class="section-title">다음으로 무엇을 할까요?</div>
+        <div class="choice-grid">
+          <div class="choice-card primary">
+            <div class="num">① 선택</div>
+            <div class="ct">이 표준 사양으로<br>예상가격 확인</div>
+            <div class="cd">확인된 특징을 기준으로 예상 가격을 보여드려요.</div>
+          </div>
+          <div class="choice-card">
+            <div class="num">② 선택</div>
+            <div class="ct">일부 조건이 달라요</div>
+            <div class="cd">표준 사양과 다른 부분이 있어요.</div>
+          </div>
+          <div class="choice-card">
+            <div class="num">③ 선택</div>
+            <div class="ct">잘 모르겠음 · 상담 필요</div>
+            <div class="cd">담당자와 함께 확인하고 싶어요.</div>
+          </div>
+        </div>
+        <p class="choice-caption">①번은 이 예시에서 핵심 특징이 모두 표준 사양과 일치하는 것으로 확인되었다고 가정했을 때 선택할 수 있는 상태를 보여드려요. (위 카드들은 여러 확인 상태를 함께 보여드리기 위한 예시라 실제로는 세 특징이 모두 확인되어야 해요.)</p>
+        <p class="choice-caption tight">특징 중 하나라도 확인되지 않았거나 '다름'으로 표시되면 ①번은 선택할 수 없거나 화면에서 빠지고, 왜 그런지 화면에서 바로 설명해드려요 — 이 경우 화면은 아래 '③ 정상 상담 전환' 상태와 비슷한 모습이 돼요.</p>
+      </div>
+
+      <!-- mobile render -->
+      <div class="mobile-frame-shell">
+        <div class="label">Mobile (~375–390px)</div>
+        <div class="mobile-frame">
+          <div class="item-ctx" style="display:block;">
+            <h2 style="font-size:16px;">선글라스 · 사진 분석 결과</h2>
+            <p class="cap" style="font-size:11.5px;margin-top:4px;">AI가 사진에서 보이는 특징을 참고용으로 제안해요.</p>
+          </div>
+
+          <div class="feature-card" style="padding:12px;margin-top:14px;">
+            <div class="fc-head">
+              <div>
+                <div class="fc-title" style="font-size:13px;">프레임 소재가 메탈로 보여요</div>
+                <div class="fc-value" style="font-size:12px;">AI 제안: 메탈</div>
+              </div>
+              <span class="pill confirmed">✓ 확인됨</span>
+            </div>
+            <div class="fc-actions">
+              <button class="fc-btn is-selected" style="font-size:11.5px;padding:7px 10px;">✓ 맞아요</button>
+              <button class="fc-btn" style="font-size:11.5px;padding:7px 10px;">잘 모르겠어요</button>
+            </div>
+          </div>
+
+          <div class="feature-card" style="padding:12px;">
+            <div class="fc-head">
+              <div>
+                <div class="fc-title" style="font-size:13px;">템플 안쪽 로고 각인으로 보여요</div>
+                <div class="fc-value" style="font-size:12px;">AI 제안: 템플 내측 각인</div>
+              </div>
+              <span class="pill unsure">? 잘 모르겠음</span>
+            </div>
+            <div class="fc-actions">
+              <button class="fc-btn" style="font-size:11.5px;padding:7px 10px;">맞아요</button>
+              <button class="fc-btn is-selected unsure-selected" style="font-size:11.5px;padding:7px 10px;">잘 모르겠어요</button>
+            </div>
+          </div>
+
+          <div class="tag-summary" style="margin-top:14px;">
+            <span class="chip" style="font-size:11px;"><span class="glyph g-confirm">✓</span>프레임: 메탈</span>
+            <span class="chip" style="font-size:11px;"><span class="glyph g-unsure">?</span>로고: 잘 모르겠음</span>
+          </div>
+
+          <div class="spec-box" style="padding:12px;margin-top:14px;">
+            <h3 style="font-size:13px;">표준 사양이에요</h3>
+            <ul class="spec-list" style="font-size:12px;">
+              <li><span class="k" style="min-width:70px;">프레임</span><span>메탈</span></li>
+              <li><span class="k" style="min-width:70px;">렌즈</span><span>그라데이션</span></li>
+            </ul>
+            <div class="spec-meta" style="font-size:11px;">기준일 2026.09.01 · 14일 <span style="color:var(--text-muted);">(예시)</span></div>
+          </div>
+
+          <div class="choice-grid" style="grid-template-columns:1fr;margin-top:14px;">
+            <div class="choice-card primary" style="padding:12px;">
+              <div class="ct" style="font-size:13px;">① 이 표준 사양으로<br>예상가격 확인</div>
+            </div>
+            <div class="choice-card" style="padding:10px;">
+              <div class="ct" style="font-size:12.5px;">② 일부 조건이 달라요</div>
+            </div>
+            <div class="choice-card" style="padding:10px;">
+              <div class="ct" style="font-size:12.5px;">③ 잘 모르겠음 · 상담 필요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= STATE 2 ================= -->
+  <section class="panel p2">
+    <div class="device-row">
+      <div class="desktop-frame narrow" style="position:relative;">
+        <div class="label">Desktop</div>
+        <div class="result-card">
+          <div class="result-top">
+            <div>
+              <div class="section-title">예상 EXW 가격</div>
+              <div class="price-figure">₩12,000 ~ ₩15,000 <span class="unit">/ 개</span></div>
+              <div class="example-tag">예시 데이터입니다 — 실제 확정 가격이 아니에요.</div>
+              <span class="success-mark">✓ 가격 표시 가능</span>
+            </div>
+            <span class="pill ai" style="font-size:12px;padding:6px 12px;">AI 사전 가격안내 가능</span>
+          </div>
+
+          <div class="basis-box">
+            <div class="k">적용된 표준 사양</div>
+            <div class="v">메탈 프레임 · 그라데이션 렌즈 · 템플 내측 로고 각인 1곳</div>
+          </div>
+
+          <div class="meta-line">기준일: <strong>2026.09.01</strong> · 유효기간: <strong>14일까지</strong> <span style="color:var(--text-muted);">(예시 데이터)</span></div>
+
+          <div class="disclosure-box">
+            표시된 금액은 참고용 예상 상품가격이며, 서비스 비용과 운송·검수·통관·세금 등 부대비용은 포함되지 않습니다. 세부 비용은 담당자 배정 후 안내드립니다.
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary">이 정보로 정식 견적 요청하기</button>
+            <button class="btn btn-outline">조건 다시 확인하기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STATE 3 ================= -->
+  <section class="panel p3">
+    <div class="device-row">
+
+      <!-- desktop render -->
+      <div class="desktop-frame">
+        <div class="label">Desktop</div>
+        <div class="banner-warn">
+          <div class="banner-head">
+            <span class="info-icon">i</span>
+            <h2>이 제품은 담당자 확인이 필요해요</h2>
+          </div>
+          <p class="body-copy">입력하신 조건은 현재 준비된 기준가격만으로 신뢰할 수 있는 예상범위를 안내하기 어렵습니다. 확인되지 않은 숫자를 임의로 보여드리지 않고, 담당자가 제품 사양과 제작 조건을 검토해 안내해드릴게요.</p>
+          <div class="reason-chip">입력하신 수량은 일반적인 생산 기준보다 적어, 소량생산이나 다른 소싱 방법을 담당자가 확인해야 해요.</div>
+          <div class="preserved-note">지금까지 입력한 품목·수량·사양·첨부파일은 그대로 유지됩니다.</div>
+          <div class="btn-row">
+            <button class="btn btn-primary" style="background:var(--warn);border-color:var(--warn);">입력한 정보로 상담 요청 이어가기</button>
+            <button class="btn btn-outline muted">정보 수정하기</button>
+            <button class="btn btn-outline muted">이전 단계로 돌아가기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- mobile render -->
+      <div class="mobile-frame-shell">
+        <div class="label">Mobile (~375–390px)</div>
+        <div class="mobile-frame">
+          <div class="banner-warn" style="padding:16px;">
+            <div class="banner-head">
+              <span class="info-icon" style="width:24px;height:24px;font-size:12px;">i</span>
+              <h2 style="font-size:15px;">이 제품은 담당자 확인이 필요해요</h2>
+            </div>
+            <p class="body-copy" style="font-size:12.5px;">입력하신 조건은 현재 준비된 기준가격만으로 신뢰할 수 있는 예상범위를 안내하기 어렵습니다. 담당자가 사양과 제작 조건을 검토해 안내해드릴게요.</p>
+            <div class="reason-chip" style="font-size:11.5px;padding:8px 10px;">입력하신 수량은 일반적인 생산 기준보다 적어, 소량생산이나 다른 소싱 방법을 담당자가 확인해야 해요.</div>
+            <div class="preserved-note" style="font-size:11px;">지금까지 입력한 품목·수량·사양·첨부파일은 그대로 유지됩니다.</div>
+            <div class="btn-row" style="flex-direction:column;">
+              <button class="btn btn-primary" style="background:var(--warn);border-color:var(--warn);font-size:12.5px;padding:11px 14px;">입력한 정보로 상담 요청 이어가기</button>
+              <button class="btn btn-outline muted" style="font-size:12.5px;padding:11px 14px;">정보 수정하기</button>
+              <button class="btn btn-outline muted" style="font-size:12.5px;padding:11px 14px;">이전 단계로 돌아가기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= STATE 4 ================= -->
+  <section class="panel p4">
+    <div class="device-row">
+      <div class="desktop-frame narrow">
+        <div class="label">Desktop</div>
+        <div class="error-card">
+          <div class="error-head">
+            <span class="error-icon">!</span>
+            <div>
+              <div class="apology">불편을 드려 죄송해요.</div>
+              <h2>이미지를 분석하는 중 문제가 발생했어요.</h2>
+            </div>
+          </div>
+          <p class="body-copy">작성한 내용은 유지되어 있으니 다시 시도하거나, 입력한 정보로 상담을 이어갈 수 있어요.</p>
+          <div class="preserved-note" style="background:var(--bg);border-color:var(--border);color:var(--text-muted);">지금까지 입력한 품목·수량·사양·첨부파일은 그대로 유지됩니다.</div>
+          <div class="btn-row">
+            <button class="btn btn-primary">다시 시도</button>
+            <button class="btn btn-outline">AI 없이 상담 계속하기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+</body>
+</html>

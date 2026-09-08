@@ -1,0 +1,813 @@
+<title>Bridge Path 그래파이트 에디토리얼 - 세부 조정안</title>
+<style>
+  /*
+    ============================================================
+    이 파일은 "그래파이트 에디토리얼" 방향(이미 선택됨) 내부에서
+    액센트 블루 / 배경 웜톤 / CTA 위계만 다르게 조정한 3가지 세부안입니다.
+    그래파이트(#2B2E33) 계열, 에디토리얼 레이아웃, 타이포그래피 접근은
+    3안 모두 공통으로 유지합니다.
+    ============================================================
+
+    ============================================================
+    변형 1. 차분한 블루 (Calm Blue)
+    ------------------------------------------------------------
+    primary            #2B2E33
+    on-primary         #FFFFFF
+    accent             #4A6FA5  기준안과 동일한 절제된 블루
+    background         #F5F5F3
+    surface/card       #FFFFFF
+    border             #DFDFDC
+    text-primary       #202225
+    text-muted         #6B6D70
+    success            #3E7A52
+    warning(attention) #B08A3E
+    destructive        #A13F32
+    ============================================================
+
+    ============================================================
+    변형 2. 짙은 잉크 블루 (Deep Ink Blue)
+    ------------------------------------------------------------
+    primary            #2B2E33
+    on-primary         #FFFFFF
+    accent             #234163  더 짙고 채도 있는 잉크 블루 (포인트 컬러로만 사용, 배경/그라디언트 금지)
+    background         #F4F4F2  기준안과 거의 동일 (아주 살짝 쿨톤 유지)
+    surface/card       #FFFFFF
+    border             #DEDEDC
+    text-primary       #202225
+    text-muted         #6B6D70
+    success            #3E7A52
+    warning(attention) #B08A3E
+    destructive        #A13F32
+    ============================================================
+
+    ============================================================
+    변형 3. 따뜻한 오프화이트 강화 (Warmer Off-White Emphasis)
+    ------------------------------------------------------------
+    primary            #2B2E33
+    on-primary         #FFFFFF
+    accent             #4A6FA5  변형1과 동일한 차분한 블루 유지
+    background         #F8F3EA  더 따뜻하고 시각적으로 뚜렷한 오프화이트/크림
+    surface/card       #FFFDF8  배경 웜톤에 맞춰 카드도 살짝 웜화이트
+    border             #E7DFCF  배경 웜톤에 맞춰 보더도 살짝 따뜻하게 조정
+    text-primary       #24221E  배경 웜톤과 어울리도록 미세 조정 (여전히 짙은 그래파이트 계열)
+    text-muted         #6E6A61
+    success            #3E7A52
+    warning(attention) #B08A3E
+    destructive        #A13F32
+    ============================================================
+  */
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 32px 20px 80px;
+    background: #ECEAE4;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", Roboto, Helvetica, Arial, sans-serif;
+    color: #22262B;
+    line-height: 1.5;
+  }
+
+  .page-intro {
+    max-width: 980px;
+    margin: 0 auto 36px;
+  }
+
+  .page-intro h1 {
+    font-size: 23px;
+    margin: 0 0 10px;
+  }
+
+  .page-intro p {
+    font-size: 14.5px;
+    color: #55595F;
+    margin: 0 0 6px;
+  }
+
+  .themes-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    max-width: 1560px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+
+  .theme-card {
+    flex: 1 1 420px;
+    max-width: 500px;
+    min-width: 320px;
+    border-radius: 18px;
+    padding: 22px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .theme-head {
+    margin-bottom: 16px;
+  }
+
+  .theme-head h2 {
+    margin: 0 0 4px;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+  }
+
+  .theme-head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+
+  /* token chips */
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 10px 4px 4px;
+    font-size: 10.5px;
+    color: var(--text);
+  }
+
+  .chip .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.12);
+    flex-shrink: 0;
+  }
+
+  .chip .hex {
+    color: var(--text-muted);
+    font-family: "Consolas", "SFMono-Regular", Menlo, monospace;
+    font-size: 10px;
+  }
+
+  /* mockup container */
+  .mock {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+
+  .mock-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+
+  /* typography sample */
+  .typo-headline {
+    margin: 0 0 10px;
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.35;
+    color: var(--text);
+  }
+
+  .typo-body {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+
+  /* CTA comparison */
+  .cta-compare {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .cta-version {
+    flex: 1 1 170px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 12px;
+  }
+
+  .cta-version-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+
+  .btn-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .btn-primary-a1,
+  .btn-primary-a2,
+  .btn-ghost {
+    border-radius: 9px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: default;
+    text-align: center;
+    border: none;
+  }
+
+  .btn-primary-a1 {
+    background: var(--primary);
+    color: var(--on-primary);
+  }
+
+  .btn-primary-a2 {
+    background: var(--accent);
+    color: #FFFFFF;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  /* focus-visible demo */
+  .focus-demo-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 8px;
+  }
+
+  .focus-demo-input {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .focus-demo-caption {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 8px 0 0;
+  }
+
+  /* real focus-visible behavior on interactive elements in this doc */
+  .theme-card button:focus-visible,
+  .theme-card input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* AI price card */
+  .badge {
+    display: inline-block;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+
+  .price-line {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 6px;
+  }
+
+  .price-caption {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  /* consult transition card */
+  .consult {
+    border: 1px solid var(--warning-border);
+    background: var(--warning-tint);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .consult-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--warning-text);
+    margin: 0 0 6px;
+  }
+
+  .consult-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    flex-shrink: 0;
+  }
+
+  .consult p {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 0 0 12px;
+  }
+
+  .btn-warning {
+    background: var(--warning);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: default;
+  }
+
+  /* admin status restraint list */
+  .status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+  }
+
+  .status-group {
+    font-size: 12.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .status-examples {
+    font-size: 11px;
+    opacity: 0.8;
+    text-align: right;
+  }
+
+  .status-new    { background: var(--accent-tint); color: var(--accent); }
+  .status-progress { background: var(--neutral-tint); color: var(--neutral-text); }
+  .status-warn   { background: var(--warning-tint); color: var(--warning-text); }
+  .status-done   { background: var(--success-tint); color: var(--success-text); }
+  .status-cancel { background: var(--destructive-tint); color: var(--destructive-text); }
+
+  .status-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 10px 0 0;
+    line-height: 1.6;
+  }
+
+  /* product photo placeholder */
+  .photo-placeholder {
+    height: 130px;
+    border-radius: 10px;
+    border: 1px dashed #B9B9B4;
+    background: #E4E4E1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #83837E;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+    padding: 10px;
+  }
+
+  .photo-caption {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 8px 0 0;
+  }
+
+  /* ---- THEME 1: 차분한 블루 ---- */
+  .theme-1 {
+    --primary: #2B2E33;
+    --on-primary: #FFFFFF;
+    --accent: #4A6FA5;
+    --accent-tint: #E1E9F3;
+    --bg: #F5F5F3;
+    --surface: #FFFFFF;
+    --border: #DFDFDC;
+    --text: #202225;
+    --text-muted: #6B6D70;
+    --success: #3E7A52;
+    --success-tint: #E2EEE6;
+    --success-text: #2B5A3D;
+    --warning: #B08A3E;
+    --warning-tint: #F8F0DF;
+    --warning-border: #E6D6AE;
+    --warning-text: #85611F;
+    --destructive: #A13F32;
+    --destructive-tint: #F5E2DF;
+    --destructive-text: #7A2E24;
+    --neutral-tint: #EAEAE8;
+    --neutral-text: #4B4D51;
+  }
+
+  /* ---- THEME 2: 짙은 잉크 블루 ---- */
+  .theme-2 {
+    --primary: #2B2E33;
+    --on-primary: #FFFFFF;
+    --accent: #234163;
+    --accent-tint: #DEE5EC;
+    --bg: #F4F4F2;
+    --surface: #FFFFFF;
+    --border: #DEDEDC;
+    --text: #202225;
+    --text-muted: #6B6D70;
+    --success: #3E7A52;
+    --success-tint: #E2EEE6;
+    --success-text: #2B5A3D;
+    --warning: #B08A3E;
+    --warning-tint: #F8F0DF;
+    --warning-border: #E6D6AE;
+    --warning-text: #85611F;
+    --destructive: #A13F32;
+    --destructive-tint: #F5E2DF;
+    --destructive-text: #7A2E24;
+    --neutral-tint: #E9E9E7;
+    --neutral-text: #4B4D51;
+  }
+
+  /* ---- THEME 3: 따뜻한 오프화이트 강화 ---- */
+  .theme-3 {
+    --primary: #2B2E33;
+    --on-primary: #FFFFFF;
+    --accent: #4A6FA5;
+    --accent-tint: #E4EAF3;
+    --bg: #F8F3EA;
+    --surface: #FFFDF8;
+    --border: #E7DFCF;
+    --text: #24221E;
+    --text-muted: #6E6A61;
+    --success: #3E7A52;
+    --success-tint: #E6EEE2;
+    --success-text: #2B5A3D;
+    --warning: #B08A3E;
+    --warning-tint: #F9F0DE;
+    --warning-border: #E8D6AC;
+    --warning-text: #85611F;
+    --destructive: #A13F32;
+    --destructive-tint: #F6E2DC;
+    --destructive-text: #7A2E24;
+    --neutral-tint: #EFE9DC;
+    --neutral-text: #514C43;
+  }
+
+  @media (max-width: 460px) {
+    .theme-card { max-width: 100%; }
+    .cta-version { flex: 1 1 100%; }
+  }
+</style>
+
+<div class="page-intro">
+  <h1>그래파이트 에디토리얼 - 세부 조정 3안</h1>
+  <p>지난 비교에서 고르신 "그래파이트 에디토리얼" 방향은 그대로 두고, 그 안에서 <b>포인트 블루 색감</b>, <b>배경의 웜톤 정도</b>, <b>주요 버튼(CTA) 위계 표현 방식</b>만 다르게 조정한 3가지 세부안입니다.</p>
+  <p>아직 최종 결정은 아니며, 아래 3가지 중 어느 조합이 가장 자연스러운지 비교해 주시면 됩니다. 각 카드 안에는 CTA 버튼 두 가지 배경 비교(A1/A2)와 관리자 상태 목록의 색상 절제 예시도 함께 담았습니다.</p>
+</div>
+
+<div class="themes-grid">
+
+  <!-- ========== THEME 1: 차분한 블루 ========== -->
+  <section class="theme-card theme-1">
+    <div class="theme-head">
+      <h2>1. 차분한 블루 (Calm Blue)</h2>
+      <p>기준안과 동일한 절제된 블루 · 다가가기 쉬운 무게감</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#2B2E33"></span>primary <span class="hex">#2B2E33</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#4A6FA5"></span>accent <span class="hex">#4A6FA5</span></span>
+      <span class="chip"><span class="swatch" style="background:#F5F5F3"></span>background <span class="hex">#F5F5F3</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>surface <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#DFDFDC"></span>border <span class="hex">#DFDFDC</span></span>
+      <span class="chip"><span class="swatch" style="background:#202225"></span>text <span class="hex">#202225</span></span>
+      <span class="chip"><span class="swatch" style="background:#6B6D70"></span>text-muted <span class="hex">#6B6D70</span></span>
+      <span class="chip"><span class="swatch" style="background:#3E7A52"></span>success <span class="hex">#3E7A52</span></span>
+      <span class="chip"><span class="swatch" style="background:#B08A3E"></span>warning <span class="hex">#B08A3E</span></span>
+      <span class="chip"><span class="swatch" style="background:#A13F32"></span>destructive <span class="hex">#A13F32</span></span>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">타이포그래피 샘플</p>
+      <p class="typo-headline">중국 제조 파트너와 함께,<br>정직한 소싱을 만듭니다</p>
+      <p class="typo-body">브릿지패스는 아이웨어·신발·골프용품 OEM/ODM 소싱을 담당자와 함께 처음부터 끝까지 관리합니다. 견적 요청부터 공장 확인, 생산, 선적까지 각 단계를 투명하게 안내해드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">CTA 비교 · 견적 요청하기 (A1 그래파이트 배경 vs A2 액센트 블루 배경)</p>
+      <div class="cta-compare">
+        <div class="cta-version">
+          <p class="cta-version-label">A1 · 그래파이트 배경</p>
+          <div class="btn-row">
+            <button class="btn-primary-a1">견적 요청하기</button>
+            <button class="btn-ghost">AI 사전 가격안내</button>
+          </div>
+        </div>
+        <div class="cta-version">
+          <p class="cta-version-label">A2 · 액센트 블루 배경</p>
+          <div class="btn-row">
+            <button class="btn-primary-a2">견적 요청하기</button>
+            <button class="btn-ghost">AI 사전 가격안내</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">포커스(키보드 접근성) 상태 예시</p>
+      <p class="focus-demo-label">입력창 예시 - 실제로는 키보드 Tab 이동 시 아래와 같은 아웃라인이 나타나요</p>
+      <input class="focus-demo-input" type="text" value="예: 회사명을 입력해주세요" readonly>
+      <p class="focus-demo-caption">아웃라인 2px, 액센트 컬러(#4A6FA5), 2px 오프셋 - 포커스 스타일을 지우지 않아요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">관리자 상태 목록 - 색상 절제 적용 (10개 실제 상태 → 5개 의미 그룹)</p>
+      <div class="status-list">
+        <div class="status-row status-new">
+          <span class="status-group">신규 접수</span>
+          <span class="status-examples">신규 문의</span>
+        </div>
+        <div class="status-row status-progress">
+          <span class="status-group">진행 중</span>
+          <span class="status-examples">정보 확인 중 · 공장 견적 확인 중</span>
+        </div>
+        <div class="status-row status-warn">
+          <span class="status-group">주의 필요</span>
+          <span class="status-examples">추가정보 요청</span>
+        </div>
+        <div class="status-row status-done">
+          <span class="status-group">완료</span>
+          <span class="status-examples">종결</span>
+        </div>
+        <div class="status-row status-cancel">
+          <span class="status-group">취소</span>
+          <span class="status-examples">고객 취소</span>
+        </div>
+      </div>
+      <p class="status-note">진행 중 단계의 세부 상태들은 각각 다른 색을 쓰지 않고 하나의 중립(그래파이트 톤) 배경을 공유해요. 색은 "신규/주의/완료/취소" 같은 실제 의미가 있을 때만 사용해요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 카드 이미지 자리</p>
+      <div class="photo-placeholder">실제 제품 사진이 들어갈 자리</div>
+      <p class="photo-caption">실제로는 선글라스 / 골프화 / 우드 티 등 제품 사진이 이 자리에 들어가며, 그래파이트·오프화이트 배경 위에서 사진이 잘 도드라지는지 확인하는 용도예요.</p>
+    </div>
+  </section>
+
+  <!-- ========== THEME 2: 짙은 잉크 블루 ========== -->
+  <section class="theme-card theme-2">
+    <div class="theme-head">
+      <h2>2. 짙은 잉크 블루 (Deep Ink Blue)</h2>
+      <p>더 짙고 채도 있는 잉크 블루 포인트 · 신뢰감·프리미엄 톤 강조</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#2B2E33"></span>primary <span class="hex">#2B2E33</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#234163"></span>accent <span class="hex">#234163</span></span>
+      <span class="chip"><span class="swatch" style="background:#F4F4F2"></span>background <span class="hex">#F4F4F2</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>surface <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#DEDEDC"></span>border <span class="hex">#DEDEDC</span></span>
+      <span class="chip"><span class="swatch" style="background:#202225"></span>text <span class="hex">#202225</span></span>
+      <span class="chip"><span class="swatch" style="background:#6B6D70"></span>text-muted <span class="hex">#6B6D70</span></span>
+      <span class="chip"><span class="swatch" style="background:#3E7A52"></span>success <span class="hex">#3E7A52</span></span>
+      <span class="chip"><span class="swatch" style="background:#B08A3E"></span>warning <span class="hex">#B08A3E</span></span>
+      <span class="chip"><span class="swatch" style="background:#A13F32"></span>destructive <span class="hex">#A13F32</span></span>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">타이포그래피 샘플</p>
+      <p class="typo-headline">중국 제조 파트너와 함께,<br>정직한 소싱을 만듭니다</p>
+      <p class="typo-body">브릿지패스는 아이웨어·신발·골프용품 OEM/ODM 소싱을 담당자와 함께 처음부터 끝까지 관리합니다. 견적 요청부터 공장 확인, 생산, 선적까지 각 단계를 투명하게 안내해드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">CTA 비교 · 견적 요청하기 (A1 그래파이트 배경 vs A2 액센트 블루 배경)</p>
+      <div class="cta-compare">
+        <div class="cta-version">
+          <p class="cta-version-label">A1 · 그래파이트 배경</p>
+          <div class="btn-row">
+            <button class="btn-primary-a1">견적 요청하기</button>
+            <button class="btn-ghost">AI 사전 가격안내</button>
+          </div>
+        </div>
+        <div class="cta-version">
+          <p class="cta-version-label">A2 · 액센트 블루 배경</p>
+          <div class="btn-row">
+            <button class="btn-primary-a2">견적 요청하기</button>
+            <button class="btn-ghost">AI 사전 가격안내</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">포커스(키보드 접근성) 상태 예시</p>
+      <p class="focus-demo-label">입력창 예시 - 실제로는 키보드 Tab 이동 시 아래와 같은 아웃라인이 나타나요</p>
+      <input class="focus-demo-input" type="text" value="예: 회사명을 입력해주세요" readonly>
+      <p class="focus-demo-caption">아웃라인 2px, 액센트 컬러(#234163), 2px 오프셋 - 포커스 스타일을 지우지 않아요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">관리자 상태 목록 - 색상 절제 적용 (10개 실제 상태 → 5개 의미 그룹)</p>
+      <div class="status-list">
+        <div class="status-row status-new">
+          <span class="status-group">신규 접수</span>
+          <span class="status-examples">신규 문의</span>
+        </div>
+        <div class="status-row status-progress">
+          <span class="status-group">진행 중</span>
+          <span class="status-examples">정보 확인 중 · 공장 견적 확인 중</span>
+        </div>
+        <div class="status-row status-warn">
+          <span class="status-group">주의 필요</span>
+          <span class="status-examples">추가정보 요청</span>
+        </div>
+        <div class="status-row status-done">
+          <span class="status-group">완료</span>
+          <span class="status-examples">종결</span>
+        </div>
+        <div class="status-row status-cancel">
+          <span class="status-group">취소</span>
+          <span class="status-examples">고객 취소</span>
+        </div>
+      </div>
+      <p class="status-note">진행 중 단계의 세부 상태들은 각각 다른 색을 쓰지 않고 하나의 중립(그래파이트 톤) 배경을 공유해요. 색은 "신규/주의/완료/취소" 같은 실제 의미가 있을 때만 사용해요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 카드 이미지 자리</p>
+      <div class="photo-placeholder">실제 제품 사진이 들어갈 자리</div>
+      <p class="photo-caption">실제로는 선글라스 / 골프화 / 우드 티 등 제품 사진이 이 자리에 들어가며, 그래파이트·오프화이트 배경 위에서 사진이 잘 도드라지는지 확인하는 용도예요.</p>
+    </div>
+  </section>
+
+  <!-- ========== THEME 3: 따뜻한 오프화이트 강화 ========== -->
+  <section class="theme-card theme-3">
+    <div class="theme-head">
+      <h2>3. 따뜻한 오프화이트 강화 (Warmer Off-White)</h2>
+      <p>블루는 1안과 동일 · 배경만 더 따뜻하게 · "보고서" 느낌 완화</p>
+    </div>
+
+    <div class="chip-row">
+      <span class="chip"><span class="swatch" style="background:#2B2E33"></span>primary <span class="hex">#2B2E33</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFFFF"></span>on-primary <span class="hex">#FFFFFF</span></span>
+      <span class="chip"><span class="swatch" style="background:#4A6FA5"></span>accent <span class="hex">#4A6FA5</span></span>
+      <span class="chip"><span class="swatch" style="background:#F8F3EA"></span>background <span class="hex">#F8F3EA</span></span>
+      <span class="chip"><span class="swatch" style="background:#FFFDF8"></span>surface <span class="hex">#FFFDF8</span></span>
+      <span class="chip"><span class="swatch" style="background:#E7DFCF"></span>border <span class="hex">#E7DFCF</span></span>
+      <span class="chip"><span class="swatch" style="background:#24221E"></span>text <span class="hex">#24221E</span></span>
+      <span class="chip"><span class="swatch" style="background:#6E6A61"></span>text-muted <span class="hex">#6E6A61</span></span>
+      <span class="chip"><span class="swatch" style="background:#3E7A52"></span>success <span class="hex">#3E7A52</span></span>
+      <span class="chip"><span class="swatch" style="background:#B08A3E"></span>warning <span class="hex">#B08A3E</span></span>
+      <span class="chip"><span class="swatch" style="background:#A13F32"></span>destructive <span class="hex">#A13F32</span></span>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">타이포그래피 샘플</p>
+      <p class="typo-headline">중국 제조 파트너와 함께,<br>정직한 소싱을 만듭니다</p>
+      <p class="typo-body">브릿지패스는 아이웨어·신발·골프용품 OEM/ODM 소싱을 담당자와 함께 처음부터 끝까지 관리합니다. 견적 요청부터 공장 확인, 생산, 선적까지 각 단계를 투명하게 안내해드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">CTA 비교 · 견적 요청하기 (A1 그래파이트 배경 vs A2 액센트 블루 배경)</p>
+      <div class="cta-compare">
+        <div class="cta-version">
+          <p class="cta-version-label">A1 · 그래파이트 배경</p>
+          <div class="btn-row">
+            <button class="btn-primary-a1">견적 요청하기</button>
+            <button class="btn-ghost">AI 사전 가격안내</button>
+          </div>
+        </div>
+        <div class="cta-version">
+          <p class="cta-version-label">A2 · 액센트 블루 배경</p>
+          <div class="btn-row">
+            <button class="btn-primary-a2">견적 요청하기</button>
+            <button class="btn-ghost">AI 사전 가격안내</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">포커스(키보드 접근성) 상태 예시</p>
+      <p class="focus-demo-label">입력창 예시 - 실제로는 키보드 Tab 이동 시 아래와 같은 아웃라인이 나타나요</p>
+      <input class="focus-demo-input" type="text" value="예: 회사명을 입력해주세요" readonly>
+      <p class="focus-demo-caption">아웃라인 2px, 액센트 컬러(#4A6FA5), 2px 오프셋 - 포커스 스타일을 지우지 않아요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">AI 사전 가격안내 결과</p>
+      <span class="badge">AI 사전 가격안내 가능</span>
+      <p class="price-line">예상 EXW 가격: ₩12,000 ~ ₩15,000 / 개</p>
+      <p class="price-caption">서비스 비용과 부대비용은 포함되지 않아요. 담당자 배정 후 안내드려요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">상담 전환 안내</p>
+      <div class="consult">
+        <p class="consult-title"><span class="consult-dot"></span>담당자 확인이 필요해요</p>
+        <p>입력하신 내용을 바탕으로 담당자가 세부 사항을 함께 확인해드릴게요.</p>
+        <button class="btn-warning">입력한 정보로 상담 요청 이어가기</button>
+      </div>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">관리자 상태 목록 - 색상 절제 적용 (10개 실제 상태 → 5개 의미 그룹)</p>
+      <div class="status-list">
+        <div class="status-row status-new">
+          <span class="status-group">신규 접수</span>
+          <span class="status-examples">신규 문의</span>
+        </div>
+        <div class="status-row status-progress">
+          <span class="status-group">진행 중</span>
+          <span class="status-examples">정보 확인 중 · 공장 견적 확인 중</span>
+        </div>
+        <div class="status-row status-warn">
+          <span class="status-group">주의 필요</span>
+          <span class="status-examples">추가정보 요청</span>
+        </div>
+        <div class="status-row status-done">
+          <span class="status-group">완료</span>
+          <span class="status-examples">종결</span>
+        </div>
+        <div class="status-row status-cancel">
+          <span class="status-group">취소</span>
+          <span class="status-examples">고객 취소</span>
+        </div>
+      </div>
+      <p class="status-note">진행 중 단계의 세부 상태들은 각각 다른 색을 쓰지 않고 하나의 중립(그래파이트 톤) 배경을 공유해요. 색은 "신규/주의/완료/취소" 같은 실제 의미가 있을 때만 사용해요.</p>
+    </div>
+
+    <div class="mock">
+      <p class="mock-label">레퍼런스 카드 이미지 자리</p>
+      <div class="photo-placeholder">실제 제품 사진이 들어갈 자리</div>
+      <p class="photo-caption">실제로는 선글라스 / 골프화 / 우드 티 등 제품 사진이 이 자리에 들어가며, 그래파이트·오프화이트 배경 위에서 사진이 잘 도드라지는지 확인하는 용도예요.</p>
+    </div>
+  </section>
+
+</div>
