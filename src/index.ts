@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import { config } from './config/env';
 import logger from './utils/logger';
 import adminAuthRouter from './routes/adminAuth';
+import estimatesRouter from './routes/estimates';
 
 const app: Express = express();
 
@@ -29,6 +30,9 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Admin authentication routes (Day 3)
 app.use('/admin', adminAuthRouter);
+
+// Customer API routes (Phase 2 Day 1)
+app.use('/api', estimatesRouter);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof Error) {
