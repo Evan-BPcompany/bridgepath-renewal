@@ -231,10 +231,10 @@ See `.env.example` for all available variables.
 - [x] Day 5: Specification validation and error handling
 
 ### Phase 2: Customer API (7 days)
-- [ ] Estimate submission endpoint
-- [ ] File upload and validation
-- [ ] S3 integration
-- [ ] Email notifications
+- [x] Day 1: Estimate submission endpoint (POST /api/estimates, GET /api/estimates/:receipt_id)
+- [x] Day 2: File upload, validation, and S3 integration (multipart/form-data, magic bytes, compensation)
+- [ ] Day 3: Email notifications (SendGrid integration)
+- [ ] Days 4-7: Additional features and testing
 
 ### Phase 3: Admin API (7 days)
 - [ ] Admin dashboard endpoints
@@ -398,7 +398,190 @@ npm test
 npm test:watch
 ```
 
-All tests passing: ✅ 22/22
+All tests passing: ✅ 26/26 (specification validation tests)
+
+---
+
+## Phase 2 Day 1: Customer Quote Submission API
+
+**Overview**
+
+Implemented secure customer quote submission and retrieval with one-time access tokens:
+- POST /api/estimates: Accept customer quote with category and specifications
+- GET /api/estimates/:receipt_id: Retrieve quote details with token-based access
+- Atomic transaction: Receipt ID generation + estimate storage + token creation in single SERIALIZABLE transaction
+
+**Key Features:**
+- **Receipt ID Generation**: Concurrent-safe with FOR UPDATE row-level locking and exponential backoff retry
+- **Access Token Security**: SHA-256 hashing, one-time use, 7-day expiration
+- **Customer Privacy**: Returns only receipt_id, category, status, specification_json (excludes customer PII)
+- **Transaction Safety**: SERIALIZABLE isolation level prevents race conditions
+
+**API Contracts:**
+
+```
+POST /api/estimates
+Request:  { category, specification_json, customer_email?, customer_name?, ... }
+Response: { success: true, receipt_id, status, access_token, created_at }
+
+GET /api/estimates/:receipt_id?token=xxx
+Response: { receipt_id, category, status, specification_json, created_at, updated_at }
+Error:    { error: "Unauthorized", timestamp }
+```
+
+**Test Coverage**: ✅ 26 tests
+
+---
+
+## Phase 2 Day 2: File Upload and S3 Integration
+
+**Overview**
+
+Implemented multipart/form-data file upload with private S3 storage, magic-byte validation, and comprehensive compensation handling for partial failures.
+
+**File Upload Features:**
+
+1. **Multipart/Form-Data Handling**
+   - Accept multiple files (max 10 files per estimate)
+   - Accept JSON specification_json as form field
+   - Backward compatible with existing application/json API
+
+2. **File Validation**
+   - MIME type whitelist: JPEG, PNG, GIF, PDF
+   - Magic bytes validation (prevent MIME type spoofing)
+   - Extension validation (must match MIME type)
+   - File size limit: 50MB per file
+   - Empty file rejection
+   - Supports both .jpg and .jpeg extensions
+
+3. **S3 Integration**
+   - AWS SDK v3 with private bucket
+   - Server-side encryption (AES256/SSE-S3)
+   - S3 key format: `estimates/{estimate_id}/{file_id}.{ext}`
+   - Credentials via environment variables
+   - No signed URLs (files remain in quarantine/pending_scan state)
+
+4. **File State Management**
+   - Initial state: `quarantine`
+   - After validation queue: `pending_scan`
+   - After ClamAV check: `approved` or `rejected`
+   - ⚠️ **ClamAV integration not yet implemented** (files remain in pending_scan)
+
+5. **Compensation Transaction Handling**
+
+   **Multifile Failure Cleanup:**
+   - Track all successfully uploaded files (ID, S3 key, estimate_id)
+   - On ANY failure: delete all S3 objects AND DB file records
+   - Prevent orphaned records in either system
+   - Log each compensation step for audit trail
+
+   **Estimate vs File Upload Architecture:**
+   - Estimate creation: SERIALIZABLE transaction, atomic commit
+   - File upload: Separate transaction (outside estimate transaction)
+   - Design: **Partial success is allowed**
+   - Rationale:
+     - Estimate (customer request) is primary data
+     - Files are secondary metadata
+     - Receipt ID already issued and immutable
+     - Estimate remains valid even if file upload fails
+   - Result if file fails: Estimate exists, files do not
+   - Client receives: HTTP 500 error
+
+   **Known Limitation:**
+   - ⚠️ **No file-only retry endpoint yet**
+   - Current behavior: Client retry creates NEW estimate (not idempotent)
+   - Workaround: Customer can retry with new estimate or retry entire request
+
+**API Changes:**
+
+```
+POST /api/estimates
+Accept: multipart/form-data or application/json
+
+Multipart example:
+  --formdata
+  category: "optical"
+  specification_json: "{...json...}"
+  files[0]: <JPEG file>
+  files[1]: <PDF file>
+
+Response (success with files):
+{
+  success: true,
+  receipt_id: "BP20260930001",
+  status: "new_receipt",
+  access_token: "...",
+  created_at: "2026-09-30T...",
+  files: [
+    { id: "file-uuid-1", filename: "photo.jpg", size: 102400, status: "quarantine" },
+    { id: "file-uuid-2", filename: "spec.pdf", size: 204800, status: "quarantine" }
+  ]
+}
+
+Response (validation error):
+{
+  error: "File validation failed",
+  details: [
+    { filename: "doc.docx", errors: ["MIME type application/vnd... is not allowed"] },
+    { filename: "large.jpg", errors: ["File size exceeds 50MB limit"] }
+  ],
+  timestamp: "2026-09-30T..."
+}
+
+Response (file upload error):
+HTTP 500: { error: "File upload failed", timestamp: "..." }
+// Estimate created, but files may not have been stored
+```
+
+**Implementation Details:**
+
+- **fileService.ts**:
+  - `uploadFileWithMetadata()`: Single file with DB + S3 transaction
+  - `deleteFileMetadata()`: Remove file record from DB
+  - `uploadMultipleFilesWithMetadata()`: Batch upload with compensation
+
+- **s3Service.ts**:
+  - `uploadFileToS3()`: PutObjectCommand with SSE-S3
+  - `deleteFileFromS3()`: DeleteObjectCommand for compensation
+
+- **fileValidation.ts**:
+  - `validateFileBuffer()`: Magic bytes + extension + size checks
+  - `generateSafeFileId()`: UUID without hyphens
+  - `getFileExtension()`: Lowercase extraction, handles missing extensions
+
+- **upload.ts middleware**:
+  - Multer configuration with size/file count limits
+  - `extractMultipartData()`: Parse form fields including JSON specification
+
+**Test Coverage**: ✅ 78 total tests
+- Specification validation: 26 tests
+- Estimates API: 42 tests (including HTTP response filtering)
+- Compensation strategy & file handling: 10 tests
+
+**Actual Test Results:**
+```
+Test Suites: 3 passed, 3 total
+Tests:       78 passed, 78 total
+```
+
+**Integration Testing Status:**
+- ✅ Unit tests: All 78 passing
+- ❌ AWS integration: Not tested (DATABASE_URL, AWS credentials not configured)
+- ❌ ClamAV integration: Not implemented
+
+**Future Work (Phase 2 Day 3+):**
+
+```
+POST /api/estimates/:receipt_id/files
+- Upload files to existing estimate without creating new one
+- Requires valid access token
+- Idempotent: same token + files = same result (no duplicate uploads)
+
+or implement idempotency key approach:
+- POST /api/estimates?idempotency_key=xxx
+- Retry same request with same key = returns previous receipt_id (no new estimate)
+- Enables safe retry semantics for file upload failures
+```
 
 **Last Updated**: 2026-09-30  
-**Next Phase**: Phase 2 - Customer API
+**Next Phase**: Phase 2 Day 3 - Email Notifications (SendGrid)
