@@ -99,20 +99,45 @@ npm start
 - `DATABASE_URL` environment variable configured
 
 **Knex.js TypeScript Migrations**:
-All migrations are written in TypeScript with up/down functions:
+All migrations are written in TypeScript with `up()` and `down()` functions for forward/rollback operations:
+
 ```
 src/db/migrations/
-├── 001_init_schema.ts         (Core 7 tables)
-├── 002_admin_sessions.ts      (Session management)
-├── 003_estimate_access_tokens.ts (Access tokens)
-├── 004_base_prices_and_email.ts  (Pricing + email events = 3 tables)
-└── 005_seed_dev_data.ts       (Development data only)
+├── 001_init_schema.ts              (Core 6 tables)
+│   ├── admin_users
+│   ├── estimates
+│   ├── files
+│   ├── quotations
+│   ├── status_history
+│   └── admin_memos
+├── 002_admin_sessions.ts           (1 table: admin_sessions)
+├── 003_estimate_access_tokens.ts   (1 table: estimate_access_tokens)
+├── 004_base_prices_and_email.ts    (2 tables)
+│   ├── base_prices
+│   └── email_events
+└── 005_seed_dev_data.ts            (Development/test data only)
 ```
-**Total: 10 tables created** (admin_users, admin_sessions, estimates, estimate_access_tokens, files, base_prices, quotations, status_history, admin_memos, email_events)
 
-**Run migrations**:
+**Total: 10 tables**
+- Core tables: 6 (001)
+- Session management: 1 (002)
+- Access tokens: 1 (003)
+- Pricing & communication: 2 (004)
+
+**Run migrations** (requires DATABASE_URL):
 ```bash
+# Step 1: Build TypeScript (validates migration structure)
+npm run build
+# ✓ Verifies all migration files compile correctly
+# ✓ Creates executable JavaScript migrations in dist/db/migrations/
+
+# Step 2: Run actual database migrations
+# (Only possible after DATABASE_URL is configured)
 npm run db:migrate
+# This will:
+# - Execute all pending migrations sequentially
+# - Track migration state in knex_migrations table
+# - Apply all schema and seed data
 ```
 
 **Rollback migrations** (reverts last migration):
@@ -123,24 +148,40 @@ npm run db:rollback
 **Manual setup script** (alternative with validation):
 ```bash
 bash scripts/setup-db.sh
+# This script:
+# - Checks PostgreSQL client is installed
+# - Runs migrations
+# - Verifies table creation
+# - Confirms admin user and sample data
 ```
 
-**Verify database** (after running migrations):
+**Current Status**:
+- ✅ TypeScript migrations created and compiled
+- ✅ Migration structure verified (5 migration files, 10 tables)
+- ⏳ Actual database migration: **NOT YET TESTED** (requires DATABASE_URL)
+
+**Verify database** (only after migrations are executed with DATABASE_URL):
 ```bash
 # Connect to the database
 psql $DATABASE_URL
 
-# List all tables
+# List all tables (should show 10 tables)
 \dt
 
-# Check admin user (should show 'master' user)
+# Verify master admin user was created
 SELECT username, email, role FROM admin_users WHERE username = 'master';
 
-# Check table count (should show 10 tables)
-SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
+# Verify all 10 tables exist
+SELECT COUNT(*) FROM information_schema.tables
+WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
+# Expected: 10
 
-# Check sample base prices (marked with [SAMPLE])
-SELECT category, product_variant, description FROM base_prices WHERE description LIKE '[SAMPLE]%' LIMIT 5;
+# Verify sample base prices (marked with [SAMPLE])
+SELECT category, product_variant, description FROM base_prices
+WHERE description LIKE '[SAMPLE]%' LIMIT 5;
+
+# Verify migration history
+SELECT migration FROM knex_migrations ORDER BY batch DESC LIMIT 5;
 ```
 
 **Default admin credentials** (created by migration in DEV ENVIRONMENT ONLY):
