@@ -27,6 +27,13 @@ bridge-path-mvp/
 │   ├── config/
 │   │   ├── env.ts           # Environment variables loader
 │   │   └── database.ts      # PostgreSQL pool configuration
+│   ├── db/
+│   │   └── migrations/      # Knex.js TypeScript migrations
+│   │       ├── 001_init_schema.ts
+│   │       ├── 002_admin_sessions.ts
+│   │       ├── 003_estimate_access_tokens.ts
+│   │       ├── 004_base_prices_and_email.ts
+│   │       └── 005_seed_dev_data.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -88,41 +95,66 @@ npm start
 ### Database Setup (Phase 1 Day 2+)
 
 **Prerequisites**:
-- PostgreSQL 14+ installed and running
+- PostgreSQL 14+ installed and running (UUID support required)
 - `DATABASE_URL` environment variable configured
+
+**Knex.js TypeScript Migrations**:
+All migrations are written in TypeScript with up/down functions:
+```
+src/db/migrations/
+├── 001_init_schema.ts         (Core 7 tables)
+├── 002_admin_sessions.ts      (Session management)
+├── 003_estimate_access_tokens.ts (Access tokens)
+├── 004_base_prices_and_email.ts  (Pricing + email events = 3 tables)
+└── 005_seed_dev_data.ts       (Development data only)
+```
+**Total: 10 tables created** (admin_users, admin_sessions, estimates, estimate_access_tokens, files, base_prices, quotations, status_history, admin_memos, email_events)
 
 **Run migrations**:
 ```bash
 npm run db:migrate
 ```
 
-**Rollback migrations** (if needed):
+**Rollback migrations** (reverts last migration):
 ```bash
 npm run db:rollback
 ```
 
-**Manual setup script** (alternative):
+**Manual setup script** (alternative with validation):
 ```bash
 bash scripts/setup-db.sh
 ```
 
-**Verify database**:
+**Verify database** (after running migrations):
 ```bash
 # Connect to the database
-psql "$DATABASE_URL"
+psql $DATABASE_URL
 
 # List all tables
 \dt
 
-# Check admin user
-SELECT username, email, role FROM admin_users;
+# Check admin user (should show 'master' user)
+SELECT username, email, role FROM admin_users WHERE username = 'master';
+
+# Check table count (should show 10 tables)
+SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
+
+# Check sample base prices (marked with [SAMPLE])
+SELECT category, product_variant, description FROM base_prices WHERE description LIKE '[SAMPLE]%' LIMIT 5;
 ```
 
-**Default admin credentials** (created by migration):
+**Default admin credentials** (created by migration in DEV ENVIRONMENT ONLY):
 - Username: `master`
 - Email: `admin@bridgepath.local`
-- Password: `CHANGE_ME_ON_FIRST_LOGIN`
+- Password: `CHANGE_ME_ON_FIRST_LOGIN` (bcryptjs hash)
 - ⚠️ **MUST be changed on first login**
+- ⚠️ **This is for development/testing only. Production deployments must use a separate admin initialization process.**
+
+**Sample base prices**:
+- Sample pricing for eyewear, shoes, golf products, and other categories are created by the seed migration
+- These are **marked with [SAMPLE]** label in descriptions
+- Use only for development and testing
+- In production, configure actual pricing through admin APIs
 
 ## 📋 Environment Variables
 
