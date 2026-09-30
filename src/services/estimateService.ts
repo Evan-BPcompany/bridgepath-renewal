@@ -110,34 +110,41 @@ export async function getEstimateByReceiptId(
   const client = await pool.connect();
 
   try {
+    await client.query('BEGIN');
+
     const updateQuery = `
       UPDATE estimate_access_tokens
       SET is_used = true, visited_at = CURRENT_TIMESTAMP, visit_count = visit_count + 1
-      WHERE token = $1 AND is_used = false AND expires_at > CURRENT_TIMESTAMP
+      WHERE token = $1 AND receipt_id = $2 AND is_used = false AND expires_at > CURRENT_TIMESTAMP
       RETURNING estimate_id
     `;
 
-    const updateResult = await client.query(updateQuery, [tokenHash]);
+    const updateResult = await client.query(updateQuery, [tokenHash, receipt_id]);
 
     if (updateResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return null;
     }
+
+    const estimateId = updateResult.rows[0].estimate_id;
 
     const query = `
       SELECT
         e.receipt_id, e.category, e.status, e.specification_json,
-        e.customer_name, e.customer_email, e.customer_phone, e.company_name,
         e.created_at, e.updated_at
       FROM estimates e
-      WHERE e.receipt_id = $1
+      WHERE e.id = $1
       LIMIT 1
     `;
 
-    const result = await client.query(query, [receipt_id]);
+    const result = await client.query(query, [estimateId]);
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       return null;
     }
+
+    await client.query('COMMIT');
 
     const row = result.rows[0];
 
@@ -150,6 +157,11 @@ export async function getEstimateByReceiptId(
       updated_at: new Date(row.updated_at).toISOString()
     };
   } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback error
+    }
     logger.error('Failed to get estimate', {
       error: err instanceof Error ? err.message : String(err)
     });
