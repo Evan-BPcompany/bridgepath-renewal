@@ -85,6 +85,45 @@ npm run build
 npm start
 ```
 
+### Database Setup (Phase 1 Day 2+)
+
+**Prerequisites**:
+- PostgreSQL 14+ installed and running
+- `DATABASE_URL` environment variable configured
+
+**Run migrations**:
+```bash
+npm run db:migrate
+```
+
+**Rollback migrations** (if needed):
+```bash
+npm run db:rollback
+```
+
+**Manual setup script** (alternative):
+```bash
+bash scripts/setup-db.sh
+```
+
+**Verify database**:
+```bash
+# Connect to the database
+psql "$DATABASE_URL"
+
+# List all tables
+\dt
+
+# Check admin user
+SELECT username, email, role FROM admin_users;
+```
+
+**Default admin credentials** (created by migration):
+- Username: `master`
+- Email: `admin@bridgepath.local`
+- Password: `CHANGE_ME_ON_FIRST_LOGIN`
+- ⚠️ **MUST be changed on first login**
+
 ## 📋 Environment Variables
 
 Required variables for Day 1:
@@ -103,11 +142,11 @@ See `.env.example` for all available variables.
 ## 🏗️ Development Phases
 
 ### Phase 1: Backend Foundation (5 days)
-- [x] Project structure initialization
-- [ ] PostgreSQL migrations and schema
-- [ ] JWT authentication and session management
-- [ ] Receipt ID generation
-- [ ] Specification validation
+- [x] Day 1: Project structure initialization (Express, TypeScript, config)
+- [x] Day 2: PostgreSQL migrations and schema (9 tables, 5 migrations)
+- [ ] Day 3: JWT authentication and session management
+- [ ] Day 4: Receipt ID generation and session refresh tokens
+- [ ] Day 5: Specification validation and error handling
 
 ### Phase 2: Customer API (7 days)
 - [ ] Estimate submission endpoint

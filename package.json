@@ -6,21 +6,27 @@
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "db:migrate": "knex migrate:latest --env development",
+    "db:rollback": "knex migrate:rollback --env development",
+    "db:migrate:make": "knex migrate:make",
+    "db:seed": "knex seed:run --env development"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
+    "express": "^4.18.2",
     "pg": "^8.10.0",
-    "winston": "^3.8.2",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "winston": "^3.8.2"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0",
-    "@types/express": "^4.17.17",
     "@types/cors": "^2.8.14",
-    "ts-node": "^10.9.1"
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.23.1",
+    "knex": "^3.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
   }
 }

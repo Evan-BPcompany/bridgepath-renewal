@@ -16,7 +16,7 @@ app.use(
 
 app.use(express.json());
 
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -24,7 +24,7 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof Error) {
     logger.error('Unhandled error', { error: err.message, stack: err.stack });
   } else {
@@ -39,7 +39,7 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
 
 const PORT = config.port;
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`✓ Server running on port ${PORT}`);
   console.log(`✓ Environment: ${config.nodeEnv}`);
   console.log(`✓ CORS origins: ${config.corsOrigins.join(', ')}`);
