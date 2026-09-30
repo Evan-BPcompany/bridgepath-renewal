@@ -115,14 +115,23 @@ src/db/migrations/
 ├── 004_base_prices_and_email.ts    (2 tables)
 │   ├── base_prices
 │   └── email_events
-└── 005_seed_dev_data.ts            (Development/test data only)
+├── 005_seed_dev_data.ts            (Development/test data only)
+└── 006_receipt_sequence.ts         (1 table: receipt_sequence - infrastructure)
 ```
 
-**Total: 10 tables**
+**Application Tables: 10**
 - Core tables: 6 (001)
 - Session management: 1 (002)
 - Access tokens: 1 (003)
 - Pricing & communication: 2 (004)
+
+**Infrastructure Tables: 1**
+- Receipt sequence: 1 (006)
+
+**Knex Management Tables: 1 (auto-created)**
+- knex_migrations: tracks migration state
+
+**Total: 11 application + infrastructure tables**
 
 **Run migrations** (requires DATABASE_URL):
 ```bash

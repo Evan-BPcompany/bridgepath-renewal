@@ -3,6 +3,8 @@ import logger from './logger';
 
 const RECEIPT_PREFIX = 'BP';
 const SEQUENCE_PAD_WIDTH = 3;
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 10;
 
 export function formatDate(date: Date): string {
   const year = date.getFullYear();
@@ -15,62 +17,114 @@ export function formatSequence(sequence: number): string {
   return String(sequence).padStart(SEQUENCE_PAD_WIDTH, '0');
 }
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function generateReceiptId(): Promise<string> {
   const pool = getPool();
   const today = new Date();
-
   const dateStr = formatDate(today);
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+  let lastError: Error | null = null;
 
-    const existingResult = await client.query(
-      `SELECT last_sequence FROM receipt_sequence WHERE receipt_date = $1::date FOR UPDATE`,
-      [dateStr]
-    );
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
 
-    let nextSequence = 1;
-
-    if (existingResult.rows.length > 0) {
-      nextSequence = existingResult.rows[0].last_sequence + 1;
-      await client.query(
-        `UPDATE receipt_sequence
-         SET last_sequence = $1, updated_at = CURRENT_TIMESTAMP
-         WHERE receipt_date = $2::date`,
-        [nextSequence, dateStr]
+      const existingResult = await client.query(
+        `SELECT last_sequence FROM receipt_sequence WHERE receipt_date = $1::date FOR UPDATE`,
+        [dateStr]
       );
-    } else {
-      nextSequence = 1;
-      await client.query(
-        `INSERT INTO receipt_sequence (receipt_date, last_sequence, created_at, updated_at)
-         VALUES ($1::date, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [dateStr, nextSequence]
-      );
+
+      let nextSequence = 1;
+
+      if (existingResult.rows.length > 0) {
+        nextSequence = existingResult.rows[0].last_sequence + 1;
+        await client.query(
+          `UPDATE receipt_sequence
+           SET last_sequence = $1, updated_at = CURRENT_TIMESTAMP
+           WHERE receipt_date = $2::date`,
+          [nextSequence, dateStr]
+        );
+      } else {
+        nextSequence = 1;
+        await client.query(
+          `INSERT INTO receipt_sequence (receipt_date, last_sequence, created_at, updated_at)
+           VALUES ($1::date, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+          [dateStr, nextSequence]
+        );
+      }
+
+      if (nextSequence > 999) {
+        throw new Error('Receipt sequence overflow for date: exceeded 999');
+      }
+
+      await client.query('COMMIT');
+
+      const sequenceStr = formatSequence(nextSequence);
+      const receiptId = `${RECEIPT_PREFIX}${dateStr}${sequenceStr}`;
+
+      if (attempt > 0) {
+        logger.info('Generated receipt ID after retry', {
+          receiptId,
+          date: dateStr,
+          sequence: nextSequence,
+          attempts: attempt + 1
+        });
+      } else {
+        logger.info('Generated receipt ID', {
+          receiptId,
+          date: dateStr,
+          sequence: nextSequence
+        });
+      }
+
+      return receiptId;
+    } catch (err) {
+      lastError = err as Error;
+
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // Ignore rollback error if transaction already rolled back
+      }
+
+      const isSerializationFailure =
+        (err as any)?.code === '40001' || (err as any)?.code === 40001;
+      const isUniqueViolation =
+        (err as any)?.code === '23505' || (err as any)?.code === 23505;
+
+      if ((isSerializationFailure || isUniqueViolation) && attempt < MAX_RETRIES - 1) {
+        const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+        logger.warn('Receipt sequence contention, retrying', {
+          date: dateStr,
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES,
+          errorCode: (err as any)?.code,
+          delayMs
+        });
+
+        await sleep(delayMs);
+        continue;
+      }
+
+      throw err;
+    } finally {
+      client.release();
     }
-
-    if (nextSequence > 999) {
-      throw new Error('Receipt sequence overflow for date: exceeded 999');
-    }
-
-    await client.query('COMMIT');
-
-    const sequenceStr = formatSequence(nextSequence);
-    const receiptId = `${RECEIPT_PREFIX}${dateStr}${sequenceStr}`;
-
-    logger.info('Generated receipt ID', {
-      receiptId,
-      date: dateStr,
-      sequence: nextSequence
-    });
-
-    return receiptId;
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
   }
+
+  logger.error('Failed to generate receipt ID after retries', {
+    date: dateStr,
+    attempts: MAX_RETRIES,
+    lastError: lastError?.message
+  });
+
+  throw new Error(
+    `Failed to generate receipt ID after ${MAX_RETRIES} retries: ${lastError?.message}`
+  );
 }
 
 export function parseReceiptId(receiptId: string): {

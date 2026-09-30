@@ -14,14 +14,12 @@ export async function up(knex: Knex): Promise<void> {
       updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Index for date lookups
-    CREATE INDEX idx_receipt_sequence_date ON receipt_sequence(receipt_date);
+    -- UNIQUE constraint automatically creates index, no explicit index needed
   `);
 }
 
 export async function down(knex: Knex): Promise<void> {
   await knex.raw(`
-    DROP INDEX IF EXISTS idx_receipt_sequence_date;
     DROP TABLE IF EXISTS receipt_sequence;
   `);
 }
