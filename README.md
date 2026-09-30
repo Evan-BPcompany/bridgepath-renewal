@@ -226,9 +226,9 @@ See `.env.example` for all available variables.
 ### Phase 1: Backend Foundation (5 days)
 - [x] Day 1: Project structure initialization (Express, TypeScript, config)
 - [x] Day 2: PostgreSQL migrations and schema (9 tables, 5 migrations)
-- [ ] Day 3: JWT authentication and session management
-- [ ] Day 4: Receipt ID generation and session refresh tokens
-- [ ] Day 5: Specification validation and error handling
+- [x] Day 3: JWT authentication and session management
+- [x] Day 4: Receipt ID generation and session refresh tokens
+- [x] Day 5: Specification validation and error handling
 
 ### Phase 2: Customer API (7 days)
 - [ ] Estimate submission endpoint
@@ -265,5 +265,71 @@ For questions or issues, please contact: contact@bridgepath.co.kr
 
 ---
 
+## Phase 1 Day 5: Specification Validation
+
+**Ajv-based Input Validation**
+
+Implemented category-specific JSON schema validation for four product categories:
+
+```
+src/utils/specification.ts
+├── EyewearSpecification: frame_type, material, lens_type, quantity (required)
+├── ShoesSpecification: shoe_type, material, size_range, quantity (required), special_requirements (optional)
+├── GolfSpecification: product_type, material, quantity (required), customization (optional)
+└── OtherSpecification: product_description, quantity (required), special_requirements (optional)
+```
+
+**Validation Middleware**
+
+Created `src/middleware/validation.ts` with `validateEstimateSpecification` middleware that:
+- Checks for required `category` and `specification_json` fields
+- Validates category is one of: eyewear, shoes, golf_products, other
+- Ensures `specification_json` is a valid object
+- Runs Ajv schema validation against category-specific schemas
+- Returns consistent 400 error responses with detailed field-level errors
+- Logs validation failures without exposing sensitive data
+- Attaches validated data to request for downstream handlers
+
+**Error Response Format**
+
+```json
+{
+  "error": "Invalid specification_json",
+  "details": [
+    "root/frame_type: must have minimum length 1",
+    "root/quantity: must be >= 1"
+  ],
+  "timestamp": "2026-09-30T12:34:56.789Z"
+}
+```
+
+**Validation Constraints**
+
+- All string fields: minimum length 1 (no empty strings)
+- All quantity fields: minimum 1, maximum 1,000,000
+- Category field: const value matching the category parameter
+- Additional properties: allowed (forward compatibility)
+- Optional fields: can be undefined or null
+
+**Testing**
+
+Added comprehensive Jest test suite (`src/__tests__/specification.test.ts`) with 22 tests covering:
+- Valid specifications per category
+- Missing required fields
+- Empty string validation
+- Quantity boundary constraints (1, 1000000)
+- Wrong type validation (number vs string)
+- Unknown category rejection
+- Null/non-object specification rejection
+- Optional field validation
+
+Run tests:
+```bash
+npm test
+npm test:watch
+```
+
+All tests passing: ✅ 22/22
+
 **Last Updated**: 2026-09-30  
-**Next Phase**: Database Migrations (Day 2)
+**Next Phase**: Phase 2 - Customer API

@@ -7,6 +7,8 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "db:migrate": "knex migrate:latest --env development",
     "db:rollback": "knex migrate:rollback --env development",
     "db:migrate:make": "knex migrate:make",
@@ -16,6 +18,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/jsonwebtoken": "^9.0.10",
+    "ajv": "^8.20.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -29,10 +32,13 @@
   "devDependencies": {
     "@types/cors": "^2.8.14",
     "@types/express": "^4.17.17",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.23.1",
     "@types/uuid": "^10.0.0",
+    "jest": "^30.5.2",
     "knex": "^3.1.0",
+    "ts-jest": "^29.4.14",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.0"
   }
