@@ -61,6 +61,25 @@ export async function saveFileMetadata(
   };
 }
 
+async function deleteFileMetadata(fileId: string): Promise<void> {
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    const query = 'DELETE FROM files WHERE id = $1';
+    await client.query(query, [fileId]);
+    logger.info('File metadata deleted', { fileId });
+  } catch (err) {
+    logger.error('Failed to delete file metadata', {
+      fileId,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function uploadFileWithMetadata(
   estimateId: string,
   buffer: Buffer,
@@ -133,32 +152,43 @@ export async function uploadMultipleFilesWithMetadata(
   files: Array<{ buffer: Buffer; mimeType: string; originalFilename: string }>
 ): Promise<UploadedFile[]> {
   const uploadedFiles: UploadedFile[] = [];
-  const uploadedS3Keys: string[] = [];
 
   try {
     for (const file of files) {
       const uploaded = await uploadFileWithMetadata(estimateId, file.buffer, file.mimeType, file.originalFilename);
       uploadedFiles.push(uploaded);
-      uploadedS3Keys.push(uploaded.s3Key);
     }
     return uploadedFiles;
   } catch (err) {
-    logger.error('Multiple file upload failed, cleaning up S3 objects', {
+    logger.error('Multiple file upload failed, compensating S3 and DB', {
       estimateId,
       uploadedCount: uploadedFiles.length,
       error: err instanceof Error ? err.message : String(err)
     });
-    for (const key of uploadedS3Keys) {
+
+    for (const file of uploadedFiles) {
       try {
-        await deleteFileFromS3(key);
+        await deleteFileFromS3(file.s3Key);
       } catch (deleteErr) {
-        logger.error('Failed to delete S3 object during rollback', {
+        logger.error('Failed to delete S3 object during compensation', {
           estimateId,
-          s3Key: key,
+          fileId: file.id,
+          s3Key: file.s3Key,
+          error: deleteErr instanceof Error ? deleteErr.message : String(deleteErr)
+        });
+      }
+
+      try {
+        await deleteFileMetadata(file.id);
+      } catch (deleteErr) {
+        logger.error('Failed to delete file metadata during compensation', {
+          estimateId,
+          fileId: file.id,
           error: deleteErr instanceof Error ? deleteErr.message : String(deleteErr)
         });
       }
     }
+
     throw err;
   }
 }

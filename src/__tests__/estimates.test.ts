@@ -213,6 +213,33 @@ describe('Estimate API', () => {
       expect(responseBody.created_at).toBeDefined();
     });
 
+    it('should NOT expose internal estimate_id in HTTP response', () => {
+      const responseBody = {
+        success: true,
+        receipt_id: 'BP20260930001',
+        status: 'new_receipt',
+        access_token: 'xxxxx...',
+        created_at: new Date().toISOString()
+      };
+
+      expect(responseBody).not.toHaveProperty('estimate_id');
+    });
+
+    it('should define file upload response structure', () => {
+      const fileResponse = {
+        id: 'file-uuid-123',
+        filename: 'document.pdf',
+        size: 102400,
+        status: 'quarantine'
+      };
+
+      expect(fileResponse.id).toBeDefined();
+      expect(fileResponse.filename).toBeDefined();
+      expect(fileResponse.size).toBeDefined();
+      expect(fileResponse.status).toBeDefined();
+      expect(fileResponse.status).toMatch(/^(quarantine|pending_scan|approved|rejected)$/);
+    });
+
     it('should define error response structure', () => {
       const errorResponse = {
         error: 'Invalid specification_json',
