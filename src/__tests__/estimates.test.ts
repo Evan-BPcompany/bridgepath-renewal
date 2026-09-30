@@ -1,6 +1,7 @@
 import { validateSpecification } from '../utils/specification';
 import { generateEstimateAccessToken, hashEstimateToken } from '../utils/token';
 import { validateReceiptId } from '../utils/receipt-id';
+import { validateFileBuffer, generateSafeFileId, getFileExtension } from '../utils/fileValidation';
 
 describe('Estimate API', () => {
   describe('Specification Validation for Estimates', () => {
@@ -222,6 +223,140 @@ describe('Estimate API', () => {
       expect(errorResponse.error).toBeDefined();
       expect(errorResponse.details).toBeDefined();
       expect(errorResponse.timestamp).toBeDefined();
+    });
+  });
+
+  describe('File Upload Validation', () => {
+    describe('MIME type and magic bytes validation', () => {
+      it('should validate JPEG file with correct magic bytes', () => {
+        const jpegMagic = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+        const result = validateFileBuffer(jpegMagic, 'image/jpeg', 'photo.jpg');
+        expect(result.valid).toBe(true);
+      });
+
+      it('should reject JPEG with incorrect magic bytes', () => {
+        const wrongMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47]); // PNG magic
+        const result = validateFileBuffer(wrongMagic, 'image/jpeg', 'photo.jpg');
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('File magic bytes do not match MIME type');
+      });
+
+      it('should validate PNG file with correct magic bytes', () => {
+        const pngMagic = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+        const result = validateFileBuffer(pngMagic, 'image/png', 'image.png');
+        expect(result.valid).toBe(true);
+      });
+
+      it('should validate GIF file with correct magic bytes', () => {
+        const gifMagic = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+        const result = validateFileBuffer(gifMagic, 'image/gif', 'animation.gif');
+        expect(result.valid).toBe(true);
+      });
+
+      it('should validate PDF file with correct magic bytes', () => {
+        const pdfMagic = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
+        const result = validateFileBuffer(pdfMagic, 'application/pdf', 'document.pdf');
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe('File extension validation', () => {
+      it('should accept valid JPEG extensions', () => {
+        const jpegMagic = Buffer.from([0xff, 0xd8, 0xff]);
+        const result1 = validateFileBuffer(jpegMagic, 'image/jpeg', 'photo.jpg');
+        const result2 = validateFileBuffer(jpegMagic, 'image/jpeg', 'photo.jpeg');
+        expect(result1.valid).toBe(true);
+        expect(result2.valid).toBe(true);
+      });
+
+      it('should reject JPEG with wrong extension', () => {
+        const jpegMagic = Buffer.from([0xff, 0xd8, 0xff]);
+        const result = validateFileBuffer(jpegMagic, 'image/jpeg', 'photo.png');
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('File extension .png does not match MIME type image/jpeg');
+      });
+
+      it('should handle missing file extension', () => {
+        const jpegMagic = Buffer.from([0xff, 0xd8, 0xff]);
+        const result = validateFileBuffer(jpegMagic, 'image/jpeg', 'photo');
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('File extension .unknown does not match MIME type image/jpeg');
+      });
+    });
+
+    describe('File size validation', () => {
+      it('should reject empty file', () => {
+        const emptyBuffer = Buffer.from([]);
+        const result = validateFileBuffer(emptyBuffer, 'image/jpeg', 'photo.jpg');
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('File is empty');
+      });
+
+      it('should reject file exceeding size limit (50MB)', () => {
+        const oversizeBuffer = Buffer.alloc(51 * 1024 * 1024);
+        oversizeBuffer[0] = 0xff;
+        oversizeBuffer[1] = 0xd8;
+        oversizeBuffer[2] = 0xff;
+        const result = validateFileBuffer(oversizeBuffer, 'image/jpeg', 'photo.jpg');
+        expect(result.valid).toBe(false);
+        expect(result.errors[0]).toContain('File size exceeds 50MB limit');
+      });
+
+      it('should accept file at maximum size (50MB)', () => {
+        const maxBuffer = Buffer.alloc(50 * 1024 * 1024);
+        maxBuffer[0] = 0xff;
+        maxBuffer[1] = 0xd8;
+        maxBuffer[2] = 0xff;
+        const result = validateFileBuffer(maxBuffer, 'image/jpeg', 'photo.jpg');
+        expect(result.valid).toBe(true);
+      });
+    });
+
+    describe('Unsupported file types', () => {
+      it('should reject unsupported MIME type', () => {
+        const buffer = Buffer.from([0xff, 0xd8, 0xff]);
+        const result = validateFileBuffer(buffer, 'application/exe', 'malware.exe');
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('MIME type application/exe is not allowed');
+      });
+
+      it('should reject Word document', () => {
+        const buffer = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // DOCX magic
+        const result = validateFileBuffer(buffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'document.docx');
+        expect(result.valid).toBe(false);
+      });
+    });
+
+    describe('Safe file ID generation', () => {
+      it('should generate UUID without hyphens', () => {
+        const fileId = generateSafeFileId();
+        expect(fileId).toHaveLength(32);
+        expect(fileId).toMatch(/^[a-f0-9]{32}$/);
+        expect(fileId).not.toContain('-');
+      });
+
+      it('should generate unique file IDs', () => {
+        const id1 = generateSafeFileId();
+        const id2 = generateSafeFileId();
+        expect(id1).not.toEqual(id2);
+      });
+    });
+
+    describe('File extension extraction', () => {
+      it('should extract lowercase extension', () => {
+        expect(getFileExtension('photo.JPG')).toBe('jpg');
+        expect(getFileExtension('document.PDF')).toBe('pdf');
+        expect(getFileExtension('image.PnG')).toBe('png');
+      });
+
+      it('should handle missing extension', () => {
+        expect(getFileExtension('photo')).toBe('unknown');
+      });
+
+      it('should handle multiple dots in filename', () => {
+        expect(getFileExtension('photo.backup.jpg')).toBe('jpg');
+        expect(getFileExtension('document.final.pdf')).toBe('pdf');
+      });
     });
   });
 });

@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { config } from '../config/env';
 import logger from '../utils/logger';
 
@@ -52,4 +52,25 @@ export async function uploadFileToS3(
 
 export function getS3KeyForEstimate(estimateId: string, fileId: string, extension: string): string {
   return `estimates/${estimateId}/${fileId}.${extension}`;
+}
+
+export async function deleteFileFromS3(key: string): Promise<void> {
+  const client = initializeS3Client();
+
+  const command = new DeleteObjectCommand({
+    Bucket: config.s3Bucket,
+    Key: key
+  });
+
+  try {
+    await client.send(command);
+    logger.info('File deleted from S3', { bucket: config.s3Bucket, key });
+  } catch (err) {
+    logger.error('S3 delete failed', {
+      error: err instanceof Error ? err.message : String(err),
+      bucket: config.s3Bucket,
+      key
+    });
+    throw err;
+  }
 }

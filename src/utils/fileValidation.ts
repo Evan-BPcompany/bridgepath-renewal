@@ -61,8 +61,8 @@ export function validateFileBuffer(buffer: Buffer, mimeType: string, filename: s
     errors.push('File magic bytes do not match MIME type');
   }
 
-  const ext = filename.split('.').pop()?.toLowerCase();
-  if (!ext || !signature.extensions.includes(ext)) {
+  const ext = getFileExtension(filename);
+  if (!signature.extensions.includes(ext)) {
     errors.push(`File extension .${ext} does not match MIME type ${mimeType}`);
   }
 
@@ -77,7 +77,11 @@ export function generateSafeFileId(): string {
 }
 
 export function getFileExtension(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase();
+  const parts = filename.split('.');
+  if (parts.length < 2) {
+    return 'unknown';
+  }
+  const ext = parts.pop()?.toLowerCase();
   return ext || 'unknown';
 }
 

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { validateSpecification } from '../utils/specification';
 import { hashEstimateToken } from '../utils/token';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
-import { uploadFileWithMetadata } from '../services/fileService';
+import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { validateReceiptId } from '../utils/receipt-id';
 import { uploadMiddleware, extractMultipartData } from '../middleware/upload';
 import { validateFileBuffer } from '../utils/fileValidation';
@@ -49,6 +49,35 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       return;
     }
 
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      const fileValidationErrors: Array<{ filename: string; errors: string[] }> = [];
+
+      for (const file of uploadedFiles) {
+        const fileValidation = validateFileBuffer(file.buffer, file.mimetype, file.originalname);
+        if (!fileValidation.valid) {
+          fileValidationErrors.push({
+            filename: file.originalname,
+            errors: fileValidation.errors
+          });
+        }
+      }
+
+      if (fileValidationErrors.length > 0) {
+        logger.warn('File validation failed for multiple files', {
+          category,
+          errorCount: fileValidationErrors.length,
+          errors: fileValidationErrors
+        });
+
+        res.status(400).json({
+          error: 'File validation failed',
+          details: fileValidationErrors,
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+    }
+
     const result = await createEstimate({
       category,
       specification_json,
@@ -59,46 +88,54 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
     });
 
     if (uploadedFiles && uploadedFiles.length > 0) {
-      const fileResults = [];
-      for (const file of uploadedFiles) {
-        try {
-          const fileValidation = validateFileBuffer(file.buffer, file.mimetype, file.originalname);
-          if (!fileValidation.valid) {
-            logger.warn('File validation failed', {
-              filename: file.originalname,
-              errors: fileValidation.errors
-            });
-            continue;
-          }
+      try {
+        const fileData = uploadedFiles.map(file => ({
+          buffer: file.buffer,
+          mimeType: file.mimetype,
+          originalFilename: file.originalname
+        }));
 
-          const uploadedFile = await uploadFileWithMetadata(
-            result.receipt_id,
-            file.buffer,
-            file.mimetype,
-            file.originalname
-          );
-          fileResults.push({
-            id: uploadedFile.id,
-            filename: uploadedFile.filename,
-            size: uploadedFile.fileSize,
-            status: uploadedFile.status
-          });
-        } catch (fileErr) {
-          logger.error('File upload failed', {
-            filename: file.originalname,
-            error: fileErr instanceof Error ? fileErr.message : String(fileErr)
-          });
-        }
+        const uploadedFilesList = await uploadMultipleFilesWithMetadata(
+          result.estimate_id,
+          fileData
+        );
+
+        const fileResults = uploadedFilesList.map(file => ({
+          id: file.id,
+          filename: file.filename,
+          size: file.fileSize,
+          status: file.status
+        }));
+
+        res.status(201).json({
+          success: result.success,
+          receipt_id: result.receipt_id,
+          status: result.status,
+          access_token: result.access_token,
+          created_at: result.created_at,
+          files: fileResults
+        });
+        return;
+      } catch (fileErr) {
+        logger.error('File upload failed', {
+          receipt_id: result.receipt_id,
+          error: fileErr instanceof Error ? fileErr.message : String(fileErr)
+        });
+        res.status(500).json({
+          error: 'File upload failed',
+          timestamp: new Date().toISOString()
+        });
+        return;
       }
-
-      res.status(201).json({
-        ...result,
-        files: fileResults
-      });
-      return;
     }
 
-    res.status(201).json(result);
+    res.status(201).json({
+      success: result.success,
+      receipt_id: result.receipt_id,
+      status: result.status,
+      access_token: result.access_token,
+      created_at: result.created_at
+    });
   } catch (err) {
     logger.error('Error creating estimate', {
       error: err instanceof Error ? err.message : String(err)

@@ -1,6 +1,6 @@
 import { PoolClient } from 'pg';
 import { getPool } from '../config/database';
-import { uploadFileToS3, getS3KeyForEstimate } from './s3Service';
+import { uploadFileToS3, getS3KeyForEstimate, deleteFileFromS3 } from './s3Service';
 import { generateSafeFileId, getFileExtension } from '../utils/fileValidation';
 import logger from '../utils/logger';
 
@@ -87,7 +87,27 @@ export async function uploadFileWithMetadata(
       throw err;
     }
 
-    await client.query('COMMIT');
+    try {
+      await client.query('COMMIT');
+    } catch (err) {
+      logger.error('DB commit failed, deleting S3 object', {
+        estimateId,
+        fileId: metadata.id,
+        s3Key: metadata.s3Key,
+        error: err instanceof Error ? err.message : String(err)
+      });
+      try {
+        await deleteFileFromS3(metadata.s3Key);
+      } catch (deleteErr) {
+        logger.error('Failed to delete S3 object during rollback', {
+          estimateId,
+          fileId: metadata.id,
+          s3Key: metadata.s3Key,
+          error: deleteErr instanceof Error ? deleteErr.message : String(deleteErr)
+        });
+      }
+      throw err;
+    }
 
     logger.info('File uploaded successfully', {
       estimateId,
@@ -105,5 +125,40 @@ export async function uploadFileWithMetadata(
     throw err;
   } finally {
     client.release();
+  }
+}
+
+export async function uploadMultipleFilesWithMetadata(
+  estimateId: string,
+  files: Array<{ buffer: Buffer; mimeType: string; originalFilename: string }>
+): Promise<UploadedFile[]> {
+  const uploadedFiles: UploadedFile[] = [];
+  const uploadedS3Keys: string[] = [];
+
+  try {
+    for (const file of files) {
+      const uploaded = await uploadFileWithMetadata(estimateId, file.buffer, file.mimeType, file.originalFilename);
+      uploadedFiles.push(uploaded);
+      uploadedS3Keys.push(uploaded.s3Key);
+    }
+    return uploadedFiles;
+  } catch (err) {
+    logger.error('Multiple file upload failed, cleaning up S3 objects', {
+      estimateId,
+      uploadedCount: uploadedFiles.length,
+      error: err instanceof Error ? err.message : String(err)
+    });
+    for (const key of uploadedS3Keys) {
+      try {
+        await deleteFileFromS3(key);
+      } catch (deleteErr) {
+        logger.error('Failed to delete S3 object during rollback', {
+          estimateId,
+          s3Key: key,
+          error: deleteErr instanceof Error ? deleteErr.message : String(deleteErr)
+        });
+      }
+    }
+    throw err;
   }
 }

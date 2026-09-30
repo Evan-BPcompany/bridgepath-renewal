@@ -15,6 +15,7 @@ export interface CreateEstimateRequest {
 export interface CreateEstimateResponse {
   success: boolean;
   receipt_id: string;
+  estimate_id: string;
   status: string;
   access_token: string;
   created_at: string;
@@ -87,6 +88,7 @@ export async function createEstimate(
     return {
       success: true,
       receipt_id,
+      estimate_id: estimate.id,
       status: 'new_receipt',
       access_token: token,
       created_at: new Date(estimate.created_at).toISOString()
