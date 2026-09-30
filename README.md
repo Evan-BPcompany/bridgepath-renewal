@@ -265,6 +265,46 @@ For questions or issues, please contact: contact@bridgepath.co.kr
 
 ---
 
+## Phase 2 Day 1: Customer API (POST/GET estimates)
+
+**Customer Quote Submission API**
+
+Implemented secure customer quote submission and retrieval with:
+- POST /api/estimates: Quote acceptance with validation and token generation
+- GET /api/estimates/:receipt_id: Token-based retrieval with one-time use enforcement
+- Atomic transaction: receipt_id generation, estimate saving, token creation in single SERIALIZABLE transaction
+- Security: SHA-256 token hashing, one-time use, 7-day expiration
+
+**API Contracts:**
+
+```
+POST /api/estimates
+Request: { category, specification_json, customer_email?, ... }
+Response: { success, receipt_id, status, access_token, created_at }
+
+GET /api/estimates/:receipt_id?token=xxx
+Response: { receipt_id, category, status, specification_json, created_at, updated_at }
+Error: { error: "Unauthorized", timestamp }
+```
+
+**Transaction Safety:**
+- Single SERIALIZABLE transaction for receipt ID generation + estimate/token storage
+- generateReceiptIdInTransaction() uses existing client (no nested transactions)
+- Atomic token marking: UPDATE with WHERE conditions, no SELECT then UPDATE race condition
+
+**Token Security:**
+- Generation: 32-byte random token (client only), SHA-256 hash (DB only)
+- One-time use: Atomic UPDATE with is_used=false AND expires_at>NOW() condition
+- Expiration: 7 days (checked in UPDATE query, not SELECT then check)
+- No token or email in logs
+
+**Customer Response Privacy:**
+- Returns: receipt_id, category, status, specification_json, timestamps
+- Excludes: customer_name, customer_email, customer_phone, company_name
+- Rationale: Customer already knows their own information
+
+---
+
 ## Phase 1 Day 5: Specification Validation
 
 **Category Mapping**

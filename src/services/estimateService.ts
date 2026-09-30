@@ -1,5 +1,5 @@
 import { getPool } from '../config/database';
-import { generateReceiptId } from '../utils/receipt-id';
+import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 import { generateEstimateAccessToken } from '../utils/token';
 import logger from '../utils/logger';
 
@@ -25,10 +25,6 @@ export interface EstimateDetails {
   category: string;
   status: string;
   specification_json: unknown;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
-  company_name?: string;
   created_at: string;
   updated_at: string;
 }
@@ -40,9 +36,9 @@ export async function createEstimate(
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
 
-    const receipt_id = await generateReceiptId();
+    const receipt_id = await generateReceiptIdInTransaction(client);
     const { token, hash } = generateEstimateAccessToken();
 
     const estimateQuery = `
@@ -114,19 +110,30 @@ export async function getEstimateByReceiptId(
   const client = await pool.connect();
 
   try {
+    const updateQuery = `
+      UPDATE estimate_access_tokens
+      SET is_used = true, visited_at = CURRENT_TIMESTAMP, visit_count = visit_count + 1
+      WHERE token = $1 AND is_used = false AND expires_at > CURRENT_TIMESTAMP
+      RETURNING estimate_id
+    `;
+
+    const updateResult = await client.query(updateQuery, [tokenHash]);
+
+    if (updateResult.rows.length === 0) {
+      return null;
+    }
+
     const query = `
       SELECT
         e.receipt_id, e.category, e.status, e.specification_json,
         e.customer_name, e.customer_email, e.customer_phone, e.company_name,
-        e.created_at, e.updated_at,
-        eat.is_used, eat.expires_at
+        e.created_at, e.updated_at
       FROM estimates e
-      LEFT JOIN estimate_access_tokens eat ON e.id = eat.estimate_id
-      WHERE e.receipt_id = $1 AND eat.token = $2
+      WHERE e.receipt_id = $1
       LIMIT 1
     `;
 
-    const result = await client.query(query, [receipt_id, tokenHash]);
+    const result = await client.query(query, [receipt_id]);
 
     if (result.rows.length === 0) {
       return null;
@@ -134,32 +141,11 @@ export async function getEstimateByReceiptId(
 
     const row = result.rows[0];
 
-    if (row.is_used) {
-      logger.warn('Token already used', { receipt_id });
-      return null;
-    }
-
-    if (new Date() > new Date(row.expires_at)) {
-      logger.warn('Token expired', { receipt_id });
-      return null;
-    }
-
-    const updateQuery = `
-      UPDATE estimate_access_tokens
-      SET is_used = true, visited_at = CURRENT_TIMESTAMP, visit_count = visit_count + 1
-      WHERE token = $1
-    `;
-    await client.query(updateQuery, [tokenHash]);
-
     return {
       receipt_id: row.receipt_id,
       category: row.category,
       status: row.status,
       specification_json: row.specification_json,
-      customer_name: row.customer_name,
-      customer_email: row.customer_email,
-      customer_phone: row.customer_phone,
-      company_name: row.company_name,
       created_at: new Date(row.created_at).toISOString(),
       updated_at: new Date(row.updated_at).toISOString()
     };

@@ -1,4 +1,5 @@
 import { getPool } from '../config/database';
+import type { PoolClient } from 'pg';
 import logger from './logger';
 
 const RECEIPT_PREFIX = 'BP';
@@ -176,4 +177,48 @@ export function validateReceiptId(receiptId: string): boolean {
   }
 
   return true;
+}
+
+export async function generateReceiptIdInTransaction(client: PoolClient): Promise<string> {
+  const today = new Date();
+  const dateStr = formatDate(today);
+
+  const existingResult = await client.query(
+    `SELECT last_sequence FROM receipt_sequence WHERE receipt_date = $1::date FOR UPDATE`,
+    [dateStr]
+  );
+
+  let nextSequence = 1;
+
+  if (existingResult.rows.length > 0) {
+    nextSequence = existingResult.rows[0].last_sequence + 1;
+    await client.query(
+      `UPDATE receipt_sequence
+       SET last_sequence = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE receipt_date = $2::date`,
+      [nextSequence, dateStr]
+    );
+  } else {
+    nextSequence = 1;
+    await client.query(
+      `INSERT INTO receipt_sequence (receipt_date, last_sequence, created_at, updated_at)
+       VALUES ($1::date, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [dateStr, nextSequence]
+    );
+  }
+
+  if (nextSequence > 999) {
+    throw new Error('Receipt sequence overflow for date: exceeded 999');
+  }
+
+  const sequenceStr = formatSequence(nextSequence);
+  const receiptId = `${RECEIPT_PREFIX}${dateStr}${sequenceStr}`;
+
+  logger.info('Generated receipt ID in transaction', {
+    receiptId,
+    date: dateStr,
+    sequence: nextSequence
+  });
+
+  return receiptId;
 }
