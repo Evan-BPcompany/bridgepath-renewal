@@ -1,7 +1,9 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { config } from './config/env';
 import logger from './utils/logger';
+import adminAuthRouter from './routes/adminAuth';
 
 const app: Express = express();
 
@@ -15,6 +17,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(cookieParser());
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({
@@ -23,6 +26,9 @@ app.get('/health', (_req: Request, res: Response) => {
     environment: config.nodeEnv
   });
 });
+
+// Admin authentication routes (Day 3)
+app.use('/admin', adminAuthRouter);
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof Error) {

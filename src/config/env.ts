@@ -7,8 +7,10 @@ export interface AppConfig {
   port: number;
   corsOrigins: string[];
   databaseUrl?: string;
-  jwtSecret?: string;
-  jwtExpiration?: string;
+  jwtSecret: string;
+  jwtExpiration: string;
+  refreshTokenExpiration: string;
+  cookieSecure: boolean;
   awsRegion?: string;
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
@@ -52,13 +54,24 @@ export function loadConfig(): AppConfig {
     throw new Error(`Invalid CORS_ORIGINS: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  // Day 3: Authentication required variables
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET is required (minimum 32 characters)');
+  }
+  if (jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long');
+  }
+
   const config: AppConfig = {
     nodeEnv,
     port,
     corsOrigins,
     databaseUrl: process.env.DATABASE_URL,
-    jwtSecret: process.env.JWT_SECRET,
+    jwtSecret,
     jwtExpiration: process.env.JWT_EXPIRATION || '8h',
+    refreshTokenExpiration: process.env.REFRESH_TOKEN_EXPIRATION || '30d',
+    cookieSecure: process.env.COOKIE_SECURE === 'true',
     awsRegion: process.env.AWS_REGION,
     awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
     awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
