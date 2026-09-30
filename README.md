@@ -225,7 +225,7 @@ See `.env.example` for all available variables.
 
 ### Phase 1: Backend Foundation (5 days)
 - [x] Day 1: Project structure initialization (Express, TypeScript, config)
-- [x] Day 2: PostgreSQL migrations and schema (9 tables, 5 migrations)
+- [x] Day 2: PostgreSQL migrations and schema (10 application + 1 infrastructure tables, 6 migration files)
 - [x] Day 3: JWT authentication and session management
 - [x] Day 4: Receipt ID generation and session refresh tokens
 - [x] Day 5: Specification validation and error handling
@@ -267,9 +267,38 @@ For questions or issues, please contact: contact@bridgepath.co.kr
 
 ## Phase 1 Day 5: Specification Validation
 
+**Category Mapping**
+
+Frontend submits detail categories; backend normalizes to canonical categories:
+
+```
+Frontend (Detail) → Canonical
+===========================
+optical           → eyewear
+sunglasses        → eyewear
+sports            → eyewear
+kids              → eyewear
+safety            → eyewear
+---
+sneakers          → shoes
+heels             → shoes
+mens              → shoes
+boots             → shoes
+sandals           → shoes
+---
+bags              → golf_products
+gloves            → golf_products
+headwear          → golf_products
+accessories       → golf_products
+covers            → golf_products
+training          → golf_products
+---
+other             → other
+```
+
 **Ajv-based Input Validation**
 
-Implemented category-specific JSON schema validation for four product categories:
+Implemented category-specific JSON schema validation for four canonical product categories:
 
 ```
 src/utils/specification.ts

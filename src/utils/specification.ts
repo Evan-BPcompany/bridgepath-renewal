@@ -1,6 +1,21 @@
 import Ajv, { JSONSchemaType } from 'ajv';
 
-export type CategoryType = 'eyewear' | 'shoes' | 'golf_products' | 'other';
+export type CategoryType =
+  | 'eyewear' | 'shoes' | 'golf_products' | 'other'
+  | 'optical' | 'sunglasses' | 'sports' | 'kids' | 'safety'
+  | 'sneakers' | 'heels' | 'mens' | 'boots' | 'sandals'
+  | 'bags' | 'gloves' | 'headwear' | 'accessories' | 'covers' | 'training';
+
+export const CATEGORY_MAPPING: Record<string, string> = {
+  eyewear: 'eyewear',
+  optical: 'eyewear', sunglasses: 'eyewear', sports: 'eyewear', kids: 'eyewear', safety: 'eyewear',
+  shoes: 'shoes',
+  sneakers: 'shoes', heels: 'shoes', mens: 'shoes', boots: 'shoes', sandals: 'shoes',
+  golf_products: 'golf_products',
+  bags: 'golf_products', gloves: 'golf_products', headwear: 'golf_products',
+  accessories: 'golf_products', covers: 'golf_products', training: 'golf_products',
+  other: 'other'
+};
 
 export interface SpecificationBase {
   schema_version: string;
@@ -112,15 +127,22 @@ export function validateSpecification(
   category: string,
   specification: unknown
 ): { valid: boolean; errors?: string[] } {
-  if (!['eyewear', 'shoes', 'golf_products', 'other'].includes(category)) {
+  const canonicalCategory = CATEGORY_MAPPING[category];
+
+  if (!canonicalCategory) {
     return {
       valid: false,
       errors: [`Unknown category: ${category}`]
     };
   }
 
+  const specWithCategory = {
+    ...(specification as any),
+    category: canonicalCategory
+  };
+
   let validator;
-  switch (category) {
+  switch (canonicalCategory) {
     case 'eyewear':
       validator = eyewearValidator;
       break;
@@ -136,11 +158,11 @@ export function validateSpecification(
     default:
       return {
         valid: false,
-        errors: [`Unknown category: ${category}`]
+        errors: [`Unknown canonical category: ${canonicalCategory}`]
       };
   }
 
-  const valid = validator(specification);
+  const valid = validator(specWithCategory);
   if (!valid) {
     const errors = validator.errors?.map(
       err => `${err.instancePath || 'root'}: ${err.message}`

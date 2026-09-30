@@ -191,6 +191,63 @@ describe('Specification Validation', () => {
     });
   });
 
+  describe('Category mapping', () => {
+    it('should accept optical as eyewear detail category', () => {
+      const spec = {
+        schema_version: '1.0',
+        category: 'eyewear',
+        frame_type: 'Full Rim',
+        material: 'Titanium',
+        lens_type: 'Progressive',
+        quantity: 100
+      };
+
+      const result = validateSpecification('optical', spec);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept sunglasses as eyewear detail category', () => {
+      const spec = {
+        schema_version: '1.0',
+        category: 'eyewear',
+        frame_type: 'Full Rim',
+        material: 'Titanium',
+        lens_type: 'Progressive',
+        quantity: 100
+      };
+
+      const result = validateSpecification('sunglasses', spec);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept sneakers as shoes detail category', () => {
+      const spec = {
+        schema_version: '1.0',
+        category: 'shoes',
+        shoe_type: 'Running',
+        material: 'Mesh',
+        size_range: '6-12',
+        quantity: 500
+      };
+
+      const result = validateSpecification('sneakers', spec);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should accept bags as golf_products detail category', () => {
+      const spec = {
+        schema_version: '1.0',
+        category: 'golf_products',
+        product_type: 'Driver',
+        material: 'Carbon Fiber',
+        quantity: 250
+      };
+
+      const result = validateSpecification('bags', spec);
+      expect(result.valid).toBe(true);
+    });
+  });
+
   describe('Invalid category', () => {
     it('should reject unknown category', () => {
       const spec = {
