@@ -598,7 +598,7 @@ Implemented asynchronous email notification system using database-driven outbox 
 
 **Email Types:**
 - **receipt**: Customer quote confirmation (receipt_id, status, created_at, guidance)
-- **admin_notification**: Admin alert for new quote (receipt_id, category, created_at)
+- **admin_notification**: Admin alert for new quote (receipt_id, created_at)
 
 **Outbox Pattern Architecture:**
 

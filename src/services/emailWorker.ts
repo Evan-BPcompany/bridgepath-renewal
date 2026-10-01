@@ -108,15 +108,17 @@ export async function processPendingEmailEvents(): Promise<void> {
  */
 async function processEmailEventStageB(event: EmailEvent): Promise<void> {
   try {
-    // If no API key, simulate success
+    // API key required for actual sending
     if (!config.sendgridApiKey) {
-      logger.info('Simulating email send (no API key configured)', {
+      const errorMsg = 'SendGrid API key not configured. Email not sent. Set SENDGRID_API_KEY to enable email delivery.';
+      logger.warn('Skipping email send (no API key)', {
         event_id: event.id,
-        to: event.recipient_email
+        reason: errorMsg
       });
-      const simulatedMessageId = `sim-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      await markEmailSent(event.id, simulatedMessageId);
-      logger.info('Email marked as sent (simulated)', { event_id: event.id });
+
+      // Schedule retry so email is not lost
+      // Will remain in pending state until API key is configured and worker is restarted
+      await scheduleEmailRetry(event.id, errorMsg);
       return;
     }
 

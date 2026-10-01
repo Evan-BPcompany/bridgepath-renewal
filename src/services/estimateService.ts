@@ -75,7 +75,6 @@ function buildCustomerReceiptEmail(data: {
  */
 function buildAdminNotificationEmail(data: {
   receipt_id: string;
-  category: string;
   created_at: string;
 }): string {
   const createdAt = new Date(data.created_at).toLocaleString('ko-KR', {
@@ -91,10 +90,6 @@ function buildAdminNotificationEmail(data: {
           <tr>
             <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수번호</td>
             <td style="padding: 10px; border: 1px solid #ddd;">${data.receipt_id}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">제품분류</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${data.category}</td>
           </tr>
           <tr>
             <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수일시</td>
@@ -177,7 +172,6 @@ export async function createEstimate(
     if (config.adminNotificationEmail) {
       const adminEmailBody = buildAdminNotificationEmail({
         receipt_id,
-        category: request.category,
         created_at: estimate.created_at
       });
 
