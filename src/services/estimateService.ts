@@ -1,6 +1,8 @@
 import { getPool } from '../config/database';
+import { config } from '../config/env';
 import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 import { generateEstimateAccessToken } from '../utils/token';
+import { queueEmailInTransaction } from './emailService';
 import logger from '../utils/logger';
 
 export interface CreateEstimateRequest {
@@ -28,6 +30,81 @@ export interface EstimateDetails {
   specification_json: unknown;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Build HTML email body for customer receipt confirmation
+ */
+function buildCustomerReceiptEmail(data: {
+  receipt_id: string;
+  status: string;
+  created_at: string;
+}): string {
+  const createdAt = new Date(data.created_at).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul'
+  });
+
+  return `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>Bridge Path 접수 완료</h2>
+        <p>귀사의 견적 요청이 정상적으로 접수되었습니다.</p>
+        <table style="border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수번호</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${data.receipt_id}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">상태</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${data.status}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수일시</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${createdAt}</td>
+          </tr>
+        </table>
+        <p>저희 팀에서 빠른 시일 내에 연락드리겠습니다.</p>
+        <p>문의사항이 있으시면 contact@bridgepath.co.kr로 연락주세요.</p>
+      </body>
+    </html>
+  `;
+}
+
+/**
+ * Build HTML email body for admin notification
+ */
+function buildAdminNotificationEmail(data: {
+  receipt_id: string;
+  category: string;
+  created_at: string;
+}): string {
+  const createdAt = new Date(data.created_at).toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul'
+  });
+
+  return `
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>새로운 견적 요청</h2>
+        <p>고객으로부터 새로운 견적 요청이 접수되었습니다.</p>
+        <table style="border-collapse: collapse; margin: 20px 0;">
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수번호</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${data.receipt_id}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">제품분류</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${data.category}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수일시</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">${createdAt}</td>
+          </tr>
+        </table>
+        <p>상세 내용은 관리자 대시보드에서 확인하세요.</p>
+      </body>
+    </html>
+  `;
 }
 
 export async function createEstimate(
@@ -76,6 +153,43 @@ export async function createEstimate(
     `;
 
     await client.query(tokenQuery, [estimate.id, receipt_id, hash]);
+
+    // Queue email events (outbox pattern - same transaction)
+    // Customer receipt email
+    if (request.customer_email) {
+      const receiptEmailBody = buildCustomerReceiptEmail({
+        receipt_id,
+        status: 'new_receipt',
+        created_at: estimate.created_at
+      });
+
+      await queueEmailInTransaction(client, {
+        recipient_email: request.customer_email,
+        email_type: 'receipt',
+        estimate_id: estimate.id,
+        idempotency_key: `receipt-${estimate.id}`,
+        subject: `Bridge Path 접수 완료: ${receipt_id}`,
+        body: receiptEmailBody
+      });
+    }
+
+    // Admin notification email
+    if (config.adminNotificationEmail) {
+      const adminEmailBody = buildAdminNotificationEmail({
+        receipt_id,
+        category: request.category,
+        created_at: estimate.created_at
+      });
+
+      await queueEmailInTransaction(client, {
+        recipient_email: config.adminNotificationEmail,
+        email_type: 'admin_notification',
+        estimate_id: estimate.id,
+        idempotency_key: `admin-${estimate.id}`,
+        subject: `[Bridge Path] 새 접수: ${receipt_id}`,
+        body: adminEmailBody
+      });
+    }
 
     await client.query('COMMIT');
 

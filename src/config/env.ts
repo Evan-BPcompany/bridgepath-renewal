@@ -16,6 +16,13 @@ export interface AppConfig {
   awsSecretAccessKey?: string;
   s3Bucket?: string;
   sendgridApiKey?: string;
+  sendgridFromEmail?: string;
+  adminNotificationEmail?: string;
+  emailWorker: {
+    enabled: boolean;
+    intervalMs: number;
+    staleTimeoutMs: number;
+  };
   supportEmail?: string;
   supportPhone?: string;
   logLevel?: string;
@@ -77,6 +84,13 @@ export function loadConfig(): AppConfig {
     awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     s3Bucket: process.env.S3_BUCKET,
     sendgridApiKey: process.env.SENDGRID_API_KEY,
+    sendgridFromEmail: process.env.SENDGRID_FROM_EMAIL,
+    adminNotificationEmail: process.env.ADMIN_NOTIFICATION_EMAIL,
+    emailWorker: {
+      enabled: nodeEnv !== 'test' && process.env.EMAIL_WORKER_ENABLED === 'true',
+      intervalMs: parseInt(process.env.EMAIL_WORKER_INTERVAL_MS || '30000', 10),
+      staleTimeoutMs: parseInt(process.env.EMAIL_WORKER_STALE_TIMEOUT_MS || '300000', 10)
+    },
     supportEmail: process.env.SUPPORT_EMAIL,
     supportPhone: process.env.SUPPORT_PHONE,
     logLevel: process.env.LOG_LEVEL || 'info',

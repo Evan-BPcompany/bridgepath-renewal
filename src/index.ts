@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { config } from './config/env';
 import logger from './utils/logger';
+import { initializeEmailWorker } from './services/emailWorker';
 import adminAuthRouter from './routes/adminAuth';
 import estimatesRouter from './routes/estimates';
 
@@ -53,6 +54,11 @@ app.listen(PORT, () => {
   console.log(`✓ Server running on port ${PORT}`);
   console.log(`✓ Environment: ${config.nodeEnv}`);
   console.log(`✓ CORS origins: ${config.corsOrigins.join(', ')}`);
+
+  // Initialize email worker (Phase 2 Day 3)
+  if (config.nodeEnv !== 'test') {
+    initializeEmailWorker();
+  }
 });
 
 export default app;

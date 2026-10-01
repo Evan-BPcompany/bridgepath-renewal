@@ -585,3 +585,157 @@ or implement idempotency key approach:
 
 **Last Updated**: 2026-09-30  
 **Next Phase**: Phase 2 Day 3 - Email Notifications (SendGrid)
+
+---
+
+## Phase 2 Day 3: Email Notifications (SendGrid Integration)
+
+**Overview**
+
+Implemented asynchronous email notification system using database-driven outbox pattern with two-stage processing:
+- Stage A: Claim pending events with short DB transaction (FOR UPDATE SKIP LOCKED)
+- Stage B: Send via SendGrid outside transaction to avoid holding DB locks
+
+**Email Types:**
+- **receipt**: Customer quote confirmation (receipt_id, status, created_at, guidance)
+- **admin_notification**: Admin alert for new quote (receipt_id, category, created_at)
+
+**Outbox Pattern Architecture:**
+
+```
+Estimate Creation Transaction:
+┌─ SERIALIZABLE Transaction ─────────────────┐
+│ 1. Generate Receipt ID                     │
+│ 2. Insert estimate + token                 │
+│ 3. Queue email_events (idempotency_key)    │
+│ 4. COMMIT (all or nothing)                 │
+└────────────────────────────────────────────┘
+          ↓ (on success)
+┌─ Email Worker (async, outside transaction) ┐
+│ Stage A: Claim events (FOR UPDATE SKIP LOCKED)
+│   - SELECT pending events, mark as 'sending'
+│   - COMMIT (lock released)                 │
+│                                            │
+│ Stage B: Process each event                │
+│   - Call SendGrid API                      │
+│   - Mark as 'sent' or schedule retry       │
+└────────────────────────────────────────────┘
+```
+
+**Key Features:**
+
+1. **Transaction Safety (Outbox Pattern)**
+   - Estimate + email_events creation in single SERIALIZABLE transaction
+   - If email_events INSERT fails → entire estimate creation rolls back
+   - If SendGrid fails → estimate exists, email scheduled for retry (at-least-once semantics)
+   - Idempotency key prevents duplicate queue entries (UNIQUE constraint)
+
+2. **Two-Stage Processing**
+   - **Stage A**: Claim events with short DB transaction
+     - `FOR UPDATE SKIP LOCKED` ensures no duplicate processing
+     - Lock released immediately after marking as 'sending'
+   - **Stage B**: Send email outside DB transaction
+     - No DB locks held during SendGrid API call
+     - Prevents long-running API from blocking other queries
+     - Enables horizontal scaling (multiple workers)
+
+3. **Retry Logic with Exponential Backoff**
+   - Total 4 attempts (1 initial + 3 retries)
+   - retry_count semantics:
+     - 0: Initial (before first sending attempt)
+     - 1: First attempt failed, retry in 1min
+     - 2: Second attempt failed, retry in 2min
+     - 3: Third attempt failed, retry in 4min
+     - >3: Mark as failed (no more retries)
+   - Maximum retry count enforced: never exceeds 3
+
+4. **Stale Event Recovery**
+   - Detect events stuck in 'sending' state (> 5 minutes old)
+   - If retry_count < 3: move back to pending, reschedule
+   - If retry_count = 3: mark as failed (final attempt exhausted)
+   - Recovers from worker crashes without manual intervention
+
+5. **Email Worker Lifecycle**
+   - Runs in background every 30 seconds (configurable)
+   - Auto-disabled in test environment (NODE_ENV=test)
+   - Can be disabled via EMAIL_WORKER_ENABLED=false
+   - Graceful shutdown via `stopEmailWorker()` for Jest cleanup
+
+6. **SendGrid Integration**
+   - API key optional (worker operates safely without it)
+   - If SENDGRID_API_KEY not set: simulates sends with fake message IDs
+   - Credentials via environment variables (never hardcoded)
+   - Server-side encryption for credentials in transit
+
+7. **Data Privacy**
+   - Email body contains only: receipt_id, status, created_at, guidance
+   - No access tokens, customer emails, API keys, or passwords
+   - Error logs truncated to 100 chars (prevents credential leaks)
+   - Sensitive data marked [REDACTED] in logs
+
+**Configuration:**
+
+```env
+# SendGrid settings (required for actual sending)
+SENDGRID_API_KEY=              # SendGrid API key
+SENDGRID_FROM_EMAIL=           # Must be authenticated in SendGrid account
+ADMIN_NOTIFICATION_EMAIL=      # Admin's email for receipt alerts
+
+# Email worker settings (optional)
+EMAIL_WORKER_ENABLED=false     # Default: disabled (set to true in production)
+EMAIL_WORKER_INTERVAL_MS=30000 # 30 seconds (polling interval)
+EMAIL_WORKER_STALE_TIMEOUT_MS=300000 # 5 minutes (stale event threshold)
+```
+
+⚠️ **Important Notes:**
+- SENDGRID_FROM_EMAIL must be a verified sender address in your SendGrid account
+  - Use Domain Authentication or Single Sender Verification
+  - Unverified addresses will cause 403 Forbidden errors
+- EMAIL_WORKER_ENABLED=false in .env.example (enable explicitly in production)
+- Test environment automatically disables worker (NODE_ENV=test)
+
+**Test Coverage**: ✅ 90 total tests
+- Specification validation: 26 tests
+- Estimates API: 42 tests
+- File upload & compensation: 10 tests
+- Email service & retry logic: 12 tests
+
+**Actual Test Results:**
+```
+Test Suites: 4 passed, 4 total
+Tests:       90 passed, 90 total
+```
+
+**Known Limitations & Guarantees:**
+
+| Aspect | Status | Notes |
+|--------|--------|-------|
+| **Email Delivery** | at-least-once | If server crashes after SendGrid succeeds but before DB update, duplicate send possible |
+| **Idempotency** | Queuing only | Idempotency key prevents duplicate queue entries; SendGrid idempotency key prevents duplicate sends |
+| **ClamAV Scanning** | Not implemented | Files remain in quarantine state; virus scanning deferred |
+| **Signed URLs** | Not implemented | Download endpoint deferred |
+| **File Retry API** | Not implemented | File upload failures require new estimate; dedicated retry endpoint deferred |
+
+**Integration Testing Status:**
+- ✅ Unit tests: 90/90 passing (mock SendGrid)
+- ✅ Transaction safety: verified (Outbox pattern)
+- ❌ SendGrid integration: Not tested (requires API key in .env)
+- ❌ Actual email delivery: Not tested (requires SendGrid account)
+
+**Database Schema Changes:**
+
+Migration file: `007_email_events_schema_enhancement.ts`
+- New columns: next_retry_at, last_error, provider_message_id, updated_at
+- New indexes: idx_email_events_next_retry, idx_email_events_updated_at
+- Supports efficient pending/stale event queries
+
+**Implementation Files:**
+
+- `src/services/emailService.ts`: Queue, claim, and retry management
+- `src/services/emailWorker.ts`: Background worker loop, two-stage processing
+- `src/db/migrations/007_email_events_schema_enhancement.ts`: Schema changes
+- `src/config/env.ts`: SendGrid and worker configuration
+- `src/__tests__/emailService.test.ts`: Retry logic and state management tests
+
+**Last Updated**: 2026-10-01
+**Phase 2 Status**: Days 1-3 complete (Estimates, Files, Email Notifications)
