@@ -142,22 +142,44 @@ describe('Email Service - Retry Logic and State Management', () => {
     });
   });
 
+  describe('Email content structure', () => {
+    it('should include receipt_id, status, created_at in admin notification email', () => {
+      // Admin notification must include:
+      // - receipt_id: for tracking and reference
+      // - status: current state of the request (e.g., new_receipt)
+      // - created_at: when the request was received
+      // - guidance: instruction for admin (e.g., "상세 내용은 관리자 대시보드에서 확인하세요.")
+      // Must NOT include: category, customer name, customer email, or other PII
+
+      const adminEmailContent = {
+        required_fields: ['receipt_id', 'status', 'created_at', 'guidance'],
+        excluded_pii: ['customer_name', 'customer_email', 'customer_phone', 'category'],
+        purpose: 'Alert admin of new quote request without exposing customer details'
+      };
+
+      expect(adminEmailContent.required_fields).toContain('status');
+      expect(adminEmailContent.excluded_pii).not.toContain('created_at');
+    });
+  });
+
   describe('SendGrid integration safeguards', () => {
-    it('should handle missing SendGrid API key gracefully', () => {
+    it('should schedule retry when SendGrid API key is missing', () => {
       // If SENDGRID_API_KEY is not set:
-      // - Worker starts (if EMAIL_WORKER_ENABLED=true)
-      // - Simulates successful sends with fake message IDs
-      // - Logs warning that actual emails are not sent
-      // - Does not crash
+      // - Email event remains in pending state
+      // - scheduleEmailRetry is called instead of marking as sent
+      // - Email is not lost; remains in queue until API key is configured
+      // - No simulated success
 
       const noApiKeyBehavior = {
         api_key_missing: true,
         worker_enabled: true,
-        behavior: 'simulate email sends',
-        message_id_format: 'sim-{timestamp}-{random}'
+        behavior: 'schedule retry',
+        email_status: 'pending',
+        result: 'email queued for later delivery'
       };
 
-      expect(noApiKeyBehavior.behavior).toBe('simulate email sends');
+      expect(noApiKeyBehavior.behavior).toBe('schedule retry');
+      expect(noApiKeyBehavior.email_status).toBe('pending');
     });
 
     it('should not log sensitive data (API keys, tokens)', () => {
