@@ -26,18 +26,20 @@ const ERROR_RESPONSES: Record<PasswordChangeError, { http: number; message: stri
 };
 
 export interface AdminAccountRouterDeps {
-  passwordLimiter?: RequestHandler;
+  passwordLimiter: RequestHandler;
 }
 
-export function createAdminAccountRouter(deps: AdminAccountRouterDeps = {}): Router {
+export function createAdminAccountRouter(deps: AdminAccountRouterDeps): Router {
   const router = Router();
 
+  // Authentication first, so the limit follows the admin; the limiter runs before the body is read.
   // allowPasswordChangeRequired: an account that must change its password may use this route.
-  const guards: RequestHandler[] = [allowPasswordChangeRequired, authMiddleware];
-  if (deps.passwordLimiter) {
-    guards.push(deps.passwordLimiter);
-  }
-  guards.push(requireJson);
+  const guards: RequestHandler[] = [
+    allowPasswordChangeRequired,
+    authMiddleware,
+    deps.passwordLimiter,
+    requireJson
+  ];
 
   router.patch('/password', ...guards, async (req: Request, res: Response): Promise<void> => {
     const admin = req.admin!;

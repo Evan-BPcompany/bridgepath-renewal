@@ -2,6 +2,29 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+export interface RateLimitSetting {
+  windowMs: number;
+  max: number;
+}
+
+export interface RateLimitSettings {
+  login: RateLimitSetting;
+  api: RateLimitSetting;
+  mutation: RateLimitSetting;
+  password: RateLimitSetting;
+}
+
+export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
+  login: { windowMs: 15 * 60 * 1000, max: 10 },
+  api: { windowMs: 60 * 1000, max: 120 },
+  mutation: { windowMs: 60 * 1000, max: 30 },
+  password: { windowMs: 15 * 60 * 1000, max: 5 }
+};
+
+const RATE_LIMIT_WINDOW_MS_RANGE = { min: 1000, max: 24 * 60 * 60 * 1000 };
+const RATE_LIMIT_MAX_RANGE = { min: 1, max: 100000 };
+const TRUST_PROXY_RANGE = { min: 0, max: 10 };
+
 export interface AppConfig {
   nodeEnv: 'development' | 'production' | 'test';
   port: number;
@@ -16,6 +39,8 @@ export interface AppConfig {
   awsSecretAccessKey?: string;
   s3Bucket?: string;
   fileDownloadEnabled: boolean;
+  trustProxy: number;
+  rateLimits: RateLimitSettings;
   sendgridApiKey?: string;
   sendgridFromEmail?: string;
   adminNotificationEmail?: string;
@@ -61,6 +86,65 @@ export function parseBooleanEnv(name: string, raw: string | undefined, fallback:
   throw new Error(`${name} must be "true" or "false"`);
 }
 
+export function parseIntegerEnv(
+  name: string,
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+
+  const trimmed = raw.trim();
+  const value = Number(trimmed);
+
+  if (!/^\d+$/.test(trimmed) || !Number.isSafeInteger(value) || value < min || value > max) {
+    throw new Error(`${name} must be an integer between ${min} and ${max}`);
+  }
+
+  return value;
+}
+
+// The number of reverse proxies in front of the app (Heroku: 1). A number is used on
+// purpose: "true" would trust every X-Forwarded-For entry, which clients can forge.
+export function parseTrustProxy(raw: string | undefined): number {
+  return parseIntegerEnv('TRUST_PROXY', raw, 0, TRUST_PROXY_RANGE.min, TRUST_PROXY_RANGE.max);
+}
+
+export function parseRateLimitSetting(
+  prefix: string,
+  env: NodeJS.ProcessEnv,
+  defaults: RateLimitSetting
+): RateLimitSetting {
+  return {
+    windowMs: parseIntegerEnv(
+      `${prefix}_WINDOW_MS`,
+      env[`${prefix}_WINDOW_MS`],
+      defaults.windowMs,
+      RATE_LIMIT_WINDOW_MS_RANGE.min,
+      RATE_LIMIT_WINDOW_MS_RANGE.max
+    ),
+    max: parseIntegerEnv(
+      `${prefix}_MAX`,
+      env[`${prefix}_MAX`],
+      defaults.max,
+      RATE_LIMIT_MAX_RANGE.min,
+      RATE_LIMIT_MAX_RANGE.max
+    )
+  };
+}
+
+export function parseRateLimits(env: NodeJS.ProcessEnv): RateLimitSettings {
+  return {
+    login: parseRateLimitSetting('ADMIN_LOGIN_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.login),
+    api: parseRateLimitSetting('ADMIN_API_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.api),
+    mutation: parseRateLimitSetting('ADMIN_MUTATION_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.mutation),
+    password: parseRateLimitSetting('ADMIN_PASSWORD_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.password)
+  };
+}
+
 export function loadConfig(): AppConfig {
   const nodeEnv = (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test';
   const port = parseInt(process.env.PORT || '4000', 10);
@@ -101,6 +185,8 @@ export function loadConfig(): AppConfig {
     awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     s3Bucket: process.env.S3_BUCKET,
     fileDownloadEnabled: parseBooleanEnv('FILE_DOWNLOAD_ENABLED', process.env.FILE_DOWNLOAD_ENABLED, false),
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+    rateLimits: parseRateLimits(process.env),
     sendgridApiKey: process.env.SENDGRID_API_KEY,
     sendgridFromEmail: process.env.SENDGRID_FROM_EMAIL,
     adminNotificationEmail: process.env.ADMIN_NOTIFICATION_EMAIL,

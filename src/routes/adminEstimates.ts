@@ -179,18 +179,17 @@ router.patch('/:id/status', requireJson, async (req: Request, res: Response): Pr
 });
 
 export interface AdminEstimatesRouterDeps {
-  mutationLimiter?: RequestHandler;
+  mutationLimiter: RequestHandler;
 }
 
-export function createAdminEstimatesRouter(deps: AdminEstimatesRouterDeps = {}): Router {
+export function createAdminEstimatesRouter(deps: AdminEstimatesRouterDeps): Router {
   const guarded = Router();
 
   guarded.use(authMiddleware);
   guarded.use(requireRole('manager'));
 
-  if (deps.mutationLimiter) {
-    guarded.use(deps.mutationLimiter);
-  }
+  // After authentication so the limit follows the admin, not the IP.
+  guarded.use(deps.mutationLimiter);
 
   guarded.use(router);
 

@@ -68,7 +68,7 @@ describe('must_change_password enforcement (mocked database)', () => {
   beforeEach(() => {
     db = createFakeDb();
     (getPool as jest.Mock).mockReturnValue(db.pool);
-    app = createApp();
+    app = createApp({ rateLimits: { password: { windowMs: 900000, max: 1000 } } });
     infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => logger);
     warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
     jest.spyOn(logger, 'error').mockImplementation(() => logger);

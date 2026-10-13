@@ -58,7 +58,9 @@ describe('PATCH /admin/me/password (mocked database)', () => {
   beforeEach(() => {
     db = createFakeDb();
     (getPool as jest.Mock).mockReturnValue(db.pool);
-    app = createApp();
+    // The lockout tests send more requests than the default password limiter allows;
+    // the limiter itself is covered in rateLimit.test.ts.
+    app = createApp({ rateLimits: { password: { windowMs: 15 * 60 * 1000, max: 1000 } } });
     infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => logger);
     warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
     jest.spyOn(logger, 'error').mockImplementation(() => logger);

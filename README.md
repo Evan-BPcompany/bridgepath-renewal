@@ -6,7 +6,7 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 3 Admin API Week 1 implemented, awaiting review (Phase 1 and Phase 2 Days 1-3 complete; Phase 2 Days 4-7 pending)
+**Status**: Phase 3 Admin API Weeks 1-2 implemented, awaiting review (Phase 1 and Phase 2 Days 1-3 complete; Phase 2 Days 4-7 pending)
 
 ## 🔧 Technology Stack
 
@@ -785,13 +785,13 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 ## Phase 3: Admin API (in progress)
 
 **Plan**: 3 weeks.
-- Week 1 (this section): estimate list/detail, auth and roles, status change.
-- Week 2: memos, file status view and download-gate structure, password change, rate limiting.
+- Week 1: estimate list/detail, auth and roles, status change.
+- Week 2: memos, file metadata and blocked downloads, password change, login lockout fix, rate limiting (implemented; see the Week 2 sections below).
 - Week 3: test hardening, integration test preparation, documentation, security review.
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, migrations 008 to 011) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
+**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
 Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured.
 
 ### Admin endpoints (Week 1)
@@ -985,6 +985,36 @@ Rules in `src/utils/loginLockout.ts`, shared by `POST /admin/login` and `PATCH /
 - A successful login clears the counter and the lock.
 - A failed attempt on the password change endpoint counts on the same counter.
 
+### Rate limiting and TRUST_PROXY (Week 2)
+
+Uses `express-rate-limit` with its default **in-memory store**. Exceeding a limit returns `429 { error, code: 'RATE_LIMITED', retry_after_seconds, timestamp }` with a `Retry-After` header and the standard `RateLimit-*` headers. Limiters run before the request body is parsed.
+
+| Limiter | Applies to | Counted per | Counts | Variables | Default |
+|---|---|---|---|---|---|
+| login | `POST /admin/login` | client IP | **failed requests only** (status 400 and above); successful logins are not counted | `ADMIN_LOGIN_RATE_LIMIT_WINDOW_MS` / `_MAX` | 15 min / 10 |
+| admin API | everything under `/admin` (login and token refresh included, also unauthenticated requests) | client IP | every request | `ADMIN_API_RATE_LIMIT_WINDOW_MS` / `_MAX` | 1 min / 120 |
+| mutation | status change and memo creation (`/admin/estimates/*`, non-GET) | signed-in admin | every non-GET request | `ADMIN_MUTATION_RATE_LIMIT_WINDOW_MS` / `_MAX` | 1 min / 30 |
+| password change | `PATCH /admin/me/password` | signed-in admin | every request | `ADMIN_PASSWORD_RATE_LIMIT_WINDOW_MS` / `_MAX` | 15 min / 5 |
+
+- Window is 1000 ms to 24 h and max is 1 to 100000. A missing or empty variable uses the default; an invalid value stops the server at startup.
+- Mutation and password limits follow the admin id (unauthenticated requests are rejected by authentication first and never use an admin's budget). Without a signed-in admin they fall back to the IP.
+- **`TRUST_PROXY`** is the number of reverse proxies in front of the app (integer 0-10, default 0; Heroku: `1`). It decides which address `req.ip` reports, for rate limiting and for the audit log. `true` is deliberately not accepted because it would trust every `X-Forwarded-For` entry, which clients can forge. If it is too low, every client looks like the proxy and shares one budget; if it is too high, clients can pick their own IP.
+
+**Relation to the account lockout** (5 failed attempts per account lock it for 15 minutes; independent of the IP limiter):
+- Both apply. Whichever limit is reached first answers: with the default IP limit (10 failures / 15 min) the account lockout usually triggers first (401 "Account is locked") and other accounts on the same IP can still log in.
+- Requests answered with 429 never reach the login code, so they do not advance the account's failure counter.
+- Attempts on a locked account still count as failed requests for the IP limiter. Ten failed requests from one IP block that IP (including other accounts and the right password) until the window ends.
+- A password change request uses the same account counter. The password limiter (5 per 15 min) and the lock threshold (5 failures) are equal on purpose: the sixth request within the window gets 429 before it can reach the lock check.
+
+**Limits of the in-memory store (read before running more than one instance):**
+- Counters live in each server process. With N instances (for example Heroku dynos) the effective limit is up to N times higher, and a request is only limited by the instance that served it.
+- Counters reset on every restart and deploy.
+- Use a shared store (for example Redis) before scaling out. This is follow-up work.
+- Anyone who knows an admin username can lock that account for 15 minutes with 5 wrong passwords; the IP limiter does not prevent this from many addresses.
+- **The public customer API (`POST /api/estimates`, `GET /api/estimates/:receipt_id`) has no rate limit**, so uploads, database writes and notification emails can be abused. Adding one is required before public launch.
+
+In tests every `createApp()` creates its own limiters and counters, and `createApp({ rateLimits, trustProxy })` accepts small limits, so no test depends on real time or on another test.
+
 ### Migrations added in Phase 3
 
 - `008_customer_contact_policy.ts`: contact policy (above).
@@ -1027,3 +1057,6 @@ A scripted bootstrap command (no hand-written SQL) is follow-up work.
 - Customer-facing status emails (`status_update`).
 - Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
 - A scripted production admin bootstrap (today the initial password is set with a manual SQL step, see Admin account initialization).
+- Rate limiting for the public customer API, and a shared (for example Redis) store for the admin limiters before running more than one instance.
+- Durable audit logs: detail views, memo access and blocked file attempts exist only in the application log, which Heroku does not keep.
+- Resetting another admin's password (admin-initiated reset); today an admin can only change their own.

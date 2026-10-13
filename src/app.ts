@@ -1,18 +1,31 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import { config } from './config/env';
+import { config, RateLimitSettings } from './config/env';
 import logger from './utils/logger';
+import { createRateLimiters } from './middleware/rateLimit';
 import { assertFileDownloadConfiguration, downloadProvider } from './services/fileDownload';
 import adminAuthRouter from './routes/adminAuth';
 import { createAdminAccountRouter } from './routes/adminAccount';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
 import estimatesRouter from './routes/estimates';
 
-export function createApp(): Express {
+export interface CreateAppOptions {
+  // Overrides for tests; production values come from the environment (see config/env.ts).
+  rateLimits?: Partial<RateLimitSettings>;
+  trustProxy?: number;
+}
+
+export function createApp(options: CreateAppOptions = {}): Express {
   assertFileDownloadConfiguration(config.fileDownloadEnabled, downloadProvider);
 
   const app: Express = express();
+
+  // Number of reverse proxies in front of the app; decides which IP req.ip reports.
+  app.set('trust proxy', options.trustProxy ?? config.trustProxy);
+
+  // Each app gets its own limiters (and in-memory counters).
+  const limiters = createRateLimiters({ ...config.rateLimits, ...options.rateLimits });
 
   app.use(
     cors({
@@ -22,6 +35,10 @@ export function createApp(): Express {
       allowedHeaders: ['Content-Type', 'Authorization']
     })
   );
+
+  // Rate limits run before the body is parsed, so rejected requests cost almost nothing.
+  app.use('/admin', limiters.api);
+  app.post('/admin/login', limiters.login);
 
   app.use(express.json());
   app.use(cookieParser());
@@ -38,10 +55,13 @@ export function createApp(): Express {
   app.use('/admin', adminAuthRouter);
 
   // Admin account (Phase 3 Week 2): own password change
-  app.use('/admin/me', createAdminAccountRouter());
+  app.use('/admin/me', createAdminAccountRouter({ passwordLimiter: limiters.password }));
 
   // Admin estimate management (Phase 3)
-  app.use('/admin/estimates', createAdminEstimatesRouter());
+  app.use(
+    '/admin/estimates',
+    createAdminEstimatesRouter({ mutationLimiter: limiters.mutation })
+  );
 
   // Customer API routes (Phase 2 Day 1)
   app.use('/api', estimatesRouter);
