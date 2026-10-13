@@ -27,6 +27,20 @@ describe('Admin audit log', () => {
     expect(JSON.stringify(record)).not.toMatch(/private memo|email body|hunter2|abc|buyer@|secret reason/);
   });
 
+  it('keeps the memo id but never memo text', () => {
+    const entry = {
+      action: 'memo.create',
+      result: 'success',
+      memo_id: 'memo-1',
+      memo_content: 'private text'
+    } as unknown as AuditEntry;
+
+    const record = buildAuditRecord(entry);
+
+    expect(record.memo_id).toBe('memo-1');
+    expect(JSON.stringify(record)).not.toContain('private text');
+  });
+
   it('drops non-primitive values and truncates long strings', () => {
     const entry = {
       action: 'x'.repeat(500),

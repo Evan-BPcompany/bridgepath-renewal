@@ -11,6 +11,7 @@ const ALLOWED_KEYS = [
   'role',
   'estimate_id',
   'file_id',
+  'memo_id',
   'from_status',
   'to_status',
   'error_code',

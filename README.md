@@ -37,7 +37,8 @@ bridge-path-mvp/
 │   │       ├── 006_receipt_sequence.ts
 │   │       ├── 007_email_events_schema_enhancement.ts
 │   │       ├── 008_customer_contact_policy.ts
-│   │       └── 009_admin_api_indexes.ts
+│   │       ├── 009_admin_api_indexes.ts
+│   │       └── 010_admin_memos_content_check.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -123,10 +124,11 @@ src/db/migrations/
 ├── 006_receipt_sequence.ts         (1 table: receipt_sequence - infrastructure)
 ├── 007_email_events_schema_enhancement.ts  (email_events columns/indexes added, no new table)
 ├── 008_customer_contact_policy.ts  (estimates.customer_email nullable + email-or-phone CHECK, no new table)
-└── 009_admin_api_indexes.ts        (3 admin query indexes, no new table)
+├── 009_admin_api_indexes.ts        (3 admin query indexes, no new table)
+└── 010_admin_memos_content_check.ts  (admin_memos.content length CHECK, no new table)
 ```
 
-**Migration files: 9 (001-009)** - 008 and 009 were added in Phase 3 and do not create tables
+**Migration files: 10 (001-010)** - 008, 009 and 010 were added in Phase 3 and do not create tables
 
 **Application Tables: 10**
 - Core tables: 6 (001)
@@ -176,7 +178,7 @@ bash scripts/setup-db.sh
 
 **Current Status**:
 - ✅ TypeScript migrations created and compiled
-- ✅ Migration structure verified (9 migration files: 10 application tables + receipt_sequence)
+- ✅ Migration structure verified (10 migration files: 10 application tables + receipt_sequence)
 - ⏳ Actual database migration: **NOT YET TESTED**. It can only be run after `DATABASE_URL` is configured.
 
 **Verify database** (only after migrations are executed with DATABASE_URL):
@@ -809,6 +811,36 @@ All routes live under `/admin/estimates`, use the existing HttpOnly cookie authe
 - The detail response includes at most the latest 200 status history entries and the latest 100 memos.
 - Audit entries record the client IP from `req.ip`. Behind a proxy (Heroku) this is the proxy address until trust-proxy handling is added in Week 2.
 - Customer status emails (`email_events.email_type = 'status_update'`) are **not sent** in Phase 3. The type is reserved for future work.
+
+### Admin memos (Week 2)
+
+Internal notes on an estimate. Both `admin` and `manager` can read and write. `:id` is `estimates.id` (UUID).
+
+| Method and path | Description |
+|---|---|
+| `POST /admin/estimates/:id/memos` | Create a memo. Body `{ content }`. Returns 201 with `{ id, estimate_id, content, author: { id, username }, created_at }` |
+| `GET /admin/estimates/:id/memos` | Newest first. Query `page` (default 1), `limit` (default 20, max 100). Returns `data` and `pagination` |
+
+- `content` is trimmed and must be **1-5000 characters** (counted as characters/code points, not bytes). Newlines and tabs are allowed; other control characters are rejected.
+- The author is always the authenticated admin (`req.admin.id`). An `author` or `admin_user_id` in the request body is ignored.
+- The estimate check and the insert are a single SQL statement, so a memo is never written for a missing estimate (404 `ESTIMATE_NOT_FOUND`).
+- Memos cannot be edited or deleted in this phase.
+- Memo text appears only in these two endpoints and in the estimate detail (latest 100). The estimate list never includes memo text or counts.
+- Memos are stored and returned as plain text. A client that renders them in HTML must escape them.
+- Audit log: `memo.create` and `memo.list.view` record only admin id, role, estimate id, memo id, result and IP. The memo text (and its length) is never logged.
+
+| HTTP | Code | Situation |
+|---|---|---|
+| 400 | `INVALID_ID` | `:id` is not a UUID |
+| 400 | `VALIDATION_ERROR` | `content` missing, not a string, blank, or contains control characters; invalid `page`/`limit` |
+| 400 | `MEMO_TOO_LONG` | more than 5000 characters |
+| 404 | `ESTIMATE_NOT_FOUND` | estimate does not exist |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | POST without `Content-Type: application/json` |
+
+**Database constraint (migration `010_admin_memos_content_check.ts`)**: `CHECK (char_length(content) BETWEEN 1 AND 5000)` on `admin_memos.content`, the same limit as the API.
+- Applying it fails if `admin_memos` already holds an empty or longer-than-5000-character row. No memo API existed before this phase, so none is expected; check manually-inserted rows first.
+- Rolling back only drops the constraint and is always safe.
+- Not run against a real PostgreSQL yet (see the verification status below).
 
 ### Status transitions
 

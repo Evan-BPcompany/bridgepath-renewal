@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, RequestHandler, Response } from 'express';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import {
   isUuid,
@@ -12,14 +12,16 @@ import {
   getEstimateDetail,
   listEstimates
 } from '../services/adminEstimateService';
+import adminMemosRouter from './adminMemos';
 import { STATUS_ERRORS } from '../utils/statusTransitions';
 import { logAdminAudit } from '../utils/auditLog';
 import logger from '../utils/logger';
 
+// Route handlers only. Authentication, the role check and rate limiting are applied by
+// createAdminEstimatesRouter below, so this router is never exposed without them.
 const router = Router();
 
-router.use(authMiddleware);
-router.use(requireRole('manager'));
+router.use('/:id/memos', adminMemosRouter);
 
 const STATUS_ERROR_MESSAGES: Record<string, string> = {
   ESTIMATE_NOT_FOUND: 'Estimate not found',
@@ -174,4 +176,21 @@ router.patch('/:id/status', requireJson, async (req: Request, res: Response): Pr
   }
 });
 
-export default router;
+export interface AdminEstimatesRouterDeps {
+  mutationLimiter?: RequestHandler;
+}
+
+export function createAdminEstimatesRouter(deps: AdminEstimatesRouterDeps = {}): Router {
+  const guarded = Router();
+
+  guarded.use(authMiddleware);
+  guarded.use(requireRole('manager'));
+
+  if (deps.mutationLimiter) {
+    guarded.use(deps.mutationLimiter);
+  }
+
+  guarded.use(router);
+
+  return guarded;
+}

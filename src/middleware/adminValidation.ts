@@ -264,3 +264,68 @@ export function parseStatusBody(body: unknown): StatusBodyResult {
     value: { toStatus: to_status, reason: normalizedReason, expectedStatus }
   };
 }
+
+export type PageQueryResult =
+  | { valid: true; value: { page: number; limit: number } }
+  | { valid: false; errors: Array<{ field: string; message: string }> };
+
+export function parsePageQuery(query: Request['query']): PageQueryResult {
+  const errors: Array<{ field: string; message: string }> = [];
+
+  const page = integerParam(singleString(query.page, 'page', errors), 'page', 1, 1, 100000, errors);
+  const limit = integerParam(
+    singleString(query.limit, 'limit', errors),
+    'limit',
+    LIST_DEFAULT_LIMIT,
+    1,
+    LIST_MAX_LIMIT,
+    errors
+  );
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return { valid: true, value: { page, limit } };
+}
+
+export const MEMO_MIN_LENGTH = 1;
+export const MEMO_MAX_LENGTH = 5000;
+
+export type MemoBodyResult =
+  | { valid: true; content: string }
+  | { valid: false; code: 'VALIDATION_ERROR' | 'MEMO_TOO_LONG'; message: string };
+
+// Length is counted in characters (code points), the same unit the database CHECK uses.
+export function parseMemoBody(body: unknown): MemoBodyResult {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return { valid: false, code: 'VALIDATION_ERROR', message: 'Request body must be a JSON object' };
+  }
+
+  const { content } = body as Record<string, unknown>;
+
+  if (typeof content !== 'string') {
+    return { valid: false, code: 'VALIDATION_ERROR', message: 'content is required and must be a string' };
+  }
+
+  const trimmed = content.trim();
+  const length = Array.from(trimmed).length;
+
+  if (length < MEMO_MIN_LENGTH) {
+    return { valid: false, code: 'VALIDATION_ERROR', message: 'content must not be empty' };
+  }
+
+  if (length > MEMO_MAX_LENGTH) {
+    return {
+      valid: false,
+      code: 'MEMO_TOO_LONG',
+      message: `content must be at most ${MEMO_MAX_LENGTH} characters`
+    };
+  }
+
+  if (REASON_FORBIDDEN_CHARS.test(trimmed)) {
+    return { valid: false, code: 'VALIDATION_ERROR', message: 'content contains invalid control characters' };
+  }
+
+  return { valid: true, content: trimmed };
+}

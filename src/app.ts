@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import { config } from './config/env';
 import logger from './utils/logger';
 import adminAuthRouter from './routes/adminAuth';
-import adminEstimatesRouter from './routes/adminEstimates';
+import { createAdminEstimatesRouter } from './routes/adminEstimates';
 import estimatesRouter from './routes/estimates';
 
 export function createApp(): Express {
@@ -34,7 +34,7 @@ export function createApp(): Express {
   app.use('/admin', adminAuthRouter);
 
   // Admin estimate management (Phase 3)
-  app.use('/admin/estimates', adminEstimatesRouter);
+  app.use('/admin/estimates', createAdminEstimatesRouter());
 
   // Customer API routes (Phase 2 Day 1)
   app.use('/api', estimatesRouter);
