@@ -6,7 +6,7 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 1 - Backend Foundation (In Progress)
+**Status**: Phase 2 Day 3 complete (Phase 1 complete; Phase 2 Days 4-7 pending; Phase 3 Admin API not started)
 
 ## 🔧 Technology Stack
 
@@ -33,7 +33,9 @@ bridge-path-mvp/
 │   │       ├── 002_admin_sessions.ts
 │   │       ├── 003_estimate_access_tokens.ts
 │   │       ├── 004_base_prices_and_email.ts
-│   │       └── 005_seed_dev_data.ts
+│   │       ├── 005_seed_dev_data.ts
+│   │       ├── 006_receipt_sequence.ts
+│   │       └── 007_email_events_schema_enhancement.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -116,22 +118,26 @@ src/db/migrations/
 │   ├── base_prices
 │   └── email_events
 ├── 005_seed_dev_data.ts            (Development/test data only)
-└── 006_receipt_sequence.ts         (1 table: receipt_sequence - infrastructure)
+├── 006_receipt_sequence.ts         (1 table: receipt_sequence - infrastructure)
+└── 007_email_events_schema_enhancement.ts  (email_events columns/indexes added, no new table)
 ```
+
+**Migration files: 7 (001-007)**
 
 **Application Tables: 10**
 - Core tables: 6 (001)
 - Session management: 1 (002)
 - Access tokens: 1 (003)
 - Pricing & communication: 2 (004)
+- Migration 007 only extends `email_events` (adds next_retry_at, last_error, provider_message_id, updated_at); it creates no table
 
 **Infrastructure Tables: 1**
-- Receipt sequence: 1 (006)
+- receipt_sequence: 1 (006)
 
 **Knex Management Tables: 1 (auto-created)**
-- knex_migrations: tracks migration state
+- knex_migrations: tracks migration state (Knex also creates a `knex_migrations_lock` helper table)
 
-**Total: 11 application + infrastructure tables**
+**Total: 10 application + 1 infrastructure tables (+ Knex-managed tables)**
 
 **Run migrations** (requires DATABASE_URL):
 ```bash
@@ -166,24 +172,34 @@ bash scripts/setup-db.sh
 
 **Current Status**:
 - ✅ TypeScript migrations created and compiled
-- ✅ Migration structure verified (5 migration files, 10 tables)
-- ⏳ Actual database migration: **NOT YET TESTED** (requires DATABASE_URL)
+- ✅ Migration structure verified (7 migration files: 10 application tables + receipt_sequence)
+- ⏳ Actual database migration: **NOT YET TESTED**. It can only be run after `DATABASE_URL` is configured.
 
 **Verify database** (only after migrations are executed with DATABASE_URL):
 ```bash
 # Connect to the database
 psql $DATABASE_URL
 
-# List all tables (should show 10 tables)
+# List all tables (10 application + receipt_sequence + Knex-managed tables)
 \dt
 
 # Verify master admin user was created
 SELECT username, email, role FROM admin_users WHERE username = 'master';
 
-# Verify all 10 tables exist
+# Verify receipt_sequence exists (006)
+SELECT to_regclass('public.receipt_sequence');
+
+# Verify email_events columns added by 007
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'email_events'
+  AND column_name IN ('next_retry_at', 'last_error', 'provider_message_id', 'updated_at');
+# Expected: 4 rows
+
+# Verify application + infrastructure tables (excluding Knex-managed tables)
 SELECT COUNT(*) FROM information_schema.tables
-WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
-# Expected: 10
+WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+  AND table_name NOT LIKE 'knex_%';
+# Expected: 11
 
 # Verify sample base prices (marked with [SAMPLE])
 SELECT category, product_variant, description FROM base_prices
@@ -223,30 +239,30 @@ See `.env.example` for all available variables.
 
 ## 🏗️ Development Phases
 
-### Phase 1: Backend Foundation (5 days)
+### Phase 1: Backend Foundation (5 days) - complete
 - [x] Day 1: Project structure initialization (Express, TypeScript, config)
-- [x] Day 2: PostgreSQL migrations and schema (10 application + 1 infrastructure tables, 6 migration files)
+- [x] Day 2: PostgreSQL migrations and schema (10 application + 1 infrastructure tables, 7 migration files)
 - [x] Day 3: JWT authentication and session management
 - [x] Day 4: Receipt ID generation and session refresh tokens
 - [x] Day 5: Specification validation and error handling
 
-### Phase 2: Customer API (7 days)
+### Phase 2: Customer API (7 days) - Days 1-3 complete
 - [x] Day 1: Estimate submission endpoint (POST /api/estimates, GET /api/estimates/:receipt_id)
 - [x] Day 2: File upload, validation, and S3 integration (multipart/form-data, magic bytes, compensation)
-- [ ] Day 3: Email notifications (SendGrid integration)
-- [ ] Days 4-7: Additional features and testing
+- [x] Day 3: Email notifications (SendGrid integration)
+- [ ] Days 4-7: Additional features and testing (Day 4 stabilization/docs in progress)
 
-### Phase 3: Admin API (7 days)
+### Phase 3: Admin API (7 days) - not started
 - [ ] Admin dashboard endpoints
 - [ ] Quotation management
 - [ ] Status tracking and memos
 
-### Phase 4: Frontend Integration (7 days)
+### Phase 4: Frontend Integration (7 days) - not started
 - [ ] Connect existing HTML forms to API
 - [ ] Fix known issues (script.js console errors)
 - [ ] UI/UX improvements
 
-### Phase 5: Testing & Deployment (7 days)
+### Phase 5: Testing & Deployment (7 days) - not started
 - [ ] Unit and integration tests
 - [ ] Heroku deployment
 - [ ] Production setup
@@ -662,10 +678,12 @@ Estimate Creation Transaction:
    - Graceful shutdown via `stopEmailWorker()` for Jest cleanup
 
 6. **SendGrid Integration**
-   - API key optional (worker operates safely without it)
-   - If SENDGRID_API_KEY not set: simulates sends with fake message IDs
+   - If SENDGRID_API_KEY is not set, no email is actually sent and nothing is marked as sent (no fake message IDs)
+   - Without an API key, events stay in pending/retry state (retry_count advances per the retry schedule, and events end as failed after retries are exhausted)
+   - `provider_message_id` stores the SendGrid message ID for delivery tracking only; it does not prevent duplicate sends
+   - `idempotency_key` (UNIQUE) only prevents duplicate rows in the DB queue
+   - If the server stops after the SendGrid call succeeds but before the DB update, the email may be sent again (at-least-once)
    - Credentials via environment variables (never hardcoded)
-   - Server-side encryption for credentials in transit
 
 7. **Data Privacy**
    - Email body contains only: receipt_id, status, created_at, guidance
@@ -694,16 +712,16 @@ EMAIL_WORKER_STALE_TIMEOUT_MS=300000 # 5 minutes (stale event threshold)
 - EMAIL_WORKER_ENABLED=false in .env.example (enable explicitly in production)
 - Test environment automatically disables worker (NODE_ENV=test)
 
-**Test Coverage**: ✅ 90 total tests
+**Test Coverage**: ✅ 91 total tests
 - Specification validation: 26 tests
 - Estimates API: 42 tests
 - File upload & compensation: 10 tests
-- Email service & retry logic: 12 tests
+- Email service & retry logic: 13 tests
 
 **Actual Test Results:**
 ```
 Test Suites: 4 passed, 4 total
-Tests:       90 passed, 90 total
+Tests:       91 passed, 91 total
 ```
 
 **Known Limitations & Guarantees:**
@@ -711,13 +729,13 @@ Tests:       90 passed, 90 total
 | Aspect | Status | Notes |
 |--------|--------|-------|
 | **Email Delivery** | at-least-once | If server crashes after SendGrid succeeds but before DB update, duplicate send possible |
-| **Idempotency** | Queuing only | Idempotency key prevents duplicate queue entries; SendGrid idempotency key prevents duplicate sends |
+| **Idempotency** | Queuing only | `idempotency_key` prevents duplicate DB queue entries only; `provider_message_id` is for tracking and does not prevent duplicate sends |
 | **ClamAV Scanning** | Not implemented | Files remain in quarantine state; virus scanning deferred |
 | **Signed URLs** | Not implemented | Download endpoint deferred |
 | **File Retry API** | Not implemented | File upload failures require new estimate; dedicated retry endpoint deferred |
 
 **Integration Testing Status:**
-- ✅ Unit tests: 90/90 passing (mock SendGrid)
+- ✅ Unit tests: 91/91 passing (pure logic tests; no real DB, AWS, or SendGrid calls)
 - ✅ Transaction safety: verified (Outbox pattern)
 - ❌ SendGrid integration: Not tested (requires API key in .env)
 - ❌ Actual email delivery: Not tested (requires SendGrid account)
@@ -737,5 +755,5 @@ Migration file: `007_email_events_schema_enhancement.ts`
 - `src/config/env.ts`: SendGrid and worker configuration
 - `src/__tests__/emailService.test.ts`: Retry logic and state management tests
 
-**Last Updated**: 2026-10-01
-**Phase 2 Status**: Days 1-3 complete (Estimates, Files, Email Notifications)
+**Last Updated**: 2026-10-13
+**Phase 2 Status**: Days 1-3 complete (Estimates, Files, Email Notifications); Days 4-7 pending
