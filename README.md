@@ -6,7 +6,7 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 2 Day 3 complete (Phase 1 complete; Phase 2 Days 4-7 pending; Phase 3 Admin API not started)
+**Status**: Phase 3 Admin API Week 1 implemented, awaiting review (Phase 1 and Phase 2 Days 1-3 complete; Phase 2 Days 4-7 pending)
 
 ## 🔧 Technology Stack
 
@@ -36,7 +36,8 @@ bridge-path-mvp/
 │   │       ├── 005_seed_dev_data.ts
 │   │       ├── 006_receipt_sequence.ts
 │   │       ├── 007_email_events_schema_enhancement.ts
-│   │       └── 008_customer_contact_policy.ts
+│   │       ├── 008_customer_contact_policy.ts
+│   │       └── 009_admin_api_indexes.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -121,10 +122,11 @@ src/db/migrations/
 ├── 005_seed_dev_data.ts            (Development/test data only)
 ├── 006_receipt_sequence.ts         (1 table: receipt_sequence - infrastructure)
 ├── 007_email_events_schema_enhancement.ts  (email_events columns/indexes added, no new table)
-└── 008_customer_contact_policy.ts  (estimates.customer_email nullable + email-or-phone CHECK, no new table)
+├── 008_customer_contact_policy.ts  (estimates.customer_email nullable + email-or-phone CHECK, no new table)
+└── 009_admin_api_indexes.ts        (3 admin query indexes, no new table)
 ```
 
-**Migration files: 8 (001-008)** - 008 does not create tables
+**Migration files: 9 (001-009)** - 008 and 009 were added in Phase 3 and do not create tables
 
 **Application Tables: 10**
 - Core tables: 6 (001)
@@ -174,7 +176,7 @@ bash scripts/setup-db.sh
 
 **Current Status**:
 - ✅ TypeScript migrations created and compiled
-- ✅ Migration structure verified (8 migration files: 10 application tables + receipt_sequence)
+- ✅ Migration structure verified (9 migration files: 10 application tables + receipt_sequence)
 - ⏳ Actual database migration: **NOT YET TESTED**. It can only be run after `DATABASE_URL` is configured.
 
 **Verify database** (only after migrations are executed with DATABASE_URL):
@@ -243,7 +245,7 @@ See `.env.example` for all available variables.
 
 ### Phase 1: Backend Foundation (5 days) - complete
 - [x] Day 1: Project structure initialization (Express, TypeScript, config)
-- [x] Day 2: PostgreSQL migrations and schema (10 application + 1 infrastructure tables, 7 migration files)
+- [x] Day 2: PostgreSQL migrations and schema (10 application + 1 infrastructure tables, migration files 001-007 at that time)
 - [x] Day 3: JWT authentication and session management
 - [x] Day 4: Receipt ID generation and session refresh tokens
 - [x] Day 5: Specification validation and error handling
@@ -714,7 +716,7 @@ EMAIL_WORKER_STALE_TIMEOUT_MS=300000 # 5 minutes (stale event threshold)
 - EMAIL_WORKER_ENABLED=false in .env.example (enable explicitly in production)
 - Test environment automatically disables worker (NODE_ENV=test)
 
-**Test Coverage**: ✅ 91 total tests
+**Test Coverage**: ✅ 91 tests at the end of Phase 2 Day 3 (Phase 3 Week 1 raised the total to 208)
 - Specification validation: 26 tests
 - Estimates API: 42 tests
 - File upload & compensation: 10 tests
@@ -723,7 +725,7 @@ EMAIL_WORKER_STALE_TIMEOUT_MS=300000 # 5 minutes (stale event threshold)
 **Actual Test Results:**
 ```
 Test Suites: 4 passed, 4 total
-Tests:       91 passed, 91 total
+Tests:       91 passed, 91 total   (Phase 2 Day 3 snapshot; see the Phase 3 section for current totals)
 ```
 
 **Known Limitations & Guarantees:**
@@ -773,3 +775,127 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 - Rolling back migration 008 fails if any estimate has a NULL `customer_email`; resolve those rows first.
 
 **Verification status**: covered by unit tests with a mocked database and by structural checks of the migration SQL. Migration 008 and the CHECK constraint have **not** been run against a real PostgreSQL (`DATABASE_URL` is not configured), so rollback behaviour is verified by reading the SQL only.
+
+---
+
+## Phase 3: Admin API (in progress)
+
+**Plan**: 3 weeks.
+- Week 1 (this section): estimate list/detail, auth and roles, status change.
+- Week 2: memos, file status view and download-gate structure, password change, rate limiting.
+- Week 3: test hardening, integration test preparation, documentation, security review.
+
+Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
+
+**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, migrations 008 and 009) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
+
+### Admin endpoints (Week 1)
+
+All routes live under `/admin/estimates`, use the existing HttpOnly cookie authentication, and are available to both `admin` and `manager`. `:id` is `estimates.id` (UUID), **not** the receipt id (`receipt_id` is a response field only).
+
+| Method and path | Description |
+|---|---|
+| `GET /admin/estimates` | Paginated list. Query: `page` (default 1), `limit` (default 20, max 100), `status` (comma-separated), `category`, `created_from` / `created_to` (`YYYY-MM-DD`, Korea time, inclusive), `q` (search), `sort` (`created_at`, `updated_at`, `status`, `receipt_id`), `order` (`asc`/`desc`, default `desc`) |
+| `GET /admin/estimates/:id` | Detail: estimate, file metadata, status history, memos |
+| `PATCH /admin/estimates/:id/status` | Body `{ to_status, reason?, expected_status? }` |
+
+- `q` matches the receipt id (prefix), company name, customer name, customer email (contains) and, when `q` looks like a phone number (4+ digits), the customer phone with formatting ignored. This supports the PRD FR-4.10 recovery path (finding a request from customer details).
+- The list returns minimal personal data: `id`, `receipt_id`, `category`, `status`, `company_name`, `customer_name`, `created_at`, `updated_at`, `file_count`. Customer email, phone and `specification_json` appear only in the detail response.
+- Never returned: customer access tokens or hashes, password hashes, refresh/access token hashes, `s3_key`, `virus_scan_result`.
+- Responses: `{ success: true, data, pagination? }`. Errors: `{ error, code, timestamp }`.
+- Mutating requests must use `Content-Type: application/json` (415 otherwise). Malformed JSON returns 400 `INVALID_JSON`.
+- Audit logging: detail views and status changes (including denied attempts) are written to the application log as `admin_audit {...}` with only whitelisted fields (admin id, role, action, result, estimate id, statuses, IP). Memo text, reasons and email content are never logged. Detail views and denied attempts exist only in logs, which are not durable on Heroku; status changes are also stored permanently in `status_history`.
+- The detail response includes at most the latest 200 status history entries and the latest 100 memos.
+- Audit entries record the client IP from `req.ip`. Behind a proxy (Heroku) this is the proxy address until trust-proxy handling is added in Week 2.
+- Customer status emails (`email_events.email_type = 'status_update'`) are **not sent** in Phase 3. The type is reserved for future work.
+
+### Status transitions
+
+Only the 10 values allowed by the `estimates.status` CHECK constraint are used. The table below is mirrored in `src/utils/statusTransitions.ts`; `statusTransitions.test.ts` fails if the two differ. `admin` may perform every listed transition; `manager` only those marked allowed.
+
+<!-- STATUS_TRANSITIONS:START -->
+| Current status | Next status | manager | admin | reason required |
+|---|---|---|---|---|
+| new_receipt | under_review | allowed | allowed | no |
+| new_receipt | rejected | denied | allowed | yes |
+| new_receipt | cancelled | denied | allowed | yes |
+| under_review | quoted | allowed | allowed | no |
+| under_review | on_hold | allowed | allowed | yes |
+| under_review | rejected | denied | allowed | yes |
+| under_review | cancelled | denied | allowed | yes |
+| quoted | negotiating | allowed | allowed | no |
+| quoted | accepted | allowed | allowed | no |
+| quoted | on_hold | allowed | allowed | yes |
+| quoted | rejected | denied | allowed | yes |
+| quoted | cancelled | denied | allowed | yes |
+| negotiating | quoted | allowed | allowed | no |
+| negotiating | accepted | allowed | allowed | no |
+| negotiating | on_hold | allowed | allowed | yes |
+| negotiating | rejected | denied | allowed | yes |
+| negotiating | cancelled | denied | allowed | yes |
+| accepted | completed | allowed | allowed | yes |
+| accepted | on_hold | allowed | allowed | yes |
+| accepted | cancelled | denied | allowed | yes |
+| on_hold | under_review | allowed | allowed | no |
+| on_hold | cancelled | denied | allowed | yes |
+| completed | archived | denied | allowed | no |
+| rejected | archived | denied | allowed | no |
+| cancelled | archived | denied | allowed | no |
+<!-- STATUS_TRANSITIONS:END -->
+
+`archived` is terminal (no outgoing transitions). Any pair not listed above is invalid.
+
+**Status change errors** (checked in this order after the estimate row is locked):
+
+| Order | Situation | HTTP | Code |
+|---|---|---|---|
+| 1 | `:id` is not a UUID | 400 | `INVALID_ID` |
+| 1 | `to_status` or `expected_status` is not one of the 10 statuses | 400 | `INVALID_STATUS` |
+| 1 | Body is malformed (missing `to_status`, `reason` too long, wrong types) | 400 | `VALIDATION_ERROR` |
+| 2 | Estimate does not exist | 404 | `ESTIMATE_NOT_FOUND` |
+| 3 | `expected_status` differs from the current status (response includes `current_status`) | 409 | `STATUS_CONFLICT` |
+| 4 | `to_status` equals the current status | 422 | `SAME_STATUS` |
+| 5 | Transition is not in the table | 422 | `INVALID_TRANSITION` |
+| 6 | Transition exists but the role is not allowed (manager) | 403 | `INSUFFICIENT_ROLE` |
+| 7 | `reason` is required but missing | 422 | `REASON_REQUIRED` |
+
+The estimate row is locked with `SELECT ... FOR UPDATE` in a READ COMMITTED transaction, and the `estimates` update and the `status_history` insert are committed together. `updated_at` is set explicitly (there is no trigger).
+
+**Database status values and PRD labels** (the PRD lists 10 statuses with different names):
+
+| Database value | PRD label |
+|---|---|
+| new_receipt | 신규 접수 |
+| under_review | 정보 확인 중 |
+| quoted | 정식견적 발송 |
+| negotiating | 고객 검토 중 |
+| accepted | 진행 확정 |
+| on_hold | 보류 |
+| completed | 종결 |
+| cancelled | 취소 |
+| rejected | (not in PRD) |
+| archived | (not in PRD) |
+
+The PRD statuses `추가정보 요청` and `공장 견적 확인 중` have no database value yet. Until the status set is aligned with a new migration, use `under_review` together with an internal memo.
+
+### Password byte limit
+
+bcrypt only uses the first 72 bytes of a password. Passwords longer than 72 **UTF-8 bytes** are rejected, never silently truncated (Korean characters use 3 bytes each, so 24 characters at most). `hashPassword` throws `PASSWORD_TOO_LONG`, and `comparePassword` returns `false` for such input, so a long password can never match on its first 72 bytes. The password change endpoint (Week 2) will return 400 `PASSWORD_TOO_LONG`.
+
+### Migrations added in Phase 3
+
+- `008_customer_contact_policy.ts`: contact policy (above).
+- `009_admin_api_indexes.ts`: `idx_estimates_status_created_at`, `idx_status_history_estimate_created`, `idx_admin_memos_estimate_created` (all `IF NOT EXISTS`, dropped with `IF EXISTS`). No existing index duplicates these column combinations. They make `idx_estimates_status`, `idx_status_history_estimate_id` and `idx_admin_memos_estimate_id` largely redundant; those are left in place.
+
+### Default admin account (must change before production)
+
+Migration `005_seed_dev_data.ts` creates the admin user `master` with the initial password `CHANGE_ME_ON_FIRST_LOGIN`. This account is for development only. There is no forced password change yet, so it must be changed (password change endpoint arrives in Week 2) or removed, and a separate production admin initialization procedure is required before any production deployment.
+
+### Required before public launch (not implemented in Phase 3)
+
+- Customer type ("개인·창업 준비 중" / "사업자·브랜드 운영 중") and personal-information consent are not stored. PRD FR-4.2, FR-5.2 and FR-5.3 require them (the admin list and detail must show the customer type).
+- Formal quotation file attachment (PRD FR-5.7) and a record of whether the quotation was sent to the customer (FR-5.8).
+- ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
+- Customer-facing status emails (`status_update`).
+- Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
+- Forced password change on first login and a production admin bootstrap procedure.
