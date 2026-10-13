@@ -113,7 +113,7 @@ async function processEmailEventStageB(event: EmailEvent): Promise<void> {
       const errorMsg = 'SendGrid API key not configured. Email not sent. Set SENDGRID_API_KEY to enable email delivery.';
       logger.warn('Skipping email send (no API key)', {
         event_id: event.id,
-        reason: errorMsg
+        error_code: 'SENDGRID_API_KEY_MISSING'
       });
 
       // Schedule retry so email is not lost
@@ -204,7 +204,7 @@ export async function sendEmailViaSendGrid(
 
     // Check for specific SendGrid errors
     if (errorMsg.includes('Invalid email')) {
-      throw new Error(`Invalid recipient email: ${to}`);
+      throw new Error('Invalid recipient email address');
     }
     if (errorMsg.includes('Authentication failed')) {
       throw new Error('SendGrid authentication failed - check API key');

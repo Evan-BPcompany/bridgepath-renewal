@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop/**]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_integration:
+        description: Run the PostgreSQL integration tests (local service container)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # No database, AWS or SendGrid credentials exist in this job; the tests use fakes and
+    # jest.setup.js blocks every connection that does not stay on this machine.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --runInBand
+      - name: Production dependency audit (must be clean)
+        run: npm run audit:prod
+      - name: Secret scan
+        run: npm run secret-scan
+
+  audit-dev:
+    # Development dependencies are audited separately and only fail on high/critical findings.
+    # Known moderate findings are listed in docs/SECURITY.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:dev
+
+  integration:
+    # Disabled by default. Runs only when started by hand with "run_integration" set, against a
+    # throw-away PostgreSQL service container on this runner (never a remote database).
+    if: github.event_name == 'workflow_dispatch' && inputs.run_integration == true
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: bridgepath_test
+        ports:
+          - 5432:5432
+    env:
+      TEST_DATABASE_URL: postgres://ci:ci@127.0.0.1:5432/bridgepath_test
+      REQUIRE_INTEGRATION: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration

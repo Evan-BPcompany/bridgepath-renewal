@@ -147,7 +147,7 @@ describe('Admin memos API (mocked database)', () => {
       expect(res.body.code).toBe('ESTIMATE_NOT_FOUND');
     });
 
-    it('returns 400 INVALID_ID for a non-UUID id', async () => {
+    it('memo creation: returns 400 INVALID_ID for a non-UUID id', async () => {
       const res = await post({ content: 'note' }, 'admin', '/admin/estimates/BP20261013001/memos');
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('INVALID_ID');

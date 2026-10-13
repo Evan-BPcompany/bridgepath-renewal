@@ -38,7 +38,8 @@ export function createFakeDb(): {
   const run = async (sql: string, params: unknown[] = []): Promise<QueryResult> => {
     state.queries.push({ sql, params });
 
-    if (sql.includes('FROM admin_sessions')) {
+    // The refresh endpoint looks a session up by its refresh token hash; tests answer that themselves.
+    if (sql.includes('FROM admin_sessions') && !sql.includes('s.refresh_token_hash')) {
       if (state.sessionMissing) {
         return { rows: [] };
       }

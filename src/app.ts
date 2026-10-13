@@ -1,5 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { config, RateLimitSettings } from './config/env';
 import logger from './utils/logger';
@@ -23,6 +24,17 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Number of reverse proxies in front of the app; decides which IP req.ip reports.
   app.set('trust proxy', options.trustProxy ?? config.trustProxy);
+
+  app.disable('x-powered-by');
+  app.use(helmet());
+
+  // Responses that carry admin or customer data must not be stored by browsers or proxies.
+  const noStore = (_req: Request, res: Response, next: NextFunction): void => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  };
+  app.use('/admin', noStore);
+  app.use('/api', noStore);
 
   // Each app gets its own limiters (and in-memory counters).
   const limiters = createRateLimiters({ ...config.rateLimits, ...options.rateLimits });

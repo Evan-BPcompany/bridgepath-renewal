@@ -95,7 +95,7 @@ describe('Admin login lockout (5 failures / 15 minutes, reset when a lock expire
       }
     });
 
-    it('locks for 15 minutes on the 5th failure', async () => {
+    it('login locks the account for 15 minutes on the 5th failed attempt', async () => {
       for (let i = 0; i < 5; i += 1) {
         await login(WRONG);
       }

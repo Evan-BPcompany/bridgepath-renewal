@@ -6,18 +6,18 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 3 Admin API Weeks 1-2 implemented, awaiting review (Phase 1 and Phase 2 Days 1-3 complete; Phase 2 Days 4-7 pending)
+**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. Nothing has been run against a real PostgreSQL, AWS or SendGrid yet (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
 
 ## 🔧 Technology Stack
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | **Frontend** | HTML5 / CSS3 / JavaScript | - |
-| **Backend** | Node.js + Express + TypeScript | 18.x / 4.18.x / 5.0.x |
+| **Backend** | Node.js + Express + TypeScript | 20+ / 4.18.x / 5.0.x |
 | **Database** | PostgreSQL | 14+ |
 | **File Storage** | AWS S3 | - |
 | **Email** | Sendgrid API | - |
-| **Logging** | Winston + Sentry | 3.8.x / 7.50.x |
+| **Logging** | Winston (Sentry is **not integrated**: `SENTRY_DSN` is read but unused) | 3.8.x |
 
 ## 📂 Project Structure
 
@@ -55,7 +55,7 @@ bridge-path-mvp/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18.x or higher
+- Node.js 20 or higher (`engines` in package.json)
 - npm or yarn
 - PostgreSQL 14+ (for database operations)
 
@@ -232,18 +232,38 @@ SELECT migration FROM knex_migrations ORDER BY batch DESC LIMIT 5;
 
 ## 📋 Environment Variables
 
-Required variables for Day 1:
-- `NODE_ENV` - Application environment (development/production/test)
-- `PORT` - Server port (default: 4000)
-- `CORS_ORIGINS` - Comma-separated list of allowed origins
+Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variable the server cannot start without; the rest depend on the feature.
 
-Optional variables (added in later phases):
-- `DATABASE_URL` - PostgreSQL connection string (Day 2)
-- `JWT_SECRET` - JWT signing secret (Day 3)
-- `AWS_*` - AWS credentials for S3 (Phase 2)
-- `SENDGRID_API_KEY` - Email service API key (Phase 2)
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `NODE_ENV` | no | `development` | `development`, `production` or `test`. In `production` the safety checks below are enforced. |
+| `PORT` | no | `4000` | Server port (1-65535). |
+| `CORS_ORIGINS` | no | `http://localhost:3000` | Comma-separated allowed origins. Wildcards are rejected. |
+| `JWT_SECRET` | **yes** | - | Access token signing secret, at least 32 characters. |
+| `JWT_EXPIRATION` | no | `8h` | Access token lifetime. |
+| `REFRESH_TOKEN_EXPIRATION` | no | `30d` | Reserved; the session lifetime is fixed at 30 days when it is created. |
+| `COOKIE_SECURE` | **yes in production** | `false` | Must be `true` when `NODE_ENV=production`, otherwise the server refuses to start. Keep `false` for plain-HTTP local development. |
+| `DATABASE_URL` | for DB features | - | PostgreSQL connection string. There is **no default**; knex and `scripts/setup-db.sh` stop when it is missing. |
+| `DATABASE_SSL` | no | `true` in production, else `false` | TLS for the application database. `false` is refused in production. |
+| `DATABASE_SSL_REJECT_UNAUTHORIZED` | no | `true` | Verify the server certificate. Heroku PostgreSQL needs `false` (see [docs/OPERATIONS.md](docs/OPERATIONS.md)); the server logs a warning when it is `false` in production. |
+| `TEST_DATABASE_URL` | integration tests only | - | The only database tests may use: local host, name contains `test`, different from `DATABASE_URL`. |
+| `REQUIRE_INTEGRATION` | no | unset | `true` makes the integration tests fail instead of being skipped when their setup is missing. |
+| `TRUST_PROXY` | no | `0` | Number of reverse proxies in front of the app (integer 0-10; Heroku: `1`). Never `true`. A warning is logged in production when it is `0`. |
+| `ADMIN_LOGIN_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 10 | Failed logins per IP. |
+| `ADMIN_API_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 60000 / 120 | All `/admin` requests per IP. |
+| `ADMIN_MUTATION_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 60000 / 30 | Status changes and memo creation per admin. |
+| `ADMIN_PASSWORD_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 5 | Password change attempts per admin. |
+| `FILE_DOWNLOAD_ENABLED` | no | `false` | `true` without a download provider stops the server at startup. |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | for file upload | - | S3 storage for estimate files. |
+| `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | for email | - | Without a key the worker keeps events pending and retries. |
+| `ADMIN_NOTIFICATION_EMAIL` | no | - | Receives the new-estimate notification. |
+| `EMAIL_WORKER_ENABLED` | no | `false` | Starts the email worker loop (never in `test`). |
+| `EMAIL_WORKER_INTERVAL_MS`, `EMAIL_WORKER_STALE_TIMEOUT_MS` | no | 30000 / 300000 | Worker poll interval and stuck-`sending` recovery time. |
+| `SUPPORT_EMAIL`, `SUPPORT_PHONE` | no | - | Contact details shown in customer emails. |
+| `LOG_LEVEL` | no | `info` | Winston level. |
+| `SENTRY_DSN` | no | - | **Not used**: Sentry is not integrated. |
 
-See `.env.example` for all available variables.
+Security-relevant details are in [docs/SECURITY.md](docs/SECURITY.md); running and deploying is in [docs/OPERATIONS.md](docs/OPERATIONS.md); tests are in [docs/TESTING.md](docs/TESTING.md).
 
 ## 🏗️ Development Phases
 
@@ -254,16 +274,18 @@ See `.env.example` for all available variables.
 - [x] Day 4: Receipt ID generation and session refresh tokens
 - [x] Day 5: Specification validation and error handling
 
-### Phase 2: Customer API (7 days) - Days 1-3 complete
+### Phase 2: Customer API (7 days) - Days 1-4 complete
 - [x] Day 1: Estimate submission endpoint (POST /api/estimates, GET /api/estimates/:receipt_id)
 - [x] Day 2: File upload, validation, and S3 integration (multipart/form-data, magic bytes, compensation)
 - [x] Day 3: Email notifications (SendGrid integration)
-- [ ] Days 4-7: Additional features and testing (Day 4 stabilization/docs in progress)
+- [x] Day 4: Stabilization and documentation
+- [ ] Days 5-7: Additional features and testing
 
-### Phase 3: Admin API (7 days) - not started
-- [ ] Admin dashboard endpoints
-- [ ] Quotation management
-- [ ] Status tracking and memos
+### Phase 3: Admin API - Weeks 1-3 implemented, awaiting review
+- [x] Week 1: estimate list/detail, auth and roles, status change
+- [x] Week 2: memos, file metadata (downloads blocked), password change, login lockout, rate limiting
+- [x] Week 3: test hardening, security review, documentation, CI
+- [ ] Not done: quotation file attachment, customer status emails, ClamAV, real PostgreSQL/AWS/SendGrid verification (see "Required before public launch")
 
 ### Phase 4: Frontend Integration (7 days) - not started
 - [ ] Connect existing HTML forms to API
@@ -280,8 +302,9 @@ See `.env.example` for all available variables.
 - **Authentication**: JWT tokens with HttpOnly cookies
 - **Session Management**: Revocable admin sessions
 - **Access Control**: Token-based estimate access
-- **File Validation**: MIME type, magic bytes, and ClamAV scanning
+- **File Validation**: MIME type and magic bytes. **ClamAV scanning is not implemented**; uploaded files stay quarantined and admin downloads are blocked
 - **Email Safety**: Idempotency keys and retry logic
+- **Hardening (Phase 3 Week 3)**: helmet security headers, `Cache-Control: no-store` on `/admin` and `/api`, production refuses to start without `COOKIE_SECURE=true` or with a plaintext database connection, refresh token rotation that does not depend on the access token, allowlist-based log output. See [docs/SECURITY.md](docs/SECURITY.md)
 
 ## 📞 Support
 
@@ -787,11 +810,11 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 **Plan**: 3 weeks.
 - Week 1: estimate list/detail, auth and roles, status change.
 - Week 2: memos, file metadata and blocked downloads, password change, login lockout fix, rate limiting (implemented; see the Week 2 sections below).
-- Week 3: test hardening, integration test preparation, documentation, security review.
+- Week 3: test hardening, integration test preparation, documentation, security review, CI (implemented).
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
+**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL (no database is configured, and a safe local integration harness exists but has not been run; see [docs/TESTING.md](docs/TESTING.md)). Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
 Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured. The SendGrid 8.x upgrade was checked only against a local stub server.
 
 ### Admin endpoints (Week 1)
@@ -812,7 +835,7 @@ All routes live under `/admin/estimates`, use the existing HttpOnly cookie authe
 - Mutating requests must use `Content-Type: application/json` (415 otherwise). Malformed JSON returns 400 `INVALID_JSON`.
 - Audit logging: detail views and status changes (including denied attempts) are written to the application log as `admin_audit {...}` with only whitelisted fields (admin id, role, action, result, estimate id, statuses, IP). Memo text, reasons and email content are never logged. Detail views and denied attempts exist only in logs, which are not durable on Heroku; status changes are also stored permanently in `status_history`.
 - The detail response includes at most the latest 200 status history entries and the latest 100 memos.
-- Audit entries record the client IP from `req.ip`. Behind a proxy (Heroku) this is the proxy address until trust-proxy handling is added in Week 2.
+- Audit entries record the client IP from `req.ip`. Behind a proxy (Heroku) set `TRUST_PROXY=1`, otherwise this is the proxy address (see the rate limiting section).
 - Customer status emails (`email_events.email_type = 'status_update'`) are **not sent** in Phase 3. The type is reserved for future work.
 
 ### Admin memos (Week 2)
@@ -1094,11 +1117,16 @@ How compatibility was checked (no real SendGrid call):
 - `jest.setup.js` makes every test file refuse connections to any host other than this machine: http/https requests, raw TCP/TLS sockets (so a PostgreSQL driver cannot connect either) and the global `fetch`. A blocked call fails with `External ... blocked in tests: <host>` (the host only, never a URL or credentials) before any lookup or connection, so a test can never reach SendGrid, AWS, a database or any other real service. `src/__tests__/networkGuard.test.ts` checks this using only unresolvable `.invalid` host names, and refuses to run if the guard is not installed.
 - **Not verified:** real delivery through SendGrid (no API key, never tested), so check an actual send before relying on version 8 in production. The error mapping in `sendEmailViaSendGrid` looks for the texts "Invalid email" and "Authentication failed"; SendGrid answers such as 401 "Unauthorized" fall into the generic `SendGrid API error: ...` branch.
 
-**Remaining findings: development dependencies only.** `npm audit` including dev dependencies still reports 21 (1 critical, 20 moderate) that are not in production dependencies (`npm audit --omit=dev` reports 0):
-- `handlebars` 4.7.9 (critical, three template-injection advisories) comes from `ts-jest`, which uses it only for its own config templates. A non-breaking update exists (`npm audit fix` would apply it).
-- `sprintf-js` (moderate, denial of service through precision specifiers) and the 19 packages that depend on it come from the `jest`/`ts-jest` tooling. The only "fix" npm offers is a major downgrade (`jest` 25, `ts-jest` 27), which was not applied.
-- Impact: none at runtime. They exist only on machines that install dev dependencies and run the tests or builds, and the test suite never feeds untrusted templates or format strings to these libraries. Dev dependencies are not part of a production install.
-- Follow-up: update `ts-jest`/`handlebars` and refresh the jest toolchain in a separate, reviewed change; run `npm audit --omit=dev` in CI so production dependencies stay clean.
+**Audit status (Phase 3 Week 3)** - production and development dependencies are audited separately:
+
+| Command | What it checks | Result |
+|---|---|---|
+| `npm run audit:prod` (`npm audit --omit=dev`) | Packages installed in production | **0 vulnerabilities** |
+| `npm run audit:dev` (`npm audit --audit-level=high`) | Everything including dev tools; fails on high/critical only | passes; 20 **moderate** findings accepted |
+
+- The one critical development finding (`handlebars` 4.7.9, used only by `ts-jest`) was fixed by updating to 4.7.10 inside its allowed range.
+- The 20 accepted moderate findings are `sprintf-js` (denial of service through precision specifiers) and the packages that depend on it (`argparse`, `js-yaml`, ... via the jest/ts-jest coverage tooling). The only fix npm offers is a breaking downgrade of `ts-jest`, which was not applied. They exist only on machines that install dev dependencies and never process untrusted input. Details and the review plan are in [docs/SECURITY.md](docs/SECURITY.md).
+- CI runs both audits (`.github/workflows/ci.yml`).
 
 ### Required before public launch (not implemented in Phase 3)
 
@@ -1107,7 +1135,7 @@ How compatibility was checked (no real SendGrid call):
 - ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
 - Customer-facing status emails (`status_update`).
 - Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
-- Send a real test email through SendGrid 8.x (only verified against a local stub so far), and update the development dependencies listed in the dependency audit.
+- Send a real test email through SendGrid 8.x (only verified against a local stub so far), and review the accepted development-dependency findings when the jest toolchain is updated.
 - Creating new admin accounts: `admin:bootstrap` only initializes an existing account that is still flagged `must_change_password`; there is no command or API that creates an account.
 - Rate limiting for the public customer API, and a shared (for example Redis) store for the admin limiters before running more than one instance.
 - Durable audit logs: detail views, memo access and blocked file attempts exist only in the application log, which Heroku does not keep.

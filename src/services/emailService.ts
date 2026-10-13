@@ -69,12 +69,15 @@ export async function claimPendingEmailEvents(limit: number = 10): Promise<Email
   try {
     await client.query('BEGIN');
 
+    // Only 'pending': an event in 'sending' belongs to a worker that is still sending it, and
+    // the stale recovery returns it to 'pending' if that worker died. Claiming it again here
+    // would send the same email twice.
     const query = `
       SELECT id, recipient_email, email_type, estimate_id, subject, body,
              status, idempotency_key, retry_count, next_retry_at, last_error,
              provider_message_id, created_at, updated_at, sent_at
       FROM email_events
-      WHERE status IN ('pending', 'sending')
+      WHERE status = 'pending'
         AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
       ORDER BY created_at ASC
       LIMIT $1

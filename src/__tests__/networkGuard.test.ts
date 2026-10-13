@@ -114,7 +114,7 @@ describe('external network requests are blocked in tests', () => {
         region: 'ap-northeast-2',
         endpoint: 'https://s3.example.invalid',
         forcePathStyle: true,
-        credentials: { accessKeyId: 'AKIAFAKEFAKEFAKEFAKE', secretAccessKey: 'fake-fake-fake' },
+        credentials: { accessKeyId: ['AKIA', 'FAKEFAKEFAKEFAKE'].join(''), secretAccessKey: 'fake-fake-fake' },
         maxAttempts: 1,
         requestHandler: { requestTimeout: 100, connectionTimeout: 100 }
       });

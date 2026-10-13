@@ -1,0 +1,268 @@
+jest.mock('../config/database', () => ({ getPool: jest.fn() }));
+jest.mock('../services/emailService', () => ({ queueEmailInTransaction: jest.fn() }));
+jest.mock('../utils/receipt-id', () => ({
+  generateReceiptIdInTransaction: jest.fn(async () => 'BP20261013001')
+}));
+
+import { getPool } from '../config/database';
+import { config } from '../config/env';
+import logger from '../utils/logger';
+import { queueEmailInTransaction } from '../services/emailService';
+import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
+import { hashEstimateToken } from '../utils/token';
+import { createFakeDb } from './helpers/adminTestUtils';
+
+const queueEmail = queueEmailInTransaction as jest.Mock;
+const CREATED_AT = new Date('2026-10-13T03:00:00Z');
+const ORIGINAL_ADMIN_EMAIL = config.adminNotificationEmail;
+
+describe('estimate service (fake database)', () => {
+  let db: ReturnType<typeof createFakeDb>;
+
+  const statements = () => db.client.query.mock.calls.map(call => String(call[0]).replace(/\s+/g, ' ').trim());
+  const find = (needle: string) => db.state.queries.find(q => q.sql.replace(/\s+/g, ' ').includes(needle));
+
+  beforeEach(() => {
+    db = createFakeDb();
+    (getPool as jest.Mock).mockReturnValue(db.pool);
+    queueEmail.mockReset();
+    jest.spyOn(logger, 'info').mockImplementation(() => logger);
+    jest.spyOn(logger, 'error').mockImplementation(() => logger);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    config.adminNotificationEmail = ORIGINAL_ADMIN_EMAIL;
+  });
+
+  describe('createEstimate', () => {
+    const request = {
+      category: 'shoes',
+      specification_json: { quantity: 500 },
+      customer_name: 'Kim',
+      customer_email: 'buyer@example.com',
+      customer_phone: '010-1234-5678',
+      company_name: 'Acme'
+    };
+
+    beforeEach(() => {
+      config.adminNotificationEmail = 'admin@example.com';
+      db.state.handler = sql => {
+        if (sql.includes('INSERT INTO estimates')) {
+          return { rows: [{ id: 'est-1', receipt_id: 'BP20261013001', status: 'new_receipt', created_at: CREATED_AT }] };
+        }
+        if (sql.includes('INSERT INTO estimate_access_tokens')) {
+          return { rows: [{ id: 'tok-1' }] };
+        }
+        return undefined;
+      };
+    });
+
+    it('creates the estimate, its access token and the email events in one SERIALIZABLE transaction', async () => {
+      const result = await createEstimate(request);
+
+      const order = statements();
+      expect(order[0]).toBe('BEGIN ISOLATION LEVEL SERIALIZABLE');
+      expect(order[1]).toContain('INSERT INTO estimates');
+      expect(order[2]).toContain('INSERT INTO estimate_access_tokens');
+      expect(order[order.length - 1]).toBe('COMMIT');
+      expect(queueEmail).toHaveBeenCalledTimes(2);
+      expect(result).toMatchObject({
+        success: true,
+        receipt_id: 'BP20261013001',
+        estimate_id: 'est-1',
+        status: 'new_receipt',
+        created_at: '2026-10-13T03:00:00.000Z'
+      });
+      expect(db.client.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('stores the customer details with the receipt id and the specification as JSON', async () => {
+      await createEstimate(request);
+
+      expect(find('INSERT INTO estimates')!.params).toEqual([
+        'BP20261013001',
+        'shoes',
+        'Kim',
+        'buyer@example.com',
+        '010-1234-5678',
+        'Acme',
+        JSON.stringify({ quantity: 500 })
+      ]);
+    });
+
+    it('stores NULL for contact details that were not given', async () => {
+      await createEstimate({ category: 'shoes', specification_json: {}, customer_phone: '010-1234-5678' });
+
+      const params = find('INSERT INTO estimates')!.params;
+      expect(params.slice(2, 6)).toEqual([null, null, '010-1234-5678', null]);
+    });
+
+    it('returns a random access token and stores only its SHA-256 hash', async () => {
+      const first = await createEstimate(request);
+      const second = await createEstimate(request);
+
+      expect(first.access_token).toMatch(/^[0-9a-f]{64}$/);
+      expect(second.access_token).not.toBe(first.access_token);
+
+      const stored = db.state.queries.filter(q => q.sql.includes('INSERT INTO estimate_access_tokens'));
+      expect(stored[0].params).toEqual(['est-1', 'BP20261013001', hashEstimateToken(first.access_token)]);
+
+      // The raw token must not appear in any SQL parameter.
+      const everything = JSON.stringify(db.state.queries.map(q => q.params));
+      expect(everything).not.toContain(first.access_token);
+      expect(everything).not.toContain(second.access_token);
+    });
+
+    it('queues the emails through the same client, so they commit or roll back with the estimate', async () => {
+      await createEstimate(request);
+
+      for (const call of queueEmail.mock.calls) {
+        expect(call[0]).toBe(db.client);
+      }
+      expect(queueEmail.mock.calls.map(call => call[1].idempotency_key)).toEqual(['receipt-est-1', 'admin-est-1']);
+    });
+
+    it('queues only the customer receipt when no admin address is configured', async () => {
+      config.adminNotificationEmail = undefined;
+
+      await createEstimate(request);
+
+      expect(queueEmail.mock.calls.map(call => call[1].email_type)).toEqual(['receipt']);
+    });
+
+    it('rolls everything back when queuing an email fails', async () => {
+      queueEmail.mockRejectedValue(new Error('outbox down'));
+
+      await expect(createEstimate(request)).rejects.toThrow('outbox down');
+
+      expect(statements()).toContain('ROLLBACK');
+      expect(statements()).not.toContain('COMMIT');
+      expect(db.client.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('rolls back when the estimate cannot be inserted', async () => {
+      db.state.handler = sql => {
+        if (sql.includes('INSERT INTO estimates')) {
+          throw new Error('constraint violated');
+        }
+        return undefined;
+      };
+
+      await expect(createEstimate(request)).rejects.toThrow('constraint violated');
+
+      expect(statements()).toContain('ROLLBACK');
+      expect(queueEmail).not.toHaveBeenCalled();
+    });
+
+    it('createEstimate fails when the insert returns no row', async () => {
+      db.state.handler = sql => (sql.includes('INSERT INTO estimates') ? { rows: [] } : undefined);
+
+      await expect(createEstimate(request)).rejects.toThrow('Failed to create estimate');
+      expect(statements()).toContain('ROLLBACK');
+    });
+
+    it('does not write customer details to the log', async () => {
+      await createEstimate(request);
+
+      const logged = JSON.stringify([
+        ...(logger.info as jest.Mock).mock.calls,
+        ...(logger.error as jest.Mock).mock.calls
+      ]);
+      expect(logged).not.toContain('buyer@example.com');
+      expect(logged).not.toContain('010-1234-5678');
+      expect(logged).not.toContain('Kim');
+    });
+  });
+
+  describe('getEstimateByReceiptId: a token is bound to its receipt and works once', () => {
+    const TOKEN_HASH = hashEstimateToken('customer-token');
+    const row = {
+      receipt_id: 'BP20261013001',
+      category: 'shoes',
+      status: 'new_receipt',
+      specification_json: { quantity: 500 },
+      created_at: CREATED_AT,
+      updated_at: CREATED_AT
+    };
+
+    it('consumes the token with one conditional UPDATE: right token, right receipt, unused, not expired', async () => {
+      db.state.handler = sql => {
+        if (sql.includes('UPDATE estimate_access_tokens')) {
+          return { rows: [{ estimate_id: 'est-1' }] };
+        }
+        if (sql.includes('FROM estimates e')) {
+          return { rows: [row] };
+        }
+        return undefined;
+      };
+
+      await getEstimateByReceiptId('BP20261013001', TOKEN_HASH);
+
+      const update = find('UPDATE estimate_access_tokens')!;
+      expect(update.params).toEqual([TOKEN_HASH, 'BP20261013001']);
+      const sql = update.sql.replace(/\s+/g, ' ');
+      expect(sql).toContain('WHERE token = $1 AND receipt_id = $2 AND is_used = false AND expires_at > CURRENT_TIMESTAMP');
+      expect(sql).toContain('is_used = true');
+      expect(sql).toContain('visit_count = visit_count + 1');
+    });
+
+    it('returns the estimate with ISO timestamps and commits', async () => {
+      db.state.handler = sql => {
+        if (sql.includes('UPDATE estimate_access_tokens')) {
+          return { rows: [{ estimate_id: 'est-1' }] };
+        }
+        return sql.includes('FROM estimates e') ? { rows: [row] } : undefined;
+      };
+
+      const result = await getEstimateByReceiptId('BP20261013001', TOKEN_HASH);
+
+      expect(result).toEqual({
+        receipt_id: 'BP20261013001',
+        category: 'shoes',
+        status: 'new_receipt',
+        specification_json: { quantity: 500 },
+        created_at: '2026-10-13T03:00:00.000Z',
+        updated_at: '2026-10-13T03:00:00.000Z'
+      });
+      expect(statements()[0]).toBe('BEGIN');
+      expect(statements()[statements().length - 1]).toBe('COMMIT');
+    });
+
+    it('returns nothing for a wrong, used, expired or foreign token, and rolls back', async () => {
+      // The UPDATE matches no row: that is how all four cases look to the service.
+      const result = await getEstimateByReceiptId('BP20261013002', TOKEN_HASH);
+
+      expect(result).toBeNull();
+      expect(statements()).toContain('ROLLBACK');
+      expect(statements()).not.toContain('COMMIT');
+      expect(find('FROM estimates e')).toBeUndefined();
+    });
+
+    it('rolls back when the estimate row has disappeared', async () => {
+      db.state.handler = sql => (sql.includes('UPDATE estimate_access_tokens') ? { rows: [{ estimate_id: 'est-1' }] } : undefined);
+
+      expect(await getEstimateByReceiptId('BP20261013001', TOKEN_HASH)).toBeNull();
+      expect(statements()).toContain('ROLLBACK');
+    });
+
+    it('rolls back, releases the connection and rethrows on a database error', async () => {
+      db.state.handler = () => {
+        throw new Error('db down');
+      };
+
+      await expect(getEstimateByReceiptId('BP20261013001', TOKEN_HASH)).rejects.toThrow('db down');
+      expect(statements()).toContain('ROLLBACK');
+      expect(db.client.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('never selects the access token or its hash back out of the database', async () => {
+      db.state.handler = sql => (sql.includes('UPDATE estimate_access_tokens') ? { rows: [{ estimate_id: 'est-1' }] } : undefined);
+
+      await getEstimateByReceiptId('BP20261013001', TOKEN_HASH);
+
+      const select = find('FROM estimates e');
+      expect(select?.sql ?? '').not.toContain('token');
+    });
+  });
+});

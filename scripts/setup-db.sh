@@ -38,6 +38,19 @@ print_info() {
 check_env() {
   print_header "Checking Environment"
 
+  # There is no default database: the target must be given explicitly.
+  if [ -z "${DATABASE_URL:-}" ]; then
+    print_error "DATABASE_URL is not set. Set it explicitly (there is no default database). Nothing was changed."
+    exit 1
+  fi
+
+  # TEST_DATABASE_URL is reserved for automated tests and must never be the setup target.
+  if [ -n "${TEST_DATABASE_URL:-}" ] && [ "$DATABASE_URL" = "$TEST_DATABASE_URL" ]; then
+    print_error "DATABASE_URL and TEST_DATABASE_URL must not be the same. Nothing was changed."
+    exit 1
+  fi
+  print_success "DATABASE_URL is set"
+
   if ! command -v psql &> /dev/null; then
     print_error "PostgreSQL client (psql) is not installed"
     exit 1
@@ -49,13 +62,6 @@ check_env() {
     exit 1
   fi
   print_success "npm/npx found"
-
-  if [ -z "$DATABASE_URL" ]; then
-    print_info "DATABASE_URL not set, using local PostgreSQL"
-    export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/bridgepath_dev"
-  else
-    print_success "DATABASE_URL is set"
-  fi
 }
 
 # Run migrations
@@ -123,8 +129,8 @@ verify_admin_user() {
 
   if [ "$admin_count" -gt 0 ]; then
     print_success "Master admin user created"
-    print_warning "Default credentials: username=master, password=CHANGE_ME_ON_FIRST_LOGIN"
-    print_warning "PLEASE CHANGE THE PASSWORD IMMEDIATELY!"
+    print_warning "The seeded master account has no usable password."
+    print_warning "Run 'npm run admin:bootstrap' to set a one-time password that must be changed at the first login."
   else
     print_error "Master admin user not found"
     exit 1
@@ -146,7 +152,7 @@ main() {
   print_success "Database setup completed successfully!"
   echo ""
   print_info "Next steps:"
-  echo "  1. Change the master admin password immediately"
+  echo "  1. Initialize the master admin with: npm run build && npm run admin:bootstrap"
   echo "  2. Update base prices as needed"
   echo "  3. Start the application with: npm run dev"
   echo ""

@@ -3,22 +3,18 @@ import os from 'os';
 import path from 'path';
 import { builtinModules } from 'module';
 import { spawnSync } from 'child_process';
+import { cleanChildEnv } from './helpers/cleanEnv';
 
 const root = path.join(__dirname, '..', '..');
 const launcher = path.join(root, 'scripts', 'admin-bootstrap.js');
 const compiled = path.join(root, 'dist', 'scripts', 'bootstrap-admin.js');
 const SECRET_URL = 'postgres://dbuser:SuperSecretDbPw@db.example.invalid:5432/bridgepath';
 
-// Child processes get a clean environment so a developer's own DATABASE_URL is never used.
+// Child processes get a scrubbed environment (no DATABASE_URL, AWS or SendGrid values), so a
+// developer's own settings are never used.
 function run(file: string, extraEnv: Record<string, string> = {}) {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && !/^(DATABASE_URL|PGSSLMODE|JWT_SECRET)$/.test(key)) {
-      env[key] = value;
-    }
-  }
   const result = spawnSync(process.execPath, [file], {
-    env: { ...env, ...extraEnv },
+    env: cleanChildEnv(extraEnv),
     input: '',
     encoding: 'utf8',
     timeout: 30000

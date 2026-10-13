@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { DatabaseSsl, resolveDatabaseSsl } from '../db/connectionSafety';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ export interface AppConfig {
   port: number;
   corsOrigins: string[];
   databaseUrl?: string;
+  databaseSsl: DatabaseSsl;
   jwtSecret: string;
   jwtExpiration: string;
   refreshTokenExpiration: string;
@@ -145,6 +147,43 @@ export function parseRateLimits(env: NodeJS.ProcessEnv): RateLimitSettings {
   };
 }
 
+// Settings that must be safe before a production server starts. Development and test keep
+// their permissive defaults.
+export function assertProductionSettings(
+  nodeEnv: string,
+  settings: { cookieSecure: boolean }
+): void {
+  if (nodeEnv === 'production' && !settings.cookieSecure) {
+    throw new Error(
+      'COOKIE_SECURE must be "true" when NODE_ENV=production: admin cookies would be sent over plain HTTP.'
+    );
+  }
+}
+
+// Things that are allowed but probably not what the operator wants in production.
+export function productionWarnings(settings: {
+  nodeEnv: string;
+  trustProxy: number;
+  databaseSsl: DatabaseSsl;
+}): string[] {
+  if (settings.nodeEnv !== 'production') {
+    return [];
+  }
+
+  const warnings: string[] = [];
+  if (settings.trustProxy === 0) {
+    warnings.push(
+      'TRUST_PROXY is 0: behind a reverse proxy (Heroku: 1) every client shares the proxy IP, so rate limits and audit logs are wrong.'
+    );
+  }
+  if (settings.databaseSsl && !settings.databaseSsl.rejectUnauthorized) {
+    warnings.push(
+      'DATABASE_SSL_REJECT_UNAUTHORIZED is false: the database connection is encrypted but the server certificate is not verified.'
+    );
+  }
+  return warnings;
+}
+
 export function loadConfig(): AppConfig {
   const nodeEnv = (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test';
   const port = parseInt(process.env.PORT || '4000', 10);
@@ -176,6 +215,7 @@ export function loadConfig(): AppConfig {
     port,
     corsOrigins,
     databaseUrl: process.env.DATABASE_URL,
+    databaseSsl: resolveDatabaseSsl(process.env, nodeEnv),
     jwtSecret,
     jwtExpiration: process.env.JWT_EXPIRATION || '8h',
     refreshTokenExpiration: process.env.REFRESH_TOKEN_EXPIRATION || '30d',
@@ -200,6 +240,8 @@ export function loadConfig(): AppConfig {
     logLevel: process.env.LOG_LEVEL || 'info',
     sentryDsn: process.env.SENTRY_DSN
   };
+
+  assertProductionSettings(nodeEnv, config);
 
   return config;
 }

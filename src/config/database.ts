@@ -13,6 +13,7 @@ export function getPool(): Pool {
 
     const poolConfig: PoolConfig = {
       connectionString: config.databaseUrl,
+      ssl: config.databaseSsl,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000

@@ -525,7 +525,7 @@ describe('Admin estimates API (mocked database)', () => {
       expect(history.params[4]).toBe('waiting for sample');
     });
 
-    it('returns 400 INVALID_ID for a non-UUID id', async () => {
+    it('status change: returns 400 INVALID_ID for a non-UUID id', async () => {
       const res = await patch({ to_status: 'under_review' }, 'admin', 'BP20261013001');
       expect(res.status).toBe(400);
       expect(res.body.code).toBe('INVALID_ID');
@@ -645,7 +645,7 @@ describe('Admin estimates API (mocked database)', () => {
       expect(blank.body.code).toBe('REASON_REQUIRED');
     });
 
-    it('requires a reason for accepted -> completed', async () => {
+    it('status change over HTTP: requires a reason for accepted -> completed', async () => {
       dbStatus = 'accepted';
       const missing = await patch({ to_status: 'completed' }, 'manager');
       expect(missing.status).toBe(422);

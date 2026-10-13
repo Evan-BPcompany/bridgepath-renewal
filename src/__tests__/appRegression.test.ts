@@ -134,7 +134,7 @@ describe('App regression after the app.ts split', () => {
       expect(db.state.queries.some(q => q.sql.includes('is_revoked = true'))).toBe(true);
     });
 
-    it('POST /admin/token/refresh requires both cookies', async () => {
+    it('POST /admin/token/refresh requires the refresh token cookie', async () => {
       expect((await request(app).post('/admin/token/refresh')).status).toBe(401);
       expect(
         (await request(app).post('/admin/token/refresh').set('Cookie', authCookie('admin'))).status
