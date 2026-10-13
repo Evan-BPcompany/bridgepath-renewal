@@ -788,6 +788,7 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
 **Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, migrations 008 and 009) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
+Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured.
 
 ### Admin endpoints (Week 1)
 
