@@ -977,6 +977,14 @@ Request: `{ "current_password": "...", "new_password": "..." }` (JSON only). Pas
 
 Passwords, hashes and tokens are never returned or logged. The audit entry `admin.password.change` records only admin id, role, result, error code and IP.
 
+### Admin login lockout
+
+Rules in `src/utils/loginLockout.ts`, shared by `POST /admin/login` and `PATCH /admin/me/password`:
+- 5 consecutive failed attempts lock the account for 15 minutes. A locked account is refused (401 `Account is locked. Try again later.`), even with the right password, without any password comparison.
+- **When a lock expires, `failed_login_attempts` and `locked_until` are reset** (the login writes the reset before checking the password). Previously the counter stayed at 5, so a single typo after the lock re-locked the account for another 15 minutes; now a lock needs 5 fresh failures.
+- A successful login clears the counter and the lock.
+- A failed attempt on the password change endpoint counts on the same counter.
+
 ### Migrations added in Phase 3
 
 - `008_customer_contact_policy.ts`: contact policy (above).

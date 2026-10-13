@@ -10,6 +10,7 @@ import {
   verifyAccessToken
 } from '../utils/token';
 import { allowPasswordChangeRequired, authMiddleware } from '../middleware/auth';
+import { evaluateLockout, nextFailureState } from '../utils/loginLockout';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -64,26 +65,33 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
     }
 
     const now = new Date();
-    if (admin.locked_until && new Date(admin.locked_until) > now) {
+    const lockout = evaluateLockout(admin, now);
+
+    if (lockout.status === 'locked') {
       res.status(401).json({ error: 'Account is locked. Try again later.' });
       return;
+    }
+
+    if (lockout.status === 'expired') {
+      // The lock has run out: start counting from zero instead of re-locking on the next typo.
+      await pool.query(
+        `UPDATE admin_users
+         SET failed_login_attempts = 0, locked_until = NULL
+         WHERE id = $1`,
+        [admin.id]
+      );
     }
 
     const passwordMatch = await comparePassword(password, admin.password_hash);
 
     if (!passwordMatch) {
-      const newFailedAttempts = admin.failed_login_attempts + 1;
-      let lockedUntil = null;
-
-      if (newFailedAttempts >= 5) {
-        lockedUntil = new Date(now.getTime() + 15 * 60 * 1000);
-      }
+      const failure = nextFailureState(lockout.attempts, now);
 
       await pool.query(
         `UPDATE admin_users
          SET failed_login_attempts = $1, locked_until = $2
          WHERE id = $3`,
-        [newFailedAttempts, lockedUntil, admin.id]
+        [failure.failed_login_attempts, failure.locked_until, admin.id]
       );
 
       res.status(401).json({ error: 'Invalid credentials' });
