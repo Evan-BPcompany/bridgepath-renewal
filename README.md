@@ -842,6 +842,29 @@ Internal notes on an estimate. Both `admin` and `manager` can read and write. `:
 - Rolling back only drops the constraint and is always safe.
 - Not run against a real PostgreSQL yet (see the verification status below).
 
+### Admin file metadata and blocked downloads (Week 2)
+
+File **downloads are intentionally blocked** in this phase. Only metadata is available to admins.
+
+| Method and path | Description |
+|---|---|
+| `GET /admin/estimates/:id/files` | File metadata of an estimate: `id`, `filename`, `file_size`, `mime_type`, `file_status`, `virus_scan_status`, `uploaded_at`, `downloadable` |
+| `GET /admin/estimates/:id/files/:fileId/download` | Always answers 403 `FILE_NOT_APPROVED` today |
+
+- Never returned or selected: `s3_key`, `virus_scan_result`, `scanned_at`. The estimate detail uses the same file shape (including `downloadable`).
+- Why blocked: ClamAV scanning is not implemented and nothing ever sets a file to `approved`/`passed`; uploaded files stay `quarantine`/`pending`. There is no manual approval feature.
+- The download endpoint checks that the file belongs to the estimate in the URL (`files.id = $fileId AND estimate_id = $id`); otherwise 404 `FILE_NOT_FOUND`. Every attempt, including blocked and not-found ones, is audit-logged as `file.access.attempt` (admin, estimate id, file id, result, no file name or key).
+- No S3 call is made and no signed URL is issued. `s3Service.ts` has no read/sign code and `@aws-sdk/s3-request-presigner` is not installed.
+- `FILE_DOWNLOAD_ENABLED` defaults to `false`. Setting it to `true` while only the placeholder `DisabledDownloadProvider` exists **stops the server at startup** (`createApp` throws), so the flag can never be silently ignored.
+- Prepared structure for later: `src/services/fileDownload.ts` has the `DownloadUrlProvider` interface and `decideFileDownload`, which allows a download only if the flag is on, a real provider exists, and the file is `approved` + `passed`. Enabling downloads is **follow-up work** (ClamAV scanning, a signed-URL provider, then the flag).
+
+| HTTP | Code | Situation |
+|---|---|---|
+| 400 | `INVALID_ID` | estimate id or file id is not a UUID |
+| 403 | `FILE_NOT_APPROVED` | download requested (always, for now) |
+| 404 | `ESTIMATE_NOT_FOUND` | metadata requested for a missing estimate |
+| 404 | `FILE_NOT_FOUND` | file missing or belonging to another estimate |
+
 ### Status transitions
 
 Only the 10 values allowed by the `estimates.status` CHECK constraint are used. The table below is mirrored in `src/utils/statusTransitions.ts`; `statusTransitions.test.ts` fails if the two differ. `admin` may perform every listed transition; `manager` only those marked allowed.

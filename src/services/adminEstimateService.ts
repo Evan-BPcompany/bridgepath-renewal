@@ -1,4 +1,5 @@
 import { getPool } from '../config/database';
+import { FILE_METADATA_COLUMNS, FileMetadata, toFileMetadata } from './adminFileService';
 import { ListQuery, SortField } from '../middleware/adminValidation';
 import {
   AdminRole,
@@ -147,15 +148,7 @@ export interface EstimateDetail {
     created_at: string;
     updated_at: string;
   };
-  files: Array<{
-    id: string;
-    filename: string;
-    file_size: number;
-    mime_type: string;
-    file_status: string;
-    virus_scan_status: string;
-    uploaded_at: string;
-  }>;
+  files: FileMetadata[];
   status_history: Array<{
     id: string;
     old_status: string | null;
@@ -189,7 +182,7 @@ export async function getEstimateDetail(id: string): Promise<EstimateDetail | nu
 
   const [filesResult, historyResult, memosResult] = await Promise.all([
     pool.query(
-      `SELECT id, filename, file_size, mime_type, file_status, virus_scan_status, uploaded_at
+      `SELECT ${FILE_METADATA_COLUMNS}
        FROM files WHERE estimate_id = $1 ORDER BY uploaded_at ASC, id ASC`,
       [id]
     ),
@@ -231,15 +224,7 @@ export async function getEstimateDetail(id: string): Promise<EstimateDetail | nu
       created_at: iso(e.created_at),
       updated_at: iso(e.updated_at)
     },
-    files: filesResult.rows.map(f => ({
-      id: f.id,
-      filename: f.filename,
-      file_size: Number(f.file_size),
-      mime_type: f.mime_type,
-      file_status: f.file_status,
-      virus_scan_status: f.virus_scan_status,
-      uploaded_at: iso(f.uploaded_at)
-    })),
+    files: filesResult.rows.map(toFileMetadata),
     status_history: historyResult.rows.map(h => ({
       id: h.id,
       old_status: h.old_status,

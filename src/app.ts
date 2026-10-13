@@ -3,11 +3,14 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { config } from './config/env';
 import logger from './utils/logger';
+import { assertFileDownloadConfiguration, downloadProvider } from './services/fileDownload';
 import adminAuthRouter from './routes/adminAuth';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
 import estimatesRouter from './routes/estimates';
 
 export function createApp(): Express {
+  assertFileDownloadConfiguration(config.fileDownloadEnabled, downloadProvider);
+
   const app: Express = express();
 
   app.use(

@@ -15,6 +15,7 @@ export interface AppConfig {
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
   s3Bucket?: string;
+  fileDownloadEnabled: boolean;
   sendgridApiKey?: string;
   sendgridFromEmail?: string;
   adminNotificationEmail?: string;
@@ -42,6 +43,22 @@ function validateCorsOrigins(corsOriginsStr: string): string[] {
   }
 
   return origins;
+}
+
+export function parseBooleanEnv(name: string, raw: string | undefined, fallback: boolean): boolean {
+  if (raw === undefined || raw.trim() === '') {
+    return fallback;
+  }
+
+  const value = raw.trim().toLowerCase();
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+
+  throw new Error(`${name} must be "true" or "false"`);
 }
 
 export function loadConfig(): AppConfig {
@@ -83,6 +100,7 @@ export function loadConfig(): AppConfig {
     awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
     awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     s3Bucket: process.env.S3_BUCKET,
+    fileDownloadEnabled: parseBooleanEnv('FILE_DOWNLOAD_ENABLED', process.env.FILE_DOWNLOAD_ENABLED, false),
     sendgridApiKey: process.env.SENDGRID_API_KEY,
     sendgridFromEmail: process.env.SENDGRID_FROM_EMAIL,
     adminNotificationEmail: process.env.ADMIN_NOTIFICATION_EMAIL,

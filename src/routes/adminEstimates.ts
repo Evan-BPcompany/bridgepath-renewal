@@ -12,6 +12,7 @@ import {
   getEstimateDetail,
   listEstimates
 } from '../services/adminEstimateService';
+import adminFilesRouter from './adminFiles';
 import adminMemosRouter from './adminMemos';
 import { STATUS_ERRORS } from '../utils/statusTransitions';
 import { logAdminAudit } from '../utils/auditLog';
@@ -22,6 +23,7 @@ import logger from '../utils/logger';
 const router = Router();
 
 router.use('/:id/memos', adminMemosRouter);
+router.use('/:id/files', adminFilesRouter);
 
 const STATUS_ERROR_MESSAGES: Record<string, string> = {
   ESTIMATE_NOT_FOUND: 'Estimate not found',

@@ -403,7 +403,8 @@ describe('Admin estimates API (mocked database)', () => {
             mime_type: 'image/png',
             file_status: 'quarantine',
             virus_scan_status: 'pending',
-            uploaded_at: '2026-10-13T01:00:00.000Z'
+            uploaded_at: '2026-10-13T01:00:00.000Z',
+            downloadable: false
           }
         ]);
         expect(status_history[0].changed_by).toEqual({ id: ADMIN_ID, username: 'master' });
