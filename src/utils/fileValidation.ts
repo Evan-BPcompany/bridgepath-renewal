@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 interface FileValidationResult {
   valid: boolean;
@@ -73,7 +73,7 @@ export function validateFileBuffer(buffer: Buffer, mimeType: string, filename: s
 }
 
 export function generateSafeFileId(): string {
-  return uuidv4().replace(/-/g, '');
+  return randomUUID().replace(/-/g, '');
 }
 
 export function getFileExtension(filename: string): string {

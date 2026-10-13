@@ -11,7 +11,7 @@ import {
 } from '../utils/token';
 import { allowPasswordChangeRequired, authMiddleware } from '../middleware/auth';
 import { evaluateLockout, nextFailureState } from '../utils/loginLockout';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 const router = Router();
 
@@ -98,7 +98,7 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
       return;
     }
 
-    const sessionId = uuidv4();
+    const sessionId = randomUUID();
     const refreshToken = generateRefreshToken();
     const refreshTokenHash = hashRefreshToken(refreshToken);
     const accessToken = generateAccessToken(admin.id, sessionId, admin.role);

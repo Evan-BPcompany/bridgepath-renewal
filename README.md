@@ -792,7 +792,7 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
 **Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
-Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured.
+Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured. The SendGrid 8.x upgrade was checked only against a local stub server.
 
 ### Admin endpoints (Week 1)
 
@@ -1073,6 +1073,33 @@ SET password_hash = '<hash>', must_change_password = true,
 WHERE username = 'master';
 ```
 
+### Dependency security audit (2026-10-13)
+
+`npm audit --omit=dev` (production dependencies) before and after:
+
+| | Before | After |
+|---|---|---|
+| high | 3 (`axios` 0.26.1, `@sendgrid/client` 7.7.0, `@sendgrid/mail` 7.7.0; axios came in through the SendGrid client) | 0 |
+| moderate | 1 (`uuid` 9.0.1, a direct dependency) | 0 |
+| **total** | **4** | **0** |
+
+What changed (no `npm audit fix`, no forced upgrades):
+- `@sendgrid/mail` `^7.7.0` -> `^8.1.6`. It is a CommonJS package (like 7.x), so the TypeScript CommonJS build and `require('@sendgrid/mail')` in `emailWorker.ts` keep working. It pulls `@sendgrid/client` 8.1.6 and `axios` 1.20.0, which closes all three high findings.
+- `uuid` and `@types/uuid` are **removed**; the two places that used `uuid.v4()` (admin session ids in `adminAuth.ts`, file ids in `fileValidation.ts`) now use Node's built-in `crypto.randomUUID()`, which also returns a version 4 UUID. Upgrading `uuid` was not an option: the fixed version 14 is ESM-only (`"type": "module"`, no CommonJS entry), which does not work with this project's CommonJS build and with `require()` on Node 18/20. Replacing it also removes a dependency.
+
+How compatibility was checked (no real SendGrid call):
+- `npm run build` and the whole test suite pass.
+- `src/__tests__/sendgridCompatibility.test.ts` runs our `sendEmailViaSendGrid` against the installed library with a stub HTTP server on `127.0.0.1`: request path and method, `Authorization` header, recipient/sender/subject/HTML body (including Korean text), click and open tracking switched off, `x-message-id` extraction, the missing-message-id case, 400/401/403/429/500 answers (errors never contain the API key), and the not-configured case.
+- Note for anyone testing this: `setApiKey()` resets the client's base URL to the real SendGrid host, so a stub address must be applied after it. The test does this and also refuses any non-local HTTP request.
+- `jest.setup.js` makes every test file refuse connections to any host other than this machine: http/https requests, raw TCP/TLS sockets (so a PostgreSQL driver cannot connect either) and the global `fetch`. A blocked call fails with `External ... blocked in tests: <host>` (the host only, never a URL or credentials) before any lookup or connection, so a test can never reach SendGrid, AWS, a database or any other real service. `src/__tests__/networkGuard.test.ts` checks this using only unresolvable `.invalid` host names, and refuses to run if the guard is not installed.
+- **Not verified:** real delivery through SendGrid (no API key, never tested), so check an actual send before relying on version 8 in production. The error mapping in `sendEmailViaSendGrid` looks for the texts "Invalid email" and "Authentication failed"; SendGrid answers such as 401 "Unauthorized" fall into the generic `SendGrid API error: ...` branch.
+
+**Remaining findings: development dependencies only.** `npm audit` including dev dependencies still reports 21 (1 critical, 20 moderate) that are not in production dependencies (`npm audit --omit=dev` reports 0):
+- `handlebars` 4.7.9 (critical, three template-injection advisories) comes from `ts-jest`, which uses it only for its own config templates. A non-breaking update exists (`npm audit fix` would apply it).
+- `sprintf-js` (moderate, denial of service through precision specifiers) and the 19 packages that depend on it come from the `jest`/`ts-jest` tooling. The only "fix" npm offers is a major downgrade (`jest` 25, `ts-jest` 27), which was not applied.
+- Impact: none at runtime. They exist only on machines that install dev dependencies and run the tests or builds, and the test suite never feeds untrusted templates or format strings to these libraries. Dev dependencies are not part of a production install.
+- Follow-up: update `ts-jest`/`handlebars` and refresh the jest toolchain in a separate, reviewed change; run `npm audit --omit=dev` in CI so production dependencies stay clean.
+
 ### Required before public launch (not implemented in Phase 3)
 
 - Customer type ("개인·창업 준비 중" / "사업자·브랜드 운영 중") and personal-information consent are not stored. PRD FR-4.2, FR-5.2 and FR-5.3 require them (the admin list and detail must show the customer type).
@@ -1080,6 +1107,7 @@ WHERE username = 'master';
 - ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
 - Customer-facing status emails (`status_update`).
 - Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
+- Send a real test email through SendGrid 8.x (only verified against a local stub so far), and update the development dependencies listed in the dependency audit.
 - Creating new admin accounts: `admin:bootstrap` only initializes an existing account that is still flagged `must_change_password`; there is no command or API that creates an account.
 - Rate limiting for the public customer API, and a shared (for example Redis) store for the admin limiters before running more than one instance.
 - Durable audit logs: detail views, memo access and blocked file attempts exist only in the application log, which Heroku does not keep.

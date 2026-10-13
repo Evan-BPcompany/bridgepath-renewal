@@ -153,7 +153,7 @@ async function processEmailEventStageB(event: EmailEvent): Promise<void> {
  * Send email via SendGrid API
  * Throws on failure to trigger retry logic
  */
-async function sendEmailViaSendGrid(
+export async function sendEmailViaSendGrid(
   to: string,
   subject: string,
   body: string
