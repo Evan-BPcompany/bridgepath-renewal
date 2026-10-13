@@ -1033,21 +1033,45 @@ In tests every `createApp()` creates its own limiters and counters, and `createA
 
 **The seeded `master` password is unknown (verified 2026-10-13).** Earlier documentation said the initial password is `CHANGE_ME_ON_FIRST_LOGIN`. The bcrypt hash that migration 005 actually inserts is a valid 60-character, 12-round hash, but it does **not** match that password (nor any common guess), so on a freshly migrated database nobody can log in as `master`. The forced-change flag therefore only becomes useful once an operator sets a password (below). The password policy also rejects `CHANGE_ME_ON_FIRST_LOGIN` as a new password. No default password is shipped on purpose: with a publicly known password, whoever called the password change first would own the admin account.
 
-**Operational initialization policy (every environment, production above all).** Migration 005 creates `master` wherever migrations run.
-1. Do not expose the API to the internet before step 4 is done.
-2. Pick a random one-time password of at most 72 bytes (a longer one would be silently cut by the hashing tool). Create its bcrypt hash (cost 12) on a trusted machine, for example `node -e "require('bcryptjs').hash(process.argv[1], 12).then(console.log)" "<one-time password>"`. Never commit, log or paste the password anywhere.
-3. Store the hash and require a change:
-   ```sql
-   UPDATE admin_users
-   SET password_hash = '<hash from step 2>', must_change_password = true,
-       failed_login_attempts = 0, locked_until = NULL, is_active = true
-   WHERE username = 'master';
-   ```
-4. Log in as `master` with the one-time password and immediately call `PATCH /admin/me/password` with a new password that follows the password policy. Until that succeeds every other admin route answers 403 `PASSWORD_CHANGE_REQUIRED`.
-5. Create the real admin accounts (there is no API for this yet: insert rows with a bcrypt hash and `must_change_password = true`) and deactivate `master` (`is_active = false`) unless it is the only admin.
-6. Rolling back migration 011, or restoring a database dump from before it, removes the forced change: repeat the steps above.
+**Operational initialization policy (every environment, production above all).** Migration 005 creates `master` wherever migrations run, so every new database needs this procedure.
+1. Do not expose the API to the internet before step 3 is done.
+2. Run `npm run admin:bootstrap` (details below) from a trusted machine and enter a one-time password.
+3. Log in as `master` with the one-time password and immediately change it (the first-login flow below). Until that succeeds every other admin route answers 403 `PASSWORD_CHANGE_REQUIRED`.
+4. Create the real admin accounts (there is no API or command to create accounts yet: insert rows with a bcrypt hash and `must_change_password = true`, then initialize them with `admin:bootstrap`) and deactivate `master` (`is_active = false`) unless it is the only admin.
+5. Rolling back migration 011, or restoring a database dump from before it, removes the forced change: repeat the procedure.
 
-A scripted bootstrap command (no hand-written SQL) is follow-up work.
+### `npm run admin:bootstrap`
+
+Sets the one-time password of an existing admin account that still has `must_change_password = true` (the seeded `master` after migration 011). Code: `src/scripts/bootstrap-admin.ts` (entry, compiled to `dist/scripts/bootstrap-admin.js`), `scripts/admin-bootstrap.js` (plain-JavaScript launcher), `src/cli/bootstrapAdminCli.ts` (flow), `src/services/adminBootstrapService.ts` (database work).
+
+```bash
+npm run build                                             # once, and again after every code update
+DATABASE_URL="postgres://..." npm run admin:bootstrap     # or put DATABASE_URL in .env
+```
+
+- **Needs** `DATABASE_URL` (the web server's other settings such as `JWT_SECRET` are not needed), an interactive terminal, and a build (`npm run build`). It runs the **compiled** `dist/scripts/bootstrap-admin.js` with plain Node (`node dist/scripts/bootstrap-admin.js` works too), so it needs neither `ts-node` nor TypeScript nor any dev dependency and runs on an install that only has the production dependencies. It uses the last build, so rebuild after updating the code. A one-off process that has a terminal (for example `heroku run npm run admin:bootstrap`) can run it; that was not tested here. For a managed Postgres that requires TLS use `?sslmode=require` in the URL or set `PGSSLMODE=require`.
+- **If `dist/scripts/bootstrap-admin.js` does not exist**, `npm run admin:bootstrap` tells you to run `npm run build` first and stops with exit code 1 without doing anything (it never prints environment values).
+- **Without `DATABASE_URL`, or without a terminal, it aborts** before asking anything and changes nothing. The password is never read from arguments, files or the environment.
+- **Prompts:** the admin username (visible), then the one-time password and its confirmation, both typed **without echo**. Up to 3 attempts if the entries differ or the password is rejected.
+- **Password rules** are the same as `PATCH /admin/me/password` (`src/utils/passwordPolicy.ts`): at least **12 characters** (code points), at most **72 bytes** in UTF-8 (never truncated), at least 3 of 4 character types, not the username/email/default password. Hashing uses bcrypt with 12 rounds.
+- **Which accounts:** only an existing, active account with `must_change_password = true`. An account that already changed its password (`must_change_password = false`) is **not overwritten**: the command stops with a message. Unknown and deactivated accounts are refused too. There is no option to override this.
+- **What it writes**, in one transaction with the account row locked (`SELECT ... FOR UPDATE`; the checks are repeated under the lock): `password_hash`, `must_change_password = true`, `failed_login_attempts = 0`, `locked_until = NULL`, `updated_at`. It also revokes the account's open sessions, because the earlier password is no longer trusted.
+- **Output:** the password, its hash and `DATABASE_URL` are never printed or logged. Database errors show only a short error code. On success it prints one line: `Bootstrap completed for admin "<username>".`
+
+**First login after the bootstrap** (the one-time password must never become the real password):
+1. `POST /admin/login` with the username and the one-time password succeeds, and the response has `admin.must_change_password: true`.
+2. Every admin route except the next two answers 403 `PASSWORD_CHANGE_REQUIRED`.
+3. `PATCH /admin/me/password` with `current_password` = the one-time password and a `new_password` that follows the policy changes it. The flag becomes `false`, every session is revoked and the cookies are cleared.
+4. Log in again with the new password: the whole admin API is available.
+(`POST /admin/logout` also works while the change is pending.)
+
+**Manual fallback** (only if the command cannot be used): create the bcrypt hash (cost 12) of a random one-time password of at most 72 bytes on a trusted machine, for example `node -e "require('bcryptjs').hash(process.argv[1], 12).then(console.log)" "<one-time password>"` (a longer password would be silently cut by that tool; never commit, log or paste the password), then:
+```sql
+UPDATE admin_users
+SET password_hash = '<hash>', must_change_password = true,
+    failed_login_attempts = 0, locked_until = NULL, is_active = true
+WHERE username = 'master';
+```
 
 ### Required before public launch (not implemented in Phase 3)
 
@@ -1056,7 +1080,7 @@ A scripted bootstrap command (no hand-written SQL) is follow-up work.
 - ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
 - Customer-facing status emails (`status_update`).
 - Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
-- A scripted production admin bootstrap (today the initial password is set with a manual SQL step, see Admin account initialization).
+- Creating new admin accounts: `admin:bootstrap` only initializes an existing account that is still flagged `must_change_password`; there is no command or API that creates an account.
 - Rate limiting for the public customer API, and a shared (for example Redis) store for the admin limiters before running more than one instance.
 - Durable audit logs: detail views, memo access and blocked file attempts exist only in the application log, which Heroku does not keep.
 - Resetting another admin's password (admin-initiated reset); today an admin can only change their own.

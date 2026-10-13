@@ -12,7 +12,8 @@
     "db:migrate": "knex migrate:latest --env development",
     "db:rollback": "knex migrate:rollback --env development",
     "db:migrate:make": "knex migrate:make",
-    "db:seed": "knex seed:run --env development"
+    "db:seed": "knex seed:run --env development",
+    "admin:bootstrap": "node scripts/admin-bootstrap.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1143.0",
