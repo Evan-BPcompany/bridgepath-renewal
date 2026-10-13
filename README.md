@@ -38,7 +38,8 @@ bridge-path-mvp/
 │   │       ├── 007_email_events_schema_enhancement.ts
 │   │       ├── 008_customer_contact_policy.ts
 │   │       ├── 009_admin_api_indexes.ts
-│   │       └── 010_admin_memos_content_check.ts
+│   │       ├── 010_admin_memos_content_check.ts
+│   │       └── 011_admin_must_change_password.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -125,10 +126,11 @@ src/db/migrations/
 ├── 007_email_events_schema_enhancement.ts  (email_events columns/indexes added, no new table)
 ├── 008_customer_contact_policy.ts  (estimates.customer_email nullable + email-or-phone CHECK, no new table)
 ├── 009_admin_api_indexes.ts        (3 admin query indexes, no new table)
-└── 010_admin_memos_content_check.ts  (admin_memos.content length CHECK, no new table)
+├── 010_admin_memos_content_check.ts  (admin_memos.content length CHECK, no new table)
+└── 011_admin_must_change_password.ts  (admin_users.must_change_password flag, no new table)
 ```
 
-**Migration files: 10 (001-010)** - 008, 009 and 010 were added in Phase 3 and do not create tables
+**Migration files: 11 (001-011)** - 008 to 011 were added in Phase 3 and create no tables
 
 **Application Tables: 10**
 - Core tables: 6 (001)
@@ -178,7 +180,7 @@ bash scripts/setup-db.sh
 
 **Current Status**:
 - ✅ TypeScript migrations created and compiled
-- ✅ Migration structure verified (10 migration files: 10 application tables + receipt_sequence)
+- ✅ Migration structure verified (11 migration files: 10 application tables + receipt_sequence)
 - ⏳ Actual database migration: **NOT YET TESTED**. It can only be run after `DATABASE_URL` is configured.
 
 **Verify database** (only after migrations are executed with DATABASE_URL):
@@ -789,7 +791,7 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, migrations 008 and 009) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
+**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, migrations 008 to 011) has **not** been run against a real PostgreSQL because `DATABASE_URL` is not configured. Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
 Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured.
 
 ### Admin endpoints (Week 1)
@@ -806,6 +808,7 @@ All routes live under `/admin/estimates`, use the existing HttpOnly cookie authe
 - The list returns minimal personal data: `id`, `receipt_id`, `category`, `status`, `company_name`, `customer_name`, `created_at`, `updated_at`, `file_count`. Customer email, phone and `specification_json` appear only in the detail response.
 - Never returned: customer access tokens or hashes, password hashes, refresh/access token hashes, `s3_key`, `virus_scan_result`.
 - Responses: `{ success: true, data, pagination? }`. Errors: `{ error, code, timestamp }`.
+- An account flagged `must_change_password` gets 403 `PASSWORD_CHANGE_REQUIRED` on every admin route except the password change and logout (see Admin account initialization).
 - Mutating requests must use `Content-Type: application/json` (415 otherwise). Malformed JSON returns 400 `INVALID_JSON`.
 - Audit logging: detail views and status changes (including denied attempts) are written to the application log as `admin_audit {...}` with only whitelisted fields (admin id, role, action, result, estimate id, statuses, IP). Memo text, reasons and email content are never logged. Detail views and denied attempts exist only in logs, which are not durable on Heroku; status changes are also stored permanently in `status_history`.
 - The detail response includes at most the latest 200 status history entries and the latest 100 memos.
@@ -934,18 +937,79 @@ The estimate row is locked with `SELECT ... FOR UPDATE` in a READ COMMITTED tran
 
 The PRD statuses `추가정보 요청` and `공장 견적 확인 중` have no database value yet. Until the status set is aligned with a new migration, use `under_review` together with an internal memo.
 
-### Password byte limit
+### Admin password change (Week 2)
 
-bcrypt only uses the first 72 bytes of a password. Passwords longer than 72 **UTF-8 bytes** are rejected, never silently truncated (Korean characters use 3 bytes each, so 24 characters at most). `hashPassword` throws `PASSWORD_TOO_LONG`, and `comparePassword` returns `false` for such input, so a long password can never match on its first 72 bytes. The password change endpoint (Week 2) will return 400 `PASSWORD_TOO_LONG`.
+`PATCH /admin/me/password` changes the password of the signed-in admin (any role). There is no endpoint to change someone else's password.
+
+Request: `{ "current_password": "...", "new_password": "..." }` (JSON only). Passwords are never trimmed or altered.
+
+**New password rules** (characters and bytes are different units and both apply):
+- **At least 12 characters**, counted as Unicode code points. A Korean syllable is one character (3 bytes), so 12 Korean characters pass the length rule.
+- **At most 72 bytes in UTF-8.** bcrypt only uses the first 72 bytes, so a longer password is **rejected with 400 `PASSWORD_TOO_LONG` and never truncated**. In bytes: 72 ASCII characters, or 24 Korean characters, or a mix such as 23 Korean characters + 3 ASCII characters.
+- At least **3 of 4 character types**: lowercase, uppercase, digit, other (symbols, spaces, Korean...).
+- No control characters. Must not equal the username, the email, the part of the email before `@` (case-insensitive), or the seeded default password `CHANGE_ME_ON_FIRST_LOGIN`.
+- Must differ from the current password.
+- Hash cost stays at **bcrypt 12 rounds**. The 72-byte guard also lives in `src/utils/hash.ts`: `hashPassword` throws `PASSWORD_TOO_LONG` and `comparePassword` returns `false` for longer input, so a long password can never match on its first 72 bytes (this also protects the login).
+
+**What happens on success** (one database transaction):
+1. The new hash is stored, `must_change_password` is cleared, and the failed-login counter and lock are cleared.
+2. **Every session of this admin is revoked, the current one included.** The access token stops working immediately because each request checks the session in the database.
+3. Both auth cookies are cleared.
+4. The response is `200 { success, message, data: { reauthentication_required: true } }`. There is no automatic re-login: the admin must log in again, on every device, with the new password.
+
+**Relation to account lockout** (5 failed attempts lock the account for 15 minutes; shared rules in `src/utils/loginLockout.ts`):
+- A wrong current password counts as a failed attempt on the same counter as the login, and the 5th failure locks the account (which also blocks the login). A locked account gets 401 `ACCOUNT_LOCKED` without any password comparison.
+- Policy violations and a same-as-current password do **not** count as failures and change nothing.
+- A current password longer than 72 bytes is treated as wrong (counted) without calling bcrypt.
+- A lock that has expired starts counting from zero. A success clears the counter and the lock.
+- The admin row is locked with `FOR UPDATE` for the duration of the request (about half a second), so two simultaneous changes are serialized.
+
+| HTTP | Code | Situation |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | body is not an object, or a password is missing, empty or not a string |
+| 400 | `PASSWORD_TOO_LONG` | new password is over 72 UTF-8 bytes (`details.max_bytes`) |
+| 400 | `PASSWORD_POLICY_VIOLATION` | `details.violations` lists `TOO_SHORT`, `NOT_ENOUGH_CHARACTER_TYPES`, `CONTAINS_CONTROL_CHARACTERS`, `MATCHES_ACCOUNT_INFO`, `MATCHES_DEFAULT_PASSWORD` |
+| 401 | `INVALID_CURRENT_PASSWORD` | current password is wrong (counted as a failed attempt) |
+| 401 | `ACCOUNT_LOCKED` | account is locked |
+| 401 | `ACCOUNT_UNAVAILABLE` | account no longer exists or is inactive |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | body is not JSON |
+| 422 | `PASSWORD_SAME_AS_CURRENT` | new password equals the current one |
+
+Passwords, hashes and tokens are never returned or logged. The audit entry `admin.password.change` records only admin id, role, result, error code and IP.
 
 ### Migrations added in Phase 3
 
 - `008_customer_contact_policy.ts`: contact policy (above).
 - `009_admin_api_indexes.ts`: `idx_estimates_status_created_at`, `idx_status_history_estimate_created`, `idx_admin_memos_estimate_created` (all `IF NOT EXISTS`, dropped with `IF EXISTS`). No existing index duplicates these column combinations. They make `idx_estimates_status`, `idx_status_history_estimate_id` and `idx_admin_memos_estimate_id` largely redundant; those are left in place.
+- `010_admin_memos_content_check.ts`: `CHECK (char_length(content) BETWEEN 1 AND 5000)` on `admin_memos.content` (see Admin memos).
+- `011_admin_must_change_password.ts`: adds `admin_users.must_change_password` (`BOOLEAN NOT NULL DEFAULT false`) and flags the untouched seeded `master` account (see Admin account initialization). Rolling back drops the column, so the forced change is lost.
 
-### Default admin account (must change before production)
+### Admin account initialization and forced password change
 
-Migration `005_seed_dev_data.ts` creates the admin user `master` with the initial password `CHANGE_ME_ON_FIRST_LOGIN`. This account is for development only. There is no forced password change yet, so it must be changed (password change endpoint arrives in Week 2) or removed, and a separate production admin initialization procedure is required before any production deployment.
+**Forced password change.** `admin_users.must_change_password` (`BOOLEAN NOT NULL DEFAULT false`, migration `011_admin_must_change_password.ts`) marks an account that has to change its password before doing anything else.
+- After logging in, such an account can call only `PATCH /admin/me/password` and `POST /admin/logout`. Every other admin route (estimate list and detail, status change, memos, files, and any route added later) answers **403 `PASSWORD_CHANGE_REQUIRED`**. The check is in `authMiddleware` and is deny-by-default: a route is open to these accounts only if it explicitly uses `allowPasswordChangeRequired`.
+- The login response contains `admin.must_change_password`, so a client can send the user to the password screen.
+- A successful password change sets the flag to `false`, revokes every session and clears the cookies; after logging in again the whole admin API is available. Blocked requests are written to the audit log as `admin.access.blocked`.
+- To force a change for any account: `UPDATE admin_users SET must_change_password = true WHERE username = '...';` (its open sessions are blocked on their next request).
+- Migration 011 sets the flag to `true` only for the seeded `master` account (id `a0000000-0000-0000-0000-000000000001`) and only while it still carries the seed password hash from migration 005, so an account whose password was already changed is not flagged.
+
+**The seeded `master` password is unknown (verified 2026-10-13).** Earlier documentation said the initial password is `CHANGE_ME_ON_FIRST_LOGIN`. The bcrypt hash that migration 005 actually inserts is a valid 60-character, 12-round hash, but it does **not** match that password (nor any common guess), so on a freshly migrated database nobody can log in as `master`. The forced-change flag therefore only becomes useful once an operator sets a password (below). The password policy also rejects `CHANGE_ME_ON_FIRST_LOGIN` as a new password. No default password is shipped on purpose: with a publicly known password, whoever called the password change first would own the admin account.
+
+**Operational initialization policy (every environment, production above all).** Migration 005 creates `master` wherever migrations run.
+1. Do not expose the API to the internet before step 4 is done.
+2. Pick a random one-time password of at most 72 bytes (a longer one would be silently cut by the hashing tool). Create its bcrypt hash (cost 12) on a trusted machine, for example `node -e "require('bcryptjs').hash(process.argv[1], 12).then(console.log)" "<one-time password>"`. Never commit, log or paste the password anywhere.
+3. Store the hash and require a change:
+   ```sql
+   UPDATE admin_users
+   SET password_hash = '<hash from step 2>', must_change_password = true,
+       failed_login_attempts = 0, locked_until = NULL, is_active = true
+   WHERE username = 'master';
+   ```
+4. Log in as `master` with the one-time password and immediately call `PATCH /admin/me/password` with a new password that follows the password policy. Until that succeeds every other admin route answers 403 `PASSWORD_CHANGE_REQUIRED`.
+5. Create the real admin accounts (there is no API for this yet: insert rows with a bcrypt hash and `must_change_password = true`) and deactivate `master` (`is_active = false`) unless it is the only admin.
+6. Rolling back migration 011, or restoring a database dump from before it, removes the forced change: repeat the steps above.
+
+A scripted bootstrap command (no hand-written SQL) is follow-up work.
 
 ### Required before public launch (not implemented in Phase 3)
 
@@ -954,4 +1018,4 @@ Migration `005_seed_dev_data.ts` creates the admin user `master` with the initia
 - ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
 - Customer-facing status emails (`status_update`).
 - Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
-- Forced password change on first login and a production admin bootstrap procedure.
+- A scripted production admin bootstrap (today the initial password is set with a manual SQL step, see Admin account initialization).

@@ -5,6 +5,7 @@ import { config } from './config/env';
 import logger from './utils/logger';
 import { assertFileDownloadConfiguration, downloadProvider } from './services/fileDownload';
 import adminAuthRouter from './routes/adminAuth';
+import { createAdminAccountRouter } from './routes/adminAccount';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
 import estimatesRouter from './routes/estimates';
 
@@ -35,6 +36,9 @@ export function createApp(): Express {
 
   // Admin authentication routes (Day 3)
   app.use('/admin', adminAuthRouter);
+
+  // Admin account (Phase 3 Week 2): own password change
+  app.use('/admin/me', createAdminAccountRouter());
 
   // Admin estimate management (Phase 3)
   app.use('/admin/estimates', createAdminEstimatesRouter());

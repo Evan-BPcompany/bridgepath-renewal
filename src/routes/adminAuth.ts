@@ -9,7 +9,7 @@ import {
   hashRefreshToken,
   verifyAccessToken
 } from '../utils/token';
-import { authMiddleware } from '../middleware/auth';
+import { allowPasswordChangeRequired, authMiddleware } from '../middleware/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -44,7 +44,8 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
     const pool = getPool();
 
     const adminResult = await pool.query(
-      `SELECT id, username, email, password_hash, role, is_active, failed_login_attempts, locked_until
+      `SELECT id, username, email, password_hash, role, is_active, failed_login_attempts, locked_until,
+              must_change_password
        FROM admin_users
        WHERE ${username ? 'username = $1' : 'email = $1'}`,
       [username || email]
@@ -142,7 +143,8 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
         id: admin.id,
         username: admin.username,
         email: admin.email,
-        role: admin.role
+        role: admin.role,
+        must_change_password: admin.must_change_password === true
       }
     });
   } catch (err) {
@@ -263,7 +265,7 @@ router.post(
   }
 );
 
-router.post('/logout', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/logout', allowPasswordChangeRequired, authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const accessToken = req.cookies.access_token;
 

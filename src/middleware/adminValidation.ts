@@ -289,6 +289,29 @@ export function parsePageQuery(query: Request['query']): PageQueryResult {
   return { valid: true, value: { page, limit } };
 }
 
+export type PasswordBodyResult =
+  | { valid: true; currentPassword: string; newPassword: string }
+  | { valid: false; message: string };
+
+// Passwords are never trimmed or altered; only their type and presence are checked here.
+export function parsePasswordChangeBody(body: unknown): PasswordBodyResult {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return { valid: false, message: 'Request body must be a JSON object' };
+  }
+
+  const { current_password, new_password } = body as Record<string, unknown>;
+
+  if (typeof current_password !== 'string' || current_password === '') {
+    return { valid: false, message: 'current_password is required' };
+  }
+
+  if (typeof new_password !== 'string' || new_password === '') {
+    return { valid: false, message: 'new_password is required' };
+  }
+
+  return { valid: true, currentPassword: current_password, newPassword: new_password };
+}
+
 export const MEMO_MIN_LENGTH = 1;
 export const MEMO_MAX_LENGTH = 5000;
 

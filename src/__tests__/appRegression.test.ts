@@ -108,9 +108,10 @@ describe('App regression after the app.ts split', () => {
         id: ADMIN_ID,
         username: 'master',
         email: 'admin@bridgepath.local',
-        role: 'admin'
+        role: 'admin',
+        must_change_password: false
       });
-      expect(JSON.stringify(res.body)).not.toMatch(/password|hash|token/i);
+      expect(JSON.stringify(res.body)).not.toMatch(/password_hash|hash|token|refresh/i);
 
       const cookies = res.headers['set-cookie'] as unknown as string[];
       const access = cookies.find(c => c.startsWith('access_token='))!;

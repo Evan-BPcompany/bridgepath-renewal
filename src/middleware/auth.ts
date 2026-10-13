@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, AccessTokenPayload } from '../utils/token';
 import { getPool } from '../config/database';
 import logger from '../utils/logger';
+import { logAdminAudit } from '../utils/auditLog';
 
 declare global {
   namespace Express {
@@ -11,6 +12,7 @@ declare global {
         username: string;
         email: string;
         role: 'admin' | 'manager';
+        mustChangePassword: boolean;
       };
     }
   }
@@ -62,7 +64,7 @@ export async function authMiddleware(
     }
 
     const adminResult = await pool.query(
-      `SELECT id, username, email, role, is_active FROM admin_users WHERE id = $1`,
+      `SELECT id, username, email, role, is_active, must_change_password FROM admin_users WHERE id = $1`,
       [payload.adminUserId]
     );
 
@@ -82,8 +84,29 @@ export async function authMiddleware(
       id: admin.id,
       username: admin.username,
       email: admin.email,
-      role: admin.role
+      role: admin.role,
+      mustChangePassword: admin.must_change_password === true
     };
+
+    // Deny by default: an account that has to change its password may only reach routes
+    // that opted in with allowPasswordChangeRequired (password change and logout).
+    if (req.admin.mustChangePassword && res.locals.allowPasswordChangeRequired !== true) {
+      logAdminAudit({
+        action: 'admin.access.blocked',
+        result: 'denied',
+        http_status: 403,
+        error_code: 'PASSWORD_CHANGE_REQUIRED',
+        admin_id: admin.id,
+        role: admin.role,
+        ip: req.ip
+      });
+      res.status(403).json({
+        error: 'You must change your password before using the admin API',
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
 
     next();
   } catch (err) {
@@ -92,6 +115,17 @@ export async function authMiddleware(
     });
     res.status(500).json({ error: 'Internal server error' });
   }
+}
+
+// Put this before authMiddleware on the few routes that an account with
+// must_change_password = true may still call.
+export function allowPasswordChangeRequired(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  res.locals.allowPasswordChangeRequired = true;
+  next();
 }
 
 export function requireRole(role: 'admin' | 'manager') {
