@@ -35,7 +35,8 @@ bridge-path-mvp/
 │   │       ├── 004_base_prices_and_email.ts
 │   │       ├── 005_seed_dev_data.ts
 │   │       ├── 006_receipt_sequence.ts
-│   │       └── 007_email_events_schema_enhancement.ts
+│   │       ├── 007_email_events_schema_enhancement.ts
+│   │       └── 008_customer_contact_policy.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -119,10 +120,11 @@ src/db/migrations/
 │   └── email_events
 ├── 005_seed_dev_data.ts            (Development/test data only)
 ├── 006_receipt_sequence.ts         (1 table: receipt_sequence - infrastructure)
-└── 007_email_events_schema_enhancement.ts  (email_events columns/indexes added, no new table)
+├── 007_email_events_schema_enhancement.ts  (email_events columns/indexes added, no new table)
+└── 008_customer_contact_policy.ts  (estimates.customer_email nullable + email-or-phone CHECK, no new table)
 ```
 
-**Migration files: 7 (001-007)**
+**Migration files: 8 (001-008)** - 008 does not create tables
 
 **Application Tables: 10**
 - Core tables: 6 (001)
@@ -172,7 +174,7 @@ bash scripts/setup-db.sh
 
 **Current Status**:
 - ✅ TypeScript migrations created and compiled
-- ✅ Migration structure verified (7 migration files: 10 application tables + receipt_sequence)
+- ✅ Migration structure verified (8 migration files: 10 application tables + receipt_sequence)
 - ⏳ Actual database migration: **NOT YET TESTED**. It can only be run after `DATABASE_URL` is configured.
 
 **Verify database** (only after migrations are executed with DATABASE_URL):
@@ -295,7 +297,7 @@ Implemented secure customer quote submission and retrieval with:
 
 ```
 POST /api/estimates
-Request: { category, specification_json, customer_email?, ... }
+Request: { category, specification_json, customer_email?, customer_phone?, ... }  (at least one of customer_email / customer_phone required)
 Response: { success, receipt_id, status, access_token, created_at }
 
 GET /api/estimates/:receipt_id?token=xxx
@@ -437,7 +439,7 @@ Implemented secure customer quote submission and retrieval with one-time access 
 
 ```
 POST /api/estimates
-Request:  { category, specification_json, customer_email?, customer_name?, ... }
+Request:  { category, specification_json, customer_email?, customer_phone?, customer_name?, company_name? }  (at least one of customer_email / customer_phone required; 400 otherwise)
 Response: { success: true, receipt_id, status, access_token, created_at }
 
 GET /api/estimates/:receipt_id?token=xxx
@@ -757,3 +759,17 @@ Migration file: `007_email_events_schema_enhancement.ts`
 
 **Last Updated**: 2026-10-13
 **Phase 2 Status**: Days 1-3 complete (Estimates, Files, Email Notifications); Days 4-7 pending
+
+---
+
+## Customer contact policy (PRD FR-4.2)
+
+At least one of `customer_email` or `customer_phone` is required. `customer_email` is optional.
+
+- API: `POST /api/estimates` returns 400 `Missing required contact: customer_email or customer_phone` when both are absent or blank, and 400 `Invalid customer information` (with `details`) for format/length errors.
+- DB: migration `008_customer_contact_policy.ts` makes `customer_email` nullable and adds the CHECK `estimates_contact_required`, so the API and the database enforce the same rule. Earlier migrations were not modified.
+- Without an email, the customer receipt email is skipped; the admin notification is still created.
+- Field rules: `customer_email` max 100 chars and a valid address, `customer_phone` max 20 chars with 7-15 digits (digits, spaces, `+`, `-`, `( )` only, `+` only at the start), `customer_name` and `company_name` max 100 chars. Values are trimmed; control characters are rejected.
+- Rolling back migration 008 fails if any estimate has a NULL `customer_email`; resolve those rows first.
+
+**Verification status**: covered by unit tests with a mocked database and by structural checks of the migration SQL. Migration 008 and the CHECK constraint have **not** been run against a real PostgreSQL (`DATABASE_URL` is not configured), so rollback behaviour is verified by reading the SQL only.

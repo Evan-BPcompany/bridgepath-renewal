@@ -4,6 +4,7 @@ import { hashEstimateToken } from '../utils/token';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { validateReceiptId } from '../utils/receipt-id';
+import { validateCustomerContact } from '../utils/customerValidation';
 import { uploadMiddleware, extractMultipartData } from '../middleware/upload';
 import { validateFileBuffer } from '../utils/fileValidation';
 import logger from '../utils/logger';
@@ -49,6 +50,27 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       return;
     }
 
+    const contactResult = validateCustomerContact({
+      customer_name,
+      customer_email,
+      customer_phone,
+      company_name
+    });
+
+    if (!contactResult.valid) {
+      const contactMissing =
+        contactResult.errors.length === 1 && contactResult.errors[0].field === 'contact';
+
+      res.status(400).json({
+        error: contactMissing
+          ? 'Missing required contact: customer_email or customer_phone'
+          : 'Invalid customer information',
+        details: contactResult.errors,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     if (uploadedFiles && uploadedFiles.length > 0) {
       const fileValidationErrors: Array<{ filename: string; errors: string[] }> = [];
 
@@ -81,10 +103,7 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
     const result = await createEstimate({
       category,
       specification_json,
-      customer_name,
-      customer_email,
-      customer_phone,
-      company_name
+      ...contactResult.value
     });
 
     if (uploadedFiles && uploadedFiles.length > 0) {

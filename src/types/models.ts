@@ -30,8 +30,8 @@ export interface Estimate {
   receipt_id: string;
   category: 'eyewear' | 'shoes' | 'golf_products' | 'other';
   status: string;
-  customer_email: string;
-  customer_phone: string;
+  customer_email: string | null;
+  customer_phone: string | null;
   specification_json: Record<string, unknown>;
   is_consultation: boolean;
   created_at: Date;
