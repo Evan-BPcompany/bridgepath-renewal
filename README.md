@@ -265,6 +265,22 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 
 Security-relevant details are in [docs/SECURITY.md](docs/SECURITY.md); running and deploying is in [docs/OPERATIONS.md](docs/OPERATIONS.md); tests are in [docs/TESTING.md](docs/TESTING.md).
 
+### Integration tests (real PostgreSQL, not run yet)
+
+`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**; they are written but have **not been run once**, and real AWS S3 and SendGrid have never been called (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
+
+- They use `TEST_DATABASE_URL` only (local host, database name contains `test`, never the same as `DATABASE_URL`) and work in a throw-away schema `it_<8 hex>` that is dropped afterwards; nothing else in the database is touched.
+- Without `TEST_DATABASE_URL`, `npm run test:integration` **skips** everything. With `REQUIRE_INTEGRATION=true` and no database it **fails**.
+- After installing PostgreSQL 14+ and creating an empty database such as `bridgepath_test`, set the URL in the terminal session only (never in a file or in git) and run the smoke test first:
+
+  ```powershell
+  $env:TEST_DATABASE_URL = "postgres://<test user>:<password>@127.0.0.1:5432/bridgepath_test"
+  npx jest --config jest.integration.config.js --runInBand harness
+  $env:REQUIRE_INTEGRATION = "true"; npm run test:integration   # everything
+  ```
+
+- A killed run can leave an `it_xxxxxxxx` schema behind; nothing deletes it automatically. List it with `npm run build` then `npm run it:schemas`, and drop exactly the schema you name with `npm run it:schemas -- drop it_xxxxxxxx`.
+
 ## 🏗️ Development Phases
 
 ### Phase 1: Backend Foundation (5 days) - complete
@@ -815,7 +831,7 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL (no database is configured, and a safe local integration harness exists but has not been run; see [docs/TESTING.md](docs/TESTING.md)). Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
+**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL (no database is configured, and nine safe local integration suites are written but have not been run; see [docs/TESTING.md](docs/TESTING.md)). Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
 Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured. The SendGrid 8.x upgrade was checked only against a local stub server.
 
 ### Admin endpoints (Week 1)

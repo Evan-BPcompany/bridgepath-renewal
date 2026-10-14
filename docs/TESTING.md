@@ -18,22 +18,59 @@
 - **Child processes** (`setupDbScript`, `bootstrapLauncher`, ...) start with `cleanChildEnv()` (`helpers/cleanEnv.ts`), which removes `DATABASE_URL`, `TEST_DATABASE_URL`, `PG*`, `AWS_*`, `S3_BUCKET`, `SENDGRID_*`, `JWT_SECRET`, `SENTRY_DSN` before adding the few fake values a test needs.
 - **Tests must prove something.** Behaviour is asserted (status codes, headers, the SQL that is sent, state after the call). Pure "documentation" tests were removed. When a test guards a safety property, check it by breaking the code on purpose (mutation check): the test has to fail.
 
-## Integration tests (prepared, never run)
+## Integration tests (written, never run)
 
-The harness exists (`jest.integration.config.js`, `src/__integration__/`) but **has not been run**, because no PostgreSQL is available. It is built so that running it cannot damage anything:
+Nine suites in `src/__integration__/` run the real SQL against a real PostgreSQL. They are written and compile, but **have not been run once**, because no PostgreSQL is installed yet. Their expectations come from reading the code, so the first run may show a wrong assumption in a test as well as a real defect; look at each failure before deciding which it is.
 
-- Needs `TEST_DATABASE_URL`. It must be a `postgres://` URL on `127.0.0.1`/`localhost`/`::1`, the database name must contain `test`, and it must not be the same database as `DATABASE_URL`. A remote host, a missing variable or an equal URL stops the run before connecting.
-- Each run creates its own schema `it_<8 hex>`, runs the migrations inside it and drops it afterwards. Nothing outside that schema is touched.
-- By default the integration tests are **skipped**. With `REQUIRE_INTEGRATION=true` a missing or invalid setup **fails** the run (this is what CI uses when started by hand).
-- The same network guard applies, so AWS and SendGrid stay blocked even here.
-- CI: the `integration` job runs only when started manually with `run_integration` ticked, against a throw-away PostgreSQL service container.
+| Suite | What it checks on the real database |
+|---|---|
+| `harness` | The first smoke test: all migrations apply in an own schema and roll back. |
+| `isolation` | Every pool connection uses the test schema, a changed `search_path` does not leak to the next user of a connection, nothing lands in `public`. |
+| `migrations` | 001-011 apply in order, are idempotent, create exactly the 11 application tables and the 007/009 indexes; seed data; every constraint (contact policy, CHECKs, memo length, unique keys, foreign keys and cascades); step-by-step rollback; up-down-up gives the identical schema; the 008 rollback refuses while an estimate has no e-mail. |
+| `receiptSequence` | Numbering 001, 002, ...; new day at Korean midnight; rollback gives the number back; overflow at 999; parallel generation without duplicates or gaps. |
+| `adminAuth` | Login, session rows (hash only), lockout counters stored in the database, revoked/expired/inactive sessions, the forced-change flag, refresh (rotation, expired access token, parallel refresh), logout. |
+| `estimates` | Creating an estimate in one transaction (estimate, hashed access token, e-mail events); the contact policy (e-mail only, phone only, both, neither); all-or-nothing rollback; reading with the one-time token (used, expired, wrong, parallel); parallel creation. |
+| `emailOutbox` | Queueing and idempotency keys; `FOR UPDATE SKIP LOCKED` with parallel workers; a `sending` event is never claimed again; the 1/2/4-minute retry schedule and `failed`; stale recovery; the worker with a **stubbed** SendGrid. |
+| `adminEstimates` | List filters, Korean-day date filter, search (including `%` and `_` as plain characters, phone digits), sorting, paging; detail; status changes with history, roles, `expected_status`, parallel changes (`FOR UPDATE`); memos; file metadata. |
+| `passwordChange` | New hash, flag cleared, every session of that admin revoked and no one else's, shared lockout counter, policy and 72-byte limit, parallel changes. |
 
-To run them locally once PostgreSQL 14+ is installed (after separate approval):
+### Safety, in layers
+
+1. **Settings.** Only `TEST_DATABASE_URL` is read: a `postgres://` URL on `127.0.0.1`/`localhost`/`::1`, database name contains `test`, not the same database as `DATABASE_URL`. A missing, remote or unsafe URL stops the run before any connection.
+2. **Server check.** After connecting, each suite verifies `current_database()` contains `test`, the server address is loopback and the version is 14 or newer, and aborts otherwise.
+3. **Own schema.** Each suite creates `it_<8 hex>`, migrates inside it and drops it afterwards. The pool receives `search_path` as a connection option **and** the harness sets it again on every checkout, so a connection whose `search_path` was changed is repaired before the next use. Timeouts (`statement_timeout` 30 s, `lock_timeout` 15 s) stop a stuck test.
+4. **Nothing else changes.** Before the schema is created and after it is dropped, the suite compares the schemas, the tables in `public` and their row counts; any difference fails the suite.
+5. **The application never gets `DATABASE_URL`.** Each suite replaces `getPool()` (`jest.mock('../config/database', ...)`) with the schema-bound pool; the harness refuses to run if that mock is missing, and a unit test checks every suite for it and that no integration file mentions `DATABASE_URL`.
+6. **No outside services.** The network guard of `jest.setup.js` applies (only this machine is reachable), SendGrid is replaced by a stub, and no suite uploads files, so S3 is never used.
+
+Default behaviour (checked by `integrationSuites.test.ts`, which starts the integration config in a child process with a scrubbed environment): without `TEST_DATABASE_URL` everything is **skipped** and the run succeeds; with `REQUIRE_INTEGRATION=true` it **fails**; a remote host, a non-test database name or a URL equal to `DATABASE_URL` fails without connecting. `npm test` never runs these suites.
+
+### Leftover schemas
+
+A run that is killed (Ctrl+C at the wrong moment, a crash) can leave an `it_xxxxxxxx` schema behind. Nothing deletes it automatically. List and, if you want, drop by name:
 
 ```bash
-createdb bridgepath_test
-TEST_DATABASE_URL=postgres://<user>:<password>@127.0.0.1:5432/bridgepath_test REQUIRE_INTEGRATION=true npm run test:integration
+npm run build
+npm run it:schemas                       # lists leftover it_* schemas
+npm run it:schemas -- drop it_1a2b3c4d   # drops exactly the named schema(s)
 ```
+
+It uses `TEST_DATABASE_URL` only, under the same checks, refuses names that are not `it_` + 8 hex digits, and has no "drop all". Do not run it while the tests are running.
+
+### First run (after PostgreSQL 14+ is installed and approved)
+
+```bash
+# 1. In the terminal session only (not in a file, never in chat or git):
+#    set TEST_DATABASE_URL=postgres://<test user>:<password>@127.0.0.1:5432/bridgepath_test
+# 2. The smoke test alone first:
+npx jest --config jest.integration.config.js --runInBand harness
+# 3. Then everything:
+REQUIRE_INTEGRATION=true npm run test:integration
+```
+
+PowerShell: `$env:TEST_DATABASE_URL = "..."; $env:REQUIRE_INTEGRATION = "true"; npm run test:integration`.
+
+CI: the `integration` job runs only when started manually with `run_integration` ticked, against a throw-away PostgreSQL service container.
 
 ## Not verified
 
@@ -41,7 +78,7 @@ These have **never** been run against the real thing and must not be described a
 
 | Area | Status |
 |---|---|
-| SQL against a real PostgreSQL (row locking, filters, search, memo/password queries, `FOR UPDATE SKIP LOCKED`, SERIALIZABLE receipt ids) | Only the SQL text and the surrounding logic are tested with a fake pool. |
+| SQL against a real PostgreSQL (row locking, filters, search, memo/password queries, `FOR UPDATE SKIP LOCKED`, SERIALIZABLE receipt ids) | Integration suites are written but **never run**; the unit tests only cover the SQL text and the surrounding logic with a fake pool. |
 | Migrations 001-011 | Compile and structure are tested; not applied to a real database in this phase. |
 | Real SendGrid delivery | Checked only against a local stub server. |
 | Real AWS S3 upload/delete | Mocked. |
