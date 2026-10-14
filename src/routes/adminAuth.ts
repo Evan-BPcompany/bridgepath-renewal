@@ -10,7 +10,8 @@ import {
   verifyAccessToken
 } from '../utils/token';
 import { allowPasswordChangeRequired, authMiddleware } from '../middleware/auth';
-import { evaluateLockout, nextFailureState } from '../utils/loginLockout';
+import { evaluateLockout, LockoutRow } from '../utils/loginLockout';
+import { recordFailedLogin } from '../services/loginAttempts';
 import { randomUUID } from 'crypto';
 
 const router = Router();
@@ -72,27 +73,13 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
       return;
     }
 
-    if (lockout.status === 'expired') {
-      // The lock has run out: start counting from zero instead of re-locking on the next typo.
-      await pool.query(
-        `UPDATE admin_users
-         SET failed_login_attempts = 0, locked_until = NULL
-         WHERE id = $1`,
-        [admin.id]
-      );
-    }
-
+    // The password comparison runs outside any row lock (bcrypt at cost 12 takes ~250 ms).
     const passwordMatch = await comparePassword(password, admin.password_hash);
 
     if (!passwordMatch) {
-      const failure = nextFailureState(lockout.attempts, now);
-
-      await pool.query(
-        `UPDATE admin_users
-         SET failed_login_attempts = $1, locked_until = $2
-         WHERE id = $3`,
-        [failure.failed_login_attempts, failure.locked_until, admin.id]
-      );
+      // One atomic UPDATE: parallel failures are all counted, and a lock that has expired
+      // starts again from one (see recordFailedLogin).
+      await recordFailedLogin(pool, admin.id, now);
 
       res.status(401).json({ error: 'Invalid credentials' });
       return;
@@ -104,42 +91,72 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
     const accessToken = generateAccessToken(admin.id, sessionId, admin.role);
     const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+    let current: Record<string, any> | undefined;
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      await client.query(
-        `INSERT INTO admin_sessions (
-          id, admin_user_id, refresh_token_hash, access_token_hash, is_revoked,
-          device_info, ip_address, last_activity_at, created_at, expires_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          sessionId,
-          admin.id,
-          refreshTokenHash,
-          null,
-          false,
-          req.get('user-agent'),
-          req.ip,
-          now,
-          now,
-          expiresAt
-        ]
-      );
-
-      await client.query(
-        `UPDATE admin_users
-         SET failed_login_attempts = 0, locked_until = null
-         WHERE id = $1`,
+      // Serialize with a password change (which locks the same row and revokes every session):
+      // look at the account again now that nobody else can change it. If the password, the
+      // active flag or the lock changed since the password was verified, no session is issued.
+      const locked = await client.query(
+        `SELECT password_hash, is_active, locked_until, must_change_password
+         FROM admin_users WHERE id = $1 FOR UPDATE`,
         [admin.id]
       );
+      current = locked.rows[0];
 
-      await client.query('COMMIT');
+      if (
+        !current ||
+        !current.is_active ||
+        current.password_hash !== admin.password_hash ||
+        evaluateLockout(current as LockoutRow, new Date()).status === 'locked'
+      ) {
+        await client.query('ROLLBACK');
+        current = undefined;
+      } else {
+        await client.query(
+          `INSERT INTO admin_sessions (
+            id, admin_user_id, refresh_token_hash, access_token_hash, is_revoked,
+            device_info, ip_address, last_activity_at, created_at, expires_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [
+            sessionId,
+            admin.id,
+            refreshTokenHash,
+            null,
+            false,
+            req.get('user-agent'),
+            req.ip,
+            now,
+            now,
+            expiresAt
+          ]
+        );
+
+        await client.query(
+          `UPDATE admin_users
+           SET failed_login_attempts = 0, locked_until = null
+           WHERE id = $1`,
+          [admin.id]
+        );
+
+        await client.query('COMMIT');
+      }
     } catch (err) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // The connection may already be unusable; the original error is rethrown below.
+      }
       throw err;
     } finally {
       client.release();
+    }
+
+    if (!current) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
     res.cookie('access_token', accessToken, COOKIE_OPTIONS);
@@ -152,7 +169,7 @@ router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response):
         username: admin.username,
         email: admin.email,
         role: admin.role,
-        must_change_password: admin.must_change_password === true
+        must_change_password: current.must_change_password === true
       }
     });
   } catch (err) {

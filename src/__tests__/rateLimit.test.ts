@@ -15,7 +15,15 @@ import {
 } from '../config/env';
 import { getPool } from '../config/database';
 import { createApp } from '../app';
-import { ADMIN_ID, ESTIMATE_ID, MANAGER_ID, authCookie, createFakeDb } from './helpers/adminTestUtils';
+import {
+  ADMIN_ID,
+  ESTIMATE_ID,
+  MANAGER_ID,
+  applyFailedLoginUpdate,
+  authCookie,
+  createFakeDb,
+  isFailedLoginUpdate
+} from './helpers/adminTestUtils';
 
 const WINDOW = 15 * 60 * 1000;
 const BIG = { windowMs: 60 * 60 * 1000, max: 100000 };
@@ -145,13 +153,13 @@ describe('Rate limiting (mocked database)', () => {
         return { rows: row ? [{ ...row }] : [] };
       }
       const byId = (id: unknown) => Object.values(accounts).find(a => a.id === id);
-      if (sql.includes('SET failed_login_attempts = $1')) {
-        const row = byId(params[2]);
-        if (row) {
-          row.failed_login_attempts = params[0];
-          row.locked_until = params[1];
-        }
-        return { rows: [] };
+      if (sql.includes('FROM admin_users WHERE id = $1 FOR UPDATE')) {
+        const row = byId(params[0]);
+        return { rows: row ? [{ ...row }] : [] };
+      }
+      if (isFailedLoginUpdate(sql)) {
+        const row = byId(params[0]);
+        return row ? applyFailedLoginUpdate(row, params) : { rows: [] };
       }
       if (/SET failed_login_attempts = 0, locked_until = null/i.test(sql)) {
         const row = byId(params[0]);

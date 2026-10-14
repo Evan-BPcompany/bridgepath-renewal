@@ -7,7 +7,7 @@ import logger from '../utils/logger';
 import { config } from '../config/env';
 import { getPool } from '../config/database';
 import { createApp } from '../app';
-import { ADMIN_ID, authCookie, createFakeDb } from './helpers/adminTestUtils';
+import { ADMIN_ID, authCookie, createFakeDb, isFailedLoginUpdate } from './helpers/adminTestUtils';
 
 // Guards the behaviour that existed before the app was split out of index.ts:
 // health check, CORS, admin authentication routes and the customer API.
@@ -94,8 +94,8 @@ describe('App regression after the app.ts split', () => {
       const wrong = await request(app).post('/admin/login').send({ username: 'master', password: 'wrong-password-1' });
 
       expect(wrong.status).toBe(401);
-      const failedUpdate = db.state.queries.find(q => q.sql.includes('failed_login_attempts = $1'))!;
-      expect(failedUpdate.params[0]).toBe(1);
+      const failedUpdate = db.state.queries.find(q => isFailedLoginUpdate(q.sql))!;
+      expect(failedUpdate.params[0]).toBe(ADMIN_ID);
     });
 
     it('POST /admin/login sets HttpOnly cookies scoped to /admin and returns no secrets', async () => {

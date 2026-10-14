@@ -241,22 +241,88 @@ describeIntegration('password change on a real PostgreSQL', ({ url }) => {
       expect(await sessionStates(MASTER_ID)).toEqual([true, true]);
     });
 
-    it('a login at the same time as a change ends in a consistent state', async () => {
+    const openSessions = async (): Promise<number> =>
+      (await sessionStates(MASTER_ID)).filter(revoked => !revoked).length;
+
+    // Whatever the interleaving, the old password must not leave an open session behind: either
+    // the login is refused (the change came first) or the change revokes the new session.
+    it.each(Array.from({ length: 12 }, (_, i) => [i + 1]))(
+      'a login at the same time as a change leaves no open session (run %i)',
+      async () => {
+        await suite().db('admin_sessions').del();
+        await suite().db('admin_users').where({ id: MASTER_ID }).update({ password_hash: passwordHash(PASSWORD) });
+        const session = await login(app, MASTER_USERNAME, PASSWORD);
+
+        const [changed, loggedIn] = await Promise.all([
+          change(session.cookie, PASSWORD, NEW_PASSWORD),
+          request(app).post('/admin/login').send({ username: MASTER_USERNAME, password: PASSWORD })
+        ]);
+
+        expect(changed.status).toBe(200);
+        expect([200, 401]).toContain(loggedIn.status);
+        expect(await openSessions()).toBe(0);
+        expect(await bcrypt.compare(NEW_PASSWORD, (await account()).password_hash)).toBe(true);
+      }
+    );
+
+    it('the password changes while a login is still comparing: no session is issued, 401', async () => {
       const session = await login(app, MASTER_USERNAME, PASSWORD);
 
-      const [changed, loggedIn] = await Promise.all([
-        change(session.cookie, PASSWORD, NEW_PASSWORD),
-        request(app).post('/admin/login').send({ username: MASTER_USERNAME, password: PASSWORD })
-      ]);
+      // Hold only the next password comparison (the login's); the change must not be held.
+      const realCompare = bcrypt.compare.bind(bcrypt);
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => {
+        release = resolve;
+      });
+      let started!: () => void;
+      const comparing = new Promise<void>(resolve => {
+        started = resolve;
+      });
+      let calls = 0;
+      jest.spyOn(bcrypt, 'compare').mockImplementation(((...args: Parameters<typeof bcrypt.compare>) => {
+        calls += 1;
+        if (calls === 1) {
+          started();
+          return gate.then(() => realCompare(...args));
+        }
+        return realCompare(...args);
+      }) as typeof bcrypt.compare);
 
+      const pendingLogin = request(app)
+        .post('/admin/login')
+        .send({ username: MASTER_USERNAME, password: PASSWORD })
+        .then(res => res);
+      await comparing;
+
+      const changed = await change(session.cookie, PASSWORD, NEW_PASSWORD);
       expect(changed.status).toBe(200);
-      expect([200, 401]).toContain(loggedIn.status);
-      // The login does not take the row lock, so it may create a session just after the
-      // revocation. Reported, not asserted: how many sessions are still open.
-      const open = (await sessionStates(MASTER_ID)).filter(revoked => !revoked).length;
-      // eslint-disable-next-line no-console
-      console.info(`[passwordChange] login during a change: status ${loggedIn.status}, ${open} session(s) still open`);
-      expect(await bcrypt.compare(NEW_PASSWORD, (await account()).password_hash)).toBe(true);
+
+      release();
+      const loggedIn = await pendingLogin;
+
+      // The password was right when it was compared, but no longer when the session would be created.
+      expect(loggedIn.status).toBe(401);
+      expect(loggedIn.headers['set-cookie']).toBeUndefined();
+      expect(await openSessions()).toBe(0);
+    });
+
+    it('the old password is refused once the change has finished; the new one logs in', async () => {
+      const session = await login(app, MASTER_USERNAME, PASSWORD);
+      expect((await change(session.cookie, PASSWORD, NEW_PASSWORD)).status).toBe(200);
+
+      expect((await request(app).post('/admin/login').send({ username: MASTER_USERNAME, password: PASSWORD })).status).toBe(401);
+      expect((await request(app).post('/admin/login').send({ username: MASTER_USERNAME, password: NEW_PASSWORD })).status).toBe(200);
+      expect(await openSessions()).toBe(1);
+    });
+
+    it('a login that finished first is revoked by the change that follows', async () => {
+      const first = await login(app, MASTER_USERNAME, PASSWORD);
+      const second = await login(app, MASTER_USERNAME, PASSWORD);
+
+      expect((await change(first.cookie, PASSWORD, NEW_PASSWORD)).status).toBe(200);
+
+      expect(await openSessions()).toBe(0);
+      expect((await request(app).get('/admin/estimates').set('Cookie', second.cookie)).status).toBe(401);
     });
   });
 });

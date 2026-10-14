@@ -56,15 +56,16 @@ describe('crypto.randomUUID replaces the uuid package', () => {
     jest.spyOn(logger, 'warn').mockImplementation(() => logger);
 
     const password = 'Correct-Horse-9';
+    const passwordHash = bcrypt.hashSync(password, 4);
     db.state.handler = sql =>
-      sql.includes('password_hash') && sql.includes('WHERE username')
+      sql.includes('password_hash') && (sql.includes('WHERE username') || sql.includes('FOR UPDATE'))
         ? {
             rows: [
               {
                 id: ADMIN_ID,
                 username: 'master',
                 email: 'admin@bridgepath.local',
-                password_hash: bcrypt.hashSync(password, 4),
+                password_hash: passwordHash,
                 role: 'admin',
                 is_active: true,
                 failed_login_attempts: 0,

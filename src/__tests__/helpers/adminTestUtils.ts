@@ -88,3 +88,30 @@ export function authCookie(role: Role): string {
 export function sqlOf(state: FakeDbState): string[] {
   return state.queries.map(q => q.sql);
 }
+
+// Stands in for the atomic UPDATE of recordFailedLogin (services/loginAttempts.ts): applies the
+// same rules to an in-memory account row and answers like RETURNING would.
+// params: [adminId, now, maxAttempts, lockMs].
+export function isFailedLoginUpdate(sql: string): boolean {
+  return sql.includes('SET failed_login_attempts = CASE');
+}
+
+export function applyFailedLoginUpdate(row: Row, params: unknown[]): QueryResult {
+  const now = (params[1] as Date).getTime();
+  const max = params[2] as number;
+  const lockMs = params[3] as number;
+  const lockedUntil = row.locked_until ? new Date(row.locked_until as Date).getTime() : null;
+  const attempts = Number(row.failed_login_attempts ?? 0);
+
+  if (lockedUntil !== null && lockedUntil > now) {
+    // An active lock is left untouched.
+  } else {
+    const next = lockedUntil !== null ? 1 : attempts + 1;
+    row.failed_login_attempts = next;
+    row.locked_until = next >= max ? new Date(now + lockMs) : null;
+  }
+
+  return {
+    rows: [{ failed_login_attempts: row.failed_login_attempts, locked_until: row.locked_until }]
+  };
+}

@@ -1,6 +1,7 @@
 import { getPool } from '../config/database';
 import { comparePassword, hashPassword } from '../utils/hash';
-import { evaluateLockout, nextFailureState } from '../utils/loginLockout';
+import { evaluateLockout } from '../utils/loginLockout';
+import { recordFailedLogin } from './loginAttempts';
 import {
   PasswordViolation,
   isTooLong,
@@ -75,13 +76,7 @@ export async function changeOwnPassword(
     const currentMatches = await comparePassword(input.currentPassword, admin.password_hash);
 
     if (!currentMatches) {
-      const failure = nextFailureState(lockout.attempts, now);
-      await client.query(
-        `UPDATE admin_users
-         SET failed_login_attempts = $1, locked_until = $2
-         WHERE id = $3`,
-        [failure.failed_login_attempts, failure.locked_until, input.adminId]
-      );
+      await recordFailedLogin(client, input.adminId, now);
       await client.query('COMMIT');
       return { ok: false, error: 'INVALID_CURRENT_PASSWORD' };
     }

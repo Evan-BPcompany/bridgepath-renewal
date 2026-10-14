@@ -11,7 +11,9 @@ import {
   ADMIN_ID,
   MANAGER_ID,
   authCookie,
-  createFakeDb
+  createFakeDb,
+  applyFailedLoginUpdate,
+  isFailedLoginUpdate
 } from './helpers/adminTestUtils';
 
 const PASSWORD_URL = '/admin/me/password';
@@ -79,10 +81,8 @@ describe('PATCH /admin/me/password (mocked database)', () => {
         row.locked_until = null;
         return { rows: [] };
       }
-      if (sql.includes('SET failed_login_attempts = $1')) {
-        row.failed_login_attempts = params[0];
-        row.locked_until = params[1];
-        return { rows: [] };
+      if (isFailedLoginUpdate(sql)) {
+        return applyFailedLoginUpdate(row, params);
       }
       if (sql.includes('UPDATE admin_sessions SET is_revoked = true')) {
         sessionRevocations += 1;

@@ -6,6 +6,7 @@ import type { Express } from 'express';
 import logger from '../utils/logger';
 import { config } from '../config/env';
 import { hashRefreshToken } from '../utils/token';
+import { createApp } from '../app';
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
 import {
@@ -141,16 +142,64 @@ describeIntegration('admin authentication on a real PostgreSQL', ({ url }) => {
       expect(row.locked_until).toBeNull();
     });
 
-    it('parallel wrong passwords never lose a count below the number of attempts made', async () => {
-      await Promise.all(Array.from({ length: 4 }, () => doLogin(MASTER_USERNAME, WRONG_PASSWORD)));
+    it('4 parallel wrong passwords are counted exactly 4 times', async () => {
+      const results = await Promise.all(Array.from({ length: 4 }, () => doLogin(MASTER_USERNAME, WRONG_PASSWORD)));
+
+      expect(results.map(r => r.status)).toEqual([401, 401, 401, 401]);
+      const row = await master();
+      expect(row.failed_login_attempts).toBe(4);
+      expect(row.locked_until).toBeNull();
+    });
+
+    it('6 parallel wrong passwords lock the account, and the right password is then refused', async () => {
+      const results = await Promise.all(Array.from({ length: 6 }, () => doLogin(MASTER_USERNAME, WRONG_PASSWORD)));
+
+      expect(results.map(r => r.status)).toEqual(Array(6).fill(401));
+      const row = await master();
+      // The counter stops at the limit: late failures neither raise it nor extend the lock.
+      expect(row.failed_login_attempts).toBe(5);
+      const minutes = (new Date(row.locked_until).getTime() - Date.now()) / 60_000;
+      expect(minutes).toBeGreaterThan(14);
+      expect(minutes).toBeLessThanOrEqual(15);
+
+      const right = await doLogin(MASTER_USERNAME, PASSWORD);
+      expect(right.status).toBe(401);
+      expect(right.body.error).toBe('Account is locked. Try again later.');
+      expect(await sessions()).toHaveLength(0);
+    });
+
+    it('3 parallel failures after a lock has expired count from zero: exactly 3, no lock', async () => {
+      await suite().db('admin_users').where({ id: MASTER_ID }).update({
+        failed_login_attempts: 5,
+        locked_until: new Date(Date.now() - 60_000)
+      });
+
+      await Promise.all(Array.from({ length: 3 }, () => doLogin(MASTER_USERNAME, WRONG_PASSWORD)));
 
       const row = await master();
-      // Reported rather than asserted exactly: the login path reads and writes the counter
-      // without a row lock, so parallel attempts may be counted less than once each.
-      expect(row.failed_login_attempts).toBeGreaterThanOrEqual(1);
-      expect(row.failed_login_attempts).toBeLessThanOrEqual(4);
-      // eslint-disable-next-line no-console
-      console.info(`[adminAuth] 4 parallel wrong passwords counted as ${row.failed_login_attempts}`);
+      expect(row.failed_login_attempts).toBe(3);
+      expect(row.locked_until).toBeNull();
+    });
+
+    it('requests refused with 429 are not counted as failed logins', async () => {
+      const limited = createApp({
+        rateLimits: {
+          login: { windowMs: 60_000, max: 2 },
+          api: { windowMs: 60_000, max: 100_000 },
+          mutation: { windowMs: 60_000, max: 100_000 },
+          password: { windowMs: 60_000, max: 100_000 }
+        }
+      });
+
+      const statuses: number[] = [];
+      for (let i = 0; i < 6; i += 1) {
+        statuses.push((await request(limited).post('/admin/login').send({ username: MASTER_USERNAME, password: WRONG_PASSWORD })).status);
+      }
+
+      const refusedByPassword = statuses.filter(status => status === 401).length;
+      expect(statuses).toContain(429);
+      expect(refusedByPassword).toBeLessThan(6);
+      expect((await master()).failed_login_attempts).toBe(refusedByPassword);
     });
   });
 

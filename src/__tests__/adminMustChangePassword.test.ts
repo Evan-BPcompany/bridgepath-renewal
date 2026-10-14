@@ -14,7 +14,9 @@ import {
   MANAGER_ID,
   authCookie,
   createFakeDb,
-  sqlOf
+  sqlOf,
+  applyFailedLoginUpdate,
+  isFailedLoginUpdate
 } from './helpers/adminTestUtils';
 
 const FILE_ID = 'f0000000-0000-0000-0000-000000000001';
@@ -104,10 +106,8 @@ describe('must_change_password enforcement (mocked database)', () => {
         }
         return { rows: [] };
       }
-      if (sql.includes('SET failed_login_attempts = $1')) {
-        row.failed_login_attempts = params[0];
-        row.locked_until = params[1];
-        return { rows: [] };
+      if (isFailedLoginUpdate(sql)) {
+        return applyFailedLoginUpdate(row, params);
       }
       if (/SET failed_login_attempts = 0, locked_until = null/i.test(sql)) {
         row.failed_login_attempts = 0;

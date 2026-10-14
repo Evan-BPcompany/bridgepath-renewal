@@ -6,7 +6,13 @@ import type { Express } from 'express';
 import logger from '../utils/logger';
 import { getPool } from '../config/database';
 import { createApp } from '../app';
-import { ADMIN_ID, authCookie, createFakeDb } from './helpers/adminTestUtils';
+import {
+  ADMIN_ID,
+  applyFailedLoginUpdate,
+  authCookie,
+  createFakeDb,
+  isFailedLoginUpdate
+} from './helpers/adminTestUtils';
 
 const PASSWORD = 'Correct-Horse-9';
 const WRONG = 'Wrong-Horse-0000';
@@ -58,10 +64,8 @@ describe('Admin login lockout (5 failures / 15 minutes, reset when a lock expire
       if (sql.includes('FOR UPDATE')) {
         return { rows: [{ ...row, id: params[0] }] };
       }
-      if (sql.includes('SET failed_login_attempts = $1')) {
-        row.failed_login_attempts = params[0];
-        row.locked_until = params[1];
-        return { rows: [] };
+      if (isFailedLoginUpdate(sql)) {
+        return applyFailedLoginUpdate(row, params);
       }
       if (/SET failed_login_attempts = 0, locked_until = null/i.test(sql)) {
         row.failed_login_attempts = 0;
@@ -136,17 +140,16 @@ describe('Admin login lockout (5 failures / 15 minutes, reset when a lock expire
       setAccount({ failed_login_attempts: 5, locked_until: new Date(Date.now() - MINUTE) });
     });
 
-    it('resets failed_login_attempts and locked_until before checking the password', async () => {
+    it('restarts the count inside the one atomic UPDATE, without a separate reset first', async () => {
       await login(WRONG);
 
       const updates = db.state.queries
         .filter(q => q.sql.includes('UPDATE admin_users'))
         .map(q => q.sql.replace(/\s+/g, ' ').trim());
 
-      expect(updates[0]).toBe(
-        'UPDATE admin_users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1'
-      );
-      expect(updates[1]).toContain('SET failed_login_attempts = $1, locked_until = $2');
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toContain('SET failed_login_attempts = CASE');
+      expect(updates[0]).toContain('RETURNING failed_login_attempts, locked_until');
     });
 
     it('a wrong password counts as the first failure, not the sixth, and does not re-lock', async () => {
@@ -178,15 +181,109 @@ describe('Admin login lockout (5 failures / 15 minutes, reset when a lock expire
       expect(lockedForMinutes()).toBeGreaterThan(14);
     });
 
-    it('does not write the reset when the lock is still active or absent', async () => {
+    it('counts one failure with one UPDATE when there is no lock', async () => {
       setAccount({ failed_login_attempts: 2, locked_until: null });
       await login(WRONG);
 
-      const resets = db.state.queries.filter(q =>
-        q.sql.replace(/\s+/g, ' ').includes('SET failed_login_attempts = 0, locked_until = NULL')
-      );
-      expect(resets).toHaveLength(0);
+      const updates = db.state.queries.filter(q => q.sql.includes('UPDATE admin_users'));
+      expect(updates).toHaveLength(1);
       expect(row.failed_login_attempts).toBe(3);
+    });
+  });
+
+  describe('concurrency rules (the counter is incremented by the database, not by the route)', () => {
+    it('the failure UPDATE increments from the stored value and takes no value from the route', async () => {
+      await login(WRONG);
+
+      const update = db.state.queries.find(q => isFailedLoginUpdate(q.sql))!;
+      expect(update.sql).toContain('COALESCE(failed_login_attempts, 0) + 1');
+      expect(update.params).toEqual([ADMIN_ID, expect.any(Date), 5, 15 * MINUTE]);
+    });
+
+    it('does not hold a row lock while the password is compared', async () => {
+      let lockedDuringCompare: boolean | undefined;
+      compareSpy.mockImplementationOnce(async () => {
+        lockedDuringCompare = db.state.queries.some(q => q.sql.includes('FOR UPDATE'));
+        return false;
+      });
+
+      await login(WRONG);
+
+      expect(lockedDuringCompare).toBe(false);
+      expect(db.state.queries.some(q => q.sql.includes('FOR UPDATE'))).toBe(false);
+    });
+
+    it('a failed login never starts a transaction', async () => {
+      await login(WRONG);
+
+      expect(db.pool.connect).not.toHaveBeenCalled();
+    });
+
+    it('the late failure of a parallel burst leaves an active lock and its counter alone', async () => {
+      const until = new Date(Date.now() + 10 * MINUTE);
+      setAccount({ failed_login_attempts: 5, locked_until: until });
+
+      const result = applyFailedLoginUpdate(row, [ADMIN_ID, new Date(), 5, 15 * MINUTE]);
+
+      expect(result.rows[0].failed_login_attempts).toBe(5);
+      expect(row.locked_until).toBe(until);
+    });
+  });
+
+  describe('success path: the account is locked and checked again before a session exists', () => {
+    const sessionInserts = () => db.state.queries.filter(q => q.sql.includes('INSERT INTO admin_sessions'));
+
+    it('locks the admin row (FOR UPDATE) before inserting the session, in one transaction', async () => {
+      const res = await login(PASSWORD);
+
+      expect(res.status).toBe(200);
+      const statements = db.client.query.mock.calls.map(call => String(call[0]).replace(/\s+/g, ' ').trim());
+      const lock = statements.findIndex(sql => sql.includes('FROM admin_users WHERE id = $1 FOR UPDATE'));
+      const insert = statements.findIndex(sql => sql.includes('INSERT INTO admin_sessions'));
+      expect(statements[0]).toBe('BEGIN');
+      expect(lock).toBeGreaterThan(0);
+      expect(insert).toBeGreaterThan(lock);
+      expect(statements[statements.length - 1]).toBe('COMMIT');
+    });
+
+    it('issues no session when the password changed after it was verified', async () => {
+      compareSpy.mockImplementationOnce(async () => {
+        // A password change commits while this login is still comparing.
+        row.password_hash = bcrypt.hashSync('Brand-New-Passw0rd!', 4);
+        return true;
+      });
+
+      const res = await login(PASSWORD);
+
+      expect(res.status).toBe(401);
+      expect(res.headers['set-cookie']).toBeUndefined();
+      expect(sessionInserts()).toHaveLength(0);
+      expect(db.client.query.mock.calls.map(call => call[0])).toContain('ROLLBACK');
+    });
+
+    it('issues no session when the account was deactivated meanwhile', async () => {
+      compareSpy.mockImplementationOnce(async () => {
+        row.is_active = false;
+        return true;
+      });
+
+      const res = await login(PASSWORD);
+
+      expect(res.status).toBe(401);
+      expect(sessionInserts()).toHaveLength(0);
+    });
+
+    it('issues no session when the account got locked meanwhile', async () => {
+      compareSpy.mockImplementationOnce(async () => {
+        row.failed_login_attempts = 5;
+        row.locked_until = new Date(Date.now() + 10 * MINUTE);
+        return true;
+      });
+
+      const res = await login(PASSWORD);
+
+      expect(res.status).toBe(401);
+      expect(sessionInserts()).toHaveLength(0);
     });
   });
 
