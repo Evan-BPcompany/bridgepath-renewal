@@ -6,7 +6,7 @@ module.exports = {
   setupFiles: ['<rootDir>/../jest.setup.js'],
   // Coverage is measured with `npm run test:coverage`. Not measured: the tests themselves,
   // migrations (run only against a database), type declarations, the integration harness
-  // (needs PostgreSQL) and the two process entry points (index.ts, scripts/bootstrap-admin.ts).
+  // (needs PostgreSQL) and the process entry points (index.ts, scripts/bootstrap-admin.ts, scripts/integration-schemas.ts).
   collectCoverageFrom: [
     '**/*.ts',
     '!**/*.d.ts',
@@ -16,7 +16,8 @@ module.exports = {
     '!db/migrations/**',
     '!types/**',
     '!index.ts',
-    '!scripts/bootstrap-admin.ts'
+    '!scripts/bootstrap-admin.ts',
+    '!scripts/integration-schemas.ts'
   ],
   coverageThreshold: {
     global: {

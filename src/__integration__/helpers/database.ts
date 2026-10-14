@@ -20,7 +20,7 @@ export interface IsolatedDatabase {
 }
 
 // Refuses anything the safety checks do not accept, even if called directly.
-function safeUrl(url: string): string {
+export function safeUrl(url: string): string {
   const check = checkTestDatabaseUrl({ ...process.env, TEST_DATABASE_URL: url });
   if (!check.ok) {
     throw new Error(check.message);
