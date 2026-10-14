@@ -114,6 +114,42 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
         expect(create).not.toHaveBeenCalled();
       });
 
+      it.each([
+        ['text that is not JSON', '{not json'],
+        ['an empty-looking object that is cut off', '{"quantity": '],
+        ['plain words', 'hello']
+      ])('with specification_json as %s: 400, not 500', async (_name, text) => {
+        const res = await post().send({ category: 'shoes', specification_json: text, customer_email: 'a@b.co' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid specification_json');
+        expect(res.body.details).toEqual(['specification_json is not valid JSON']);
+        expect(create).not.toHaveBeenCalled();
+        expect(JSON.stringify(res.body)).not.toContain(text);
+      });
+
+      it('with a broken specification_json in a multipart form: 400, not 500', async () => {
+        const res = await request(app)
+          .post('/api/estimates')
+          .field('category', 'shoes')
+          .field('specification_json', '{broken')
+          .field('customer_email', 'a@b.co');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid specification_json');
+        expect(create).not.toHaveBeenCalled();
+      });
+
+      it.each([['a number', '42'], ['an array', '[1,2]'], ['a string', '"text"']])(
+        'with a JSON string holding %s instead of an object: 400',
+        async (_name, text) => {
+          const res = await post().send({ category: 'shoes', specification_json: text, customer_email: 'a@b.co' });
+
+          expect(res.status).toBe(400);
+          expect(create).not.toHaveBeenCalled();
+        }
+      );
+
       it('with an unknown category', async () => {
         const res = await post().send({ category: 'cars', specification_json: SPEC, customer_email: 'a@b.co' });
 

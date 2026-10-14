@@ -19,6 +19,15 @@ export const uploadMiddleware = multer({
   }
 });
 
+// Thrown when specification_json arrives as text that is not valid JSON. It is the client's
+// mistake, so the route answers 400 instead of treating it as a server error.
+export class InvalidSpecificationJsonError extends Error {
+  constructor() {
+    super('Invalid specification_json JSON format');
+    this.name = 'InvalidSpecificationJsonError';
+  }
+}
+
 export function extractMultipartData(
   body: any,
   files: Express.Multer.File[] | undefined
@@ -39,7 +48,7 @@ export function extractMultipartData(
     try {
       specification_json = JSON.parse(specString);
     } catch (err) {
-      throw new Error('Invalid specification_json JSON format');
+      throw new InvalidSpecificationJsonError();
     }
   } else {
     specification_json = specString;

@@ -5,7 +5,11 @@ import { createEstimate, getEstimateByReceiptId } from '../services/estimateServ
 import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { validateReceiptId } from '../utils/receipt-id';
 import { validateCustomerContact } from '../utils/customerValidation';
-import { uploadMiddleware, extractMultipartData } from '../middleware/upload';
+import {
+  uploadMiddleware,
+  extractMultipartData,
+  InvalidSpecificationJsonError
+} from '../middleware/upload';
 import { validateFileBuffer } from '../utils/fileValidation';
 import logger from '../utils/logger';
 
@@ -156,6 +160,15 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       created_at: result.created_at
     });
   } catch (err) {
+    if (err instanceof InvalidSpecificationJsonError) {
+      res.status(400).json({
+        error: 'Invalid specification_json',
+        details: ['specification_json is not valid JSON'],
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     logger.error('Error creating estimate', {
       error: err instanceof Error ? err.message : String(err)
     });

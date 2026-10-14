@@ -37,7 +37,7 @@ Everything passes through `src/utils/logSanitizer.ts` before it is written:
 
 - Uploads are checked for MIME type and magic bytes. **ClamAV is not implemented**; files stay `quarantine`/`pending` and admin downloads are blocked (`FILE_DOWNLOAD_ENABLED=false`).
 - Email uses an outbox with idempotency keys. A bug that could send the same event twice (the claim query also picked up events already being sent) was fixed in Week 3; this is verified only at the SQL-text level.
-- Known gap: an invalid specification JSON string on the customer API produces 500 instead of 400.
+- An invalid `specification_json` string on the customer API answers 400 (`Invalid specification_json`), not 500; the message never echoes the input.
 
 ## Dependency audit
 
