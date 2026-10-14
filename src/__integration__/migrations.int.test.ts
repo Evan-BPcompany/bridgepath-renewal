@@ -10,6 +10,12 @@ import {
 } from './helpers/database';
 import { MASTER_ID, insertAdmin, insertEstimate } from './helpers/fixtures';
 
+// PostgreSQL SQLSTATE codes.
+const UNIQUE = '23505'; // unique_violation
+const FOREIGN_KEY = '23503'; // foreign_key_violation
+const CHECK = '23514'; // check_violation
+const NOT_NULL = '23502'; // not_null_violation
+
 const MIGRATIONS = [
   '001_init_schema.ts',
   '002_admin_sessions.ts',
@@ -145,8 +151,10 @@ describeIntegration('migrations 001-011', ({ url }) => {
       await suite().db('admin_users').whereNot({ id: MASTER_ID }).del();
     });
 
-    const rejects = async (promise: Promise<unknown>, pattern: RegExp) => {
-      await expect(promise).rejects.toThrow(pattern);
+    // Checks the PostgreSQL SQLSTATE (and the constraint name when given), never the message
+    // text, which depends on the server's lc_messages setting.
+    const rejects = async (promise: Promise<unknown>, code: string, constraint?: string) => {
+      await expect(promise).rejects.toMatchObject(constraint ? { code, constraint } : { code });
     };
 
     describe('contact policy (008): an estimate needs an e-mail or a phone number', () => {
@@ -171,7 +179,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
       ])('rejects %s', async (_name, email, phone) => {
         await rejects(
           insertEstimate(suite().db, { customer_email: email, customer_phone: phone }),
-          /estimates_contact_required/
+          CHECK, 'estimates_contact_required'
         );
       });
 
@@ -182,11 +190,11 @@ describeIntegration('migrations 001-011', ({ url }) => {
 
     describe('check constraints', () => {
       it('rejects an unknown category', async () => {
-        await rejects(insertEstimate(suite().db, { category: 'cars' }), /category/);
+        await rejects(insertEstimate(suite().db, { category: 'cars' }), CHECK);
       });
 
       it('rejects a status outside the allowed set, accepts every allowed one', async () => {
-        await rejects(insertEstimate(suite().db, { status: 'bogus' }), /status/);
+        await rejects(insertEstimate(suite().db, { status: 'bogus' }), CHECK);
 
         for (const status of [
           'new_receipt', 'under_review', 'quoted', 'negotiating', 'accepted',
@@ -199,16 +207,16 @@ describeIntegration('migrations 001-011', ({ url }) => {
       it('rejects an unknown admin role', async () => {
         await rejects(suite().db('admin_users').insert({
           username: 'x', email: 'x@test.invalid', password_hash: 'h', role: 'superuser'
-        }), /role/);
+        }), CHECK);
       });
 
       it('rejects an unknown e-mail event type and status', async () => {
         await rejects(suite().db('email_events').insert({
           recipient_email: 'a@example.com', email_type: 'spam', subject: 's', body: 'b', idempotency_key: 'k1'
-        }), /email_type/);
+        }), CHECK);
         await rejects(suite().db('email_events').insert({
           recipient_email: 'a@example.com', email_type: 'receipt', subject: 's', body: 'b', idempotency_key: 'k2', status: 'lost'
-        }), /status/);
+        }), CHECK);
       });
 
       it('rejects an unknown file status', async () => {
@@ -217,7 +225,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
         await rejects(suite().db('files').insert({
           estimate_id: estimate.id, filename: 'a.png', file_size: 1, mime_type: 'image/png',
           s3_key: 'k', file_status: 'maybe'
-        }), /file_status/);
+        }), CHECK);
       });
     });
 
@@ -230,8 +238,8 @@ describeIntegration('migrations 001-011', ({ url }) => {
       };
 
       it('rejects an empty memo and a memo of 5001 characters', async () => {
-        await rejects(insertMemo(''), /admin_memos_content_length/);
-        await rejects(insertMemo('x'.repeat(5001)), /admin_memos_content_length/);
+        await rejects(insertMemo(''), CHECK, 'admin_memos_content_length');
+        await rejects(insertMemo('x'.repeat(5001)), CHECK, 'admin_memos_content_length');
       });
 
       it('accepts 1 and 5000 characters (counted in characters, not bytes)', async () => {
@@ -245,13 +253,13 @@ describeIntegration('migrations 001-011', ({ url }) => {
       it('receipt_id is unique', async () => {
         await insertEstimate(suite().db, { receipt_id: 'BP20260101900' });
 
-        await rejects(insertEstimate(suite().db, { receipt_id: 'BP20260101900' }), /duplicate key/);
+        await rejects(insertEstimate(suite().db, { receipt_id: 'BP20260101900' }), UNIQUE);
       });
 
       it('admin username and e-mail are unique', async () => {
         await insertAdmin(suite().db, { username: 'dup' });
 
-        await rejects(insertAdmin(suite().db, { username: 'dup' }), /duplicate key/);
+        await rejects(insertAdmin(suite().db, { username: 'dup' }), UNIQUE);
       });
 
       it('the e-mail idempotency key is unique', async () => {
@@ -260,13 +268,13 @@ describeIntegration('migrations 001-011', ({ url }) => {
         };
         await suite().db('email_events').insert(row);
 
-        await rejects(suite().db('email_events').insert(row), /duplicate key/);
+        await rejects(suite().db('email_events').insert(row), UNIQUE);
       });
 
       it('there is one receipt_sequence row per date', async () => {
         await suite().db('receipt_sequence').insert({ receipt_date: '2026-10-13', last_sequence: 1 });
 
-        await rejects(suite().db('receipt_sequence').insert({ receipt_date: '2026-10-13', last_sequence: 2 }), /duplicate key/);
+        await rejects(suite().db('receipt_sequence').insert({ receipt_date: '2026-10-13', last_sequence: 2 }), UNIQUE);
       });
     });
 
@@ -275,7 +283,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
         await rejects(suite().db('files').insert({
           estimate_id: '00000000-0000-0000-0000-00000000dead', filename: 'a.png', file_size: 1,
           mime_type: 'image/png', s3_key: 'k'
-        }), /foreign key/);
+        }), FOREIGN_KEY);
       });
 
       it('deleting an estimate removes its files, tokens, memos and history', async () => {
@@ -302,7 +310,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
           subject: 's', body: 'b', idempotency_key: 'receipt-1'
         });
 
-        await rejects(db('estimates').where({ id: estimate.id }).del(), /foreign key/);
+        await rejects(db('estimates').where({ id: estimate.id }).del(), FOREIGN_KEY);
       });
 
       it('deleting an admin removes the sessions of that admin', async () => {
@@ -322,7 +330,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
         const estimate = await insertEstimate(db);
         await db('admin_memos').insert({ estimate_id: estimate.id, admin_user_id: id, content: 'note' });
 
-        await rejects(db('admin_users').where({ id }).del(), /foreign key/);
+        await rejects(db('admin_users').where({ id }).del(), FOREIGN_KEY);
       });
     });
   });
@@ -382,11 +390,27 @@ describeIntegration('migrations 001-011', ({ url }) => {
       await migrateDownOne(db); // 011
       await migrateDownOne(db); // 010
       await migrateDownOne(db); // 009
-      await expect(migrateDownOne(db)).rejects.toThrow(/customer_email|not-null|null value/i);
+      // Intended: down() makes customer_email NOT NULL again, which PostgreSQL refuses while a
+      // row holds NULL (not_null_violation on that column). The migration must not be forced
+      // through; the operator resolves such rows first.
+      await expect(migrateDownOne(db)).rejects.toMatchObject({
+        code: NOT_NULL,
+        table: 'estimates',
+        column: 'customer_email'
+      });
 
-      // The failed rollback left the migration recorded and the constraint in place.
+      // The failed rollback ran in one transaction: the migration is still recorded, the
+      // constraint is still there, the column is still nullable and knex released its lock.
       expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 8));
       expect((await constraintNames()).join('\n')).toContain('estimates_contact_required');
+      const column = await db.raw(
+        `SELECT is_nullable FROM information_schema.columns
+         WHERE table_schema = ? AND table_name = 'estimates' AND column_name = 'customer_email'`,
+        [suite().schema]
+      );
+      expect(column.rows[0].is_nullable).toBe('YES');
+      const lock = await db('knex_migrations_lock').select('is_locked');
+      expect(lock.map((row: { is_locked: number }) => Number(row.is_locked))).toEqual([0]);
 
       // After the offending row is gone the rollback works.
       await db.raw('TRUNCATE estimates CASCADE');
