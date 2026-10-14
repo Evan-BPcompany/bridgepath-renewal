@@ -1,11 +1,11 @@
 import { getPool } from '../config/database';
 import type { PoolClient } from 'pg';
 import logger from './logger';
+import { runInTransaction } from './transactionRetry';
 
 const RECEIPT_PREFIX = 'BP';
 const SEQUENCE_PAD_WIDTH = 3;
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY_MS = 10;
+const MAX_SEQUENCE = 999;
 
 // The date in a receipt id is the calendar date in Korea (Asia/Seoul, UTC+9, no daylight
 // saving). It does not depend on the server's time zone: a Heroku dyno runs in UTC, where
@@ -36,114 +36,49 @@ export function formatSequence(sequence: number): string {
   return String(sequence).padStart(SEQUENCE_PAD_WIDTH, '0');
 }
 
-async function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// Takes the next number of the day with one atomic upsert. Concurrent callers queue on the
+// row lock of receipt_sequence (also for the first number of a day, where ON CONFLICT turns
+// the lost insert race into an update), so under READ COMMITTED nobody fails and nobody gets
+// the same number. The row stays locked until the surrounding transaction ends; if that
+// transaction rolls back, the number is given back and no gap appears.
+export async function generateReceiptIdInTransaction(client: PoolClient): Promise<string> {
+  const dateStr = formatDate(new Date());
 
-export async function generateReceiptId(): Promise<string> {
-  const pool = getPool();
-  const today = new Date();
-  const dateStr = formatDate(today);
+  const result = await client.query(
+    `INSERT INTO receipt_sequence (receipt_date, last_sequence, created_at, updated_at)
+     VALUES ($1::date, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT (receipt_date)
+     DO UPDATE SET last_sequence = receipt_sequence.last_sequence + 1,
+                   updated_at = CURRENT_TIMESTAMP
+     RETURNING last_sequence`,
+    [dateStr]
+  );
 
-  let lastError: Error | null = null;
+  const nextSequence = Number(result.rows[0].last_sequence);
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
-
-      const existingResult = await client.query(
-        `SELECT last_sequence FROM receipt_sequence WHERE receipt_date = $1::date FOR UPDATE`,
-        [dateStr]
-      );
-
-      let nextSequence = 1;
-
-      if (existingResult.rows.length > 0) {
-        nextSequence = existingResult.rows[0].last_sequence + 1;
-        await client.query(
-          `UPDATE receipt_sequence
-           SET last_sequence = $1, updated_at = CURRENT_TIMESTAMP
-           WHERE receipt_date = $2::date`,
-          [nextSequence, dateStr]
-        );
-      } else {
-        nextSequence = 1;
-        await client.query(
-          `INSERT INTO receipt_sequence (receipt_date, last_sequence, created_at, updated_at)
-           VALUES ($1::date, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [dateStr, nextSequence]
-        );
-      }
-
-      if (nextSequence > 999) {
-        throw new Error('Receipt sequence overflow for date: exceeded 999');
-      }
-
-      await client.query('COMMIT');
-
-      const sequenceStr = formatSequence(nextSequence);
-      const receiptId = `${RECEIPT_PREFIX}${dateStr}${sequenceStr}`;
-
-      if (attempt > 0) {
-        logger.info('Generated receipt ID after retry', {
-          receiptId,
-          date: dateStr,
-          sequence: nextSequence,
-          attempts: attempt + 1
-        });
-      } else {
-        logger.info('Generated receipt ID', {
-          receiptId,
-          date: dateStr,
-          sequence: nextSequence
-        });
-      }
-
-      return receiptId;
-    } catch (err) {
-      lastError = err as Error;
-
-      try {
-        await client.query('ROLLBACK');
-      } catch {
-        // Ignore rollback error if transaction already rolled back
-      }
-
-      const isSerializationFailure =
-        (err as any)?.code === '40001' || (err as any)?.code === 40001;
-      const isUniqueViolation =
-        (err as any)?.code === '23505' || (err as any)?.code === 23505;
-
-      if ((isSerializationFailure || isUniqueViolation) && attempt < MAX_RETRIES - 1) {
-        const delayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
-        logger.warn('Receipt sequence contention, retrying', {
-          date: dateStr,
-          attempt: attempt + 1,
-          maxRetries: MAX_RETRIES,
-          errorCode: (err as any)?.code,
-          delayMs
-        });
-
-        await sleep(delayMs);
-        continue;
-      }
-
-      throw err;
-    } finally {
-      client.release();
-    }
+  // Throwing rolls the whole transaction back, which also undoes the increment.
+  if (nextSequence > MAX_SEQUENCE) {
+    throw new Error(`Receipt sequence overflow for date: exceeded ${MAX_SEQUENCE}`);
   }
 
-  logger.error('Failed to generate receipt ID after retries', {
+  const receiptId = `${RECEIPT_PREFIX}${dateStr}${formatSequence(nextSequence)}`;
+
+  logger.info('Generated receipt ID in transaction', {
+    receiptId,
     date: dateStr,
-    attempts: MAX_RETRIES,
-    lastError: lastError?.message
+    sequence: nextSequence
   });
 
-  throw new Error(
-    `Failed to generate receipt ID after ${MAX_RETRIES} retries: ${lastError?.message}`
-  );
+  return receiptId;
+}
+
+// Stand-alone variant with its own transaction (one try plus 3 retries on 40001 or a
+// receipt-number collision). Kept for compatibility; estimates take their number inside the
+// estimate transaction with generateReceiptIdInTransaction.
+export async function generateReceiptId(): Promise<string> {
+  return runInTransaction(getPool(), client => generateReceiptIdInTransaction(client), {
+    label: 'generateReceiptId'
+  });
 }
 
 export function parseReceiptId(receiptId: string): {
@@ -195,48 +130,4 @@ export function validateReceiptId(receiptId: string): boolean {
   }
 
   return true;
-}
-
-export async function generateReceiptIdInTransaction(client: PoolClient): Promise<string> {
-  const today = new Date();
-  const dateStr = formatDate(today);
-
-  const existingResult = await client.query(
-    `SELECT last_sequence FROM receipt_sequence WHERE receipt_date = $1::date FOR UPDATE`,
-    [dateStr]
-  );
-
-  let nextSequence = 1;
-
-  if (existingResult.rows.length > 0) {
-    nextSequence = existingResult.rows[0].last_sequence + 1;
-    await client.query(
-      `UPDATE receipt_sequence
-       SET last_sequence = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE receipt_date = $2::date`,
-      [nextSequence, dateStr]
-    );
-  } else {
-    nextSequence = 1;
-    await client.query(
-      `INSERT INTO receipt_sequence (receipt_date, last_sequence, created_at, updated_at)
-       VALUES ($1::date, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [dateStr, nextSequence]
-    );
-  }
-
-  if (nextSequence > 999) {
-    throw new Error('Receipt sequence overflow for date: exceeded 999');
-  }
-
-  const sequenceStr = formatSequence(nextSequence);
-  const receiptId = `${RECEIPT_PREFIX}${dateStr}${sequenceStr}`;
-
-  logger.info('Generated receipt ID in transaction', {
-    receiptId,
-    date: dateStr,
-    sequence: nextSequence
-  });
-
-  return receiptId;
 }

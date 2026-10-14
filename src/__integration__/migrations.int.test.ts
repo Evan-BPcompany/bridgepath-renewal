@@ -274,7 +274,12 @@ describeIntegration('migrations 001-011', ({ url }) => {
       it('there is one receipt_sequence row per date', async () => {
         await suite().db('receipt_sequence').insert({ receipt_date: '2026-10-13', last_sequence: 1 });
 
-        await rejects(suite().db('receipt_sequence').insert({ receipt_date: '2026-10-13', last_sequence: 2 }), UNIQUE);
+        // The retry logic keys on this exact constraint name (utils/transactionRetry.ts).
+        await rejects(
+          suite().db('receipt_sequence').insert({ receipt_date: '2026-10-13', last_sequence: 2 }),
+          UNIQUE,
+          'receipt_sequence_receipt_date_key'
+        );
       });
     });
 

@@ -11,6 +11,7 @@ import { queueEmailInTransaction } from '../services/emailService';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { hashEstimateToken } from '../utils/token';
 import { createFakeDb } from './helpers/adminTestUtils';
+import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 
 const queueEmail = queueEmailInTransaction as jest.Mock;
 const CREATED_AT = new Date('2026-10-13T03:00:00Z');
@@ -26,6 +27,7 @@ describe('estimate service (fake database)', () => {
     db = createFakeDb();
     (getPool as jest.Mock).mockReturnValue(db.pool);
     queueEmail.mockReset();
+    (generateReceiptIdInTransaction as jest.Mock).mockClear();
     jest.spyOn(logger, 'info').mockImplementation(() => logger);
     jest.spyOn(logger, 'error').mockImplementation(() => logger);
   });
@@ -58,11 +60,13 @@ describe('estimate service (fake database)', () => {
       };
     });
 
-    it('creates the estimate, its access token and the email events in one SERIALIZABLE transaction', async () => {
+    it('creates the estimate, its access token and the email events in one READ COMMITTED transaction', async () => {
       const result = await createEstimate(request);
 
       const order = statements();
-      expect(order[0]).toBe('BEGIN ISOLATION LEVEL SERIALIZABLE');
+      expect(order[0]).toBe('BEGIN');
+      expect(order.join('\n')).not.toContain('SERIALIZABLE');
+      expect(generateReceiptIdInTransaction).toHaveBeenCalledWith(db.client);
       expect(order[1]).toContain('INSERT INTO estimates');
       expect(order[2]).toContain('INSERT INTO estimate_access_tokens');
       expect(order[order.length - 1]).toBe('COMMIT');
@@ -160,6 +164,95 @@ describe('estimate service (fake database)', () => {
 
       await expect(createEstimate(request)).rejects.toThrow('Failed to create estimate');
       expect(statements()).toContain('ROLLBACK');
+    });
+
+    describe('retries of the whole transaction (one try plus 3 retries)', () => {
+      const failFirstInserts = (times: number, code: string, constraint?: string) => {
+        let remaining = times;
+        const original = db.state.handler;
+        db.state.handler = (sql, params) => {
+          if (sql.includes('INSERT INTO estimates') && remaining > 0) {
+            remaining -= 1;
+            throw Object.assign(new Error('contention'), { code, constraint });
+          }
+          return original(sql, params);
+        };
+      };
+
+      beforeEach(() => {
+        jest.useFakeTimers();
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('runs the whole transaction again after 40001 and keeps the result of the last attempt only', async () => {
+        failFirstInserts(3, '40001');
+
+        const pending = createEstimate(request);
+        await jest.advanceTimersByTimeAsync(10 + 20 + 40);
+        const result = await pending;
+
+        expect(db.pool.connect).toHaveBeenCalledTimes(4);
+        expect(db.client.release).toHaveBeenCalledTimes(4);
+        expect(statements().filter(s => s === 'BEGIN')).toHaveLength(4);
+        expect(statements().filter(s => s === 'ROLLBACK')).toHaveLength(3);
+        expect(statements().filter(s => s === 'COMMIT')).toHaveLength(1);
+        expect(generateReceiptIdInTransaction).toHaveBeenCalledTimes(4);
+        // The response comes from the attempt that committed.
+        expect(result.estimate_id).toBe('est-1');
+      });
+
+      it('gives up after four attempts and reports SQLSTATE 40001 with the attempt count', async () => {
+        failFirstInserts(10, '40001');
+
+        const pending = createEstimate(request);
+        const assertion = expect(pending).rejects.toMatchObject({ code: '40001', attempts: 4 });
+        await jest.advanceTimersByTimeAsync(1000);
+        await assertion;
+
+        expect(db.pool.connect).toHaveBeenCalledTimes(4);
+        expect(statements()).not.toContain('COMMIT');
+      });
+
+      it('retries a collision on the receipt_sequence date constraint (23505) but no other unique violation', async () => {
+        failFirstInserts(1, '23505', 'receipt_sequence_receipt_date_key');
+        const retried = createEstimate(request);
+        await jest.advanceTimersByTimeAsync(10);
+        await expect(retried).resolves.toMatchObject({ success: true });
+        expect(db.pool.connect).toHaveBeenCalledTimes(2);
+
+        db.pool.connect.mockClear();
+        for (const constraint of ['estimates_receipt_id_key', 'email_events_idempotency_key_key']) {
+          db.pool.connect.mockClear();
+          failFirstInserts(1, '23505', constraint);
+          await expect(createEstimate(request)).rejects.toMatchObject({ code: '23505', constraint });
+          expect(db.pool.connect).toHaveBeenCalledTimes(1);
+        }
+      });
+
+      it('does not retry an error from COMMIT: the outcome is unknown and a retry could create a second estimate', async () => {
+        const original = db.state.handler;
+        db.state.handler = (sql, params) => {
+          if (sql.trim() === 'COMMIT') {
+            throw Object.assign(new Error('connection terminated'), { code: '57P01' });
+          }
+          return original(sql, params);
+        };
+
+        await expect(createEstimate(request)).rejects.toThrow('connection terminated');
+
+        expect(db.pool.connect).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not retry errors that are not contention', async () => {
+        failFirstInserts(1, '23514');
+
+        await expect(createEstimate(request)).rejects.toMatchObject({ code: '23514' });
+
+        expect(db.pool.connect).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('does not write customer details to the log', async () => {

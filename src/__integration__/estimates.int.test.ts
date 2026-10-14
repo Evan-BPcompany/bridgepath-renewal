@@ -227,27 +227,24 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
   });
 
   describe('many customers at once', () => {
-    it('5 parallel requests: no duplicate numbers, and the database agrees with the answers', async () => {
+    // Every request must succeed with its own number, and the rows must agree with the answers.
+    it.each([[5], [20]])('%i parallel requests: all created, numbers 1..N without a gap or a duplicate', async n => {
       const results = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => create({ customer_email: `parallel${i}@example.com` }))
+        Array.from({ length: n }, (_, i) => create({ customer_email: `parallel${i}@example.com` }))
       );
 
-      const created = results.filter(r => r.status === 201);
-      const failed = results.filter(r => r.status !== 201);
+      expect(results.map(r => r.status)).toEqual(Array(n).fill(201));
+      const ids = results.map(r => r.body.receipt_id as string);
+      expect(new Set(ids).size).toBe(n);
+      const sequences = ids.map(id => Number(id.slice(-3))).sort((a, b) => a - b);
+      expect(sequences).toEqual(Array.from({ length: n }, (_, i) => i + 1));
 
-      // The estimate is created in one SERIALIZABLE transaction without a retry (the receipt id
-      // helper has none inside a transaction), so a failure under contention is possible.
-      // What must never happen: duplicates, half-written estimates, or a 4xx.
-      for (const res of failed) {
-        expect(res.status).toBe(500);
-      }
-      const ids = created.map(r => r.body.receipt_id);
-      expect(new Set(ids).size).toBe(ids.length);
-      expect(await count('estimates')).toBe(created.length);
-      expect(await count('estimate_access_tokens')).toBe(created.length);
-      expect(await count('email_events')).toBe(created.length * 2);
-      // eslint-disable-next-line no-console
-      console.info(`[estimates] 5 parallel creations: ${created.length} created, ${failed.length} failed with 500`);
+      expect(await count('estimates')).toBe(n);
+      expect(await count('estimate_access_tokens')).toBe(n);
+      expect(await count('email_events')).toBe(n * 2);
+      expect(await suite().db('receipt_sequence').select('last_sequence')).toEqual([{ last_sequence: n }]);
+      // Nothing needed a retry.
+      expect(logger.warn).not.toHaveBeenCalled();
     });
   });
 });

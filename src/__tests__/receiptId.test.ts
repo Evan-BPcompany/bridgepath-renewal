@@ -36,18 +36,19 @@ describe('receipt id generation (fake database)', () => {
     jest.spyOn(logger, 'warn').mockImplementation(() => logger);
     jest.spyOn(logger, 'error').mockImplementation(() => logger);
 
-    db.state.handler = (sql, params) => {
+    // Stands in for the atomic upsert, and gives the number back when the transaction rolls back.
+    let beforeTransaction: number | null = null;
+    db.state.handler = sql => {
       const text = sql.replace(/\s+/g, ' ');
-      if (text.includes('SELECT last_sequence FROM receipt_sequence')) {
-        return { rows: lastSequence === null ? [] : [{ last_sequence: lastSequence }] };
+      if (text === 'BEGIN') {
+        beforeTransaction = lastSequence;
       }
-      if (text.includes('UPDATE receipt_sequence')) {
-        lastSequence = params[0] as number;
-        return { rows: [] };
+      if (text === 'ROLLBACK') {
+        lastSequence = beforeTransaction;
       }
-      if (text.includes('INSERT INTO receipt_sequence')) {
-        lastSequence = params[1] as number;
-        return { rows: [] };
+      if (text.includes('INSERT INTO receipt_sequence') && text.includes('ON CONFLICT (receipt_date)')) {
+        lastSequence = (lastSequence ?? 0) + 1;
+        return { rows: [{ last_sequence: lastSequence }] };
       }
       return undefined;
     };
@@ -146,8 +147,8 @@ describe('receipt id generation (fake database)', () => {
       jest.setSystemTime(new Date('2026-10-12T16:00:00Z'));
 
       expect(await generateReceiptId()).toBe('BP20261013001');
-      const select = db.client.query.mock.calls.find(call => String(call[0]).includes('SELECT last_sequence'))!;
-      expect(select[1]).toEqual(['20261013']);
+      const upsert = db.state.queries.find(q => q.sql.includes('INSERT INTO receipt_sequence'))!;
+      expect(upsert.params).toEqual(['20261013']);
     });
 
     it('still uses the previous Korean date at 23:30 Korean time (14:30 UTC)', async () => {
@@ -164,18 +165,12 @@ describe('receipt id generation (fake database)', () => {
 
     it('starts at 001 for the first request of the day', async () => {
       expect(await generateReceiptId()).toBe(`BP${TODAY}001`);
-
-      const insert = db.state.queries.find(q => q.sql.includes('INSERT INTO receipt_sequence'))!;
-      expect(insert.params).toEqual([TODAY, 1]);
     });
 
     it('continues the sequence of the day', async () => {
       lastSequence = 41;
 
       expect(await generateReceiptId()).toBe(`BP${TODAY}042`);
-
-      const update = db.state.queries.find(q => q.sql.includes('UPDATE receipt_sequence'))!;
-      expect(update.params).toEqual([42, TODAY]);
     });
 
     it('hands out consecutive, unique ids', async () => {
@@ -184,48 +179,48 @@ describe('receipt id generation (fake database)', () => {
       expect(ids).toEqual([`BP${TODAY}001`, `BP${TODAY}002`, `BP${TODAY}003`]);
     });
 
-    it('runs in a SERIALIZABLE transaction and locks the sequence row', async () => {
+    it('runs in a READ COMMITTED (default) transaction with one atomic upsert and no row-lock read', async () => {
       await generateReceiptId();
 
       const order = statements();
-      expect(order[0]).toBe('BEGIN ISOLATION LEVEL SERIALIZABLE');
-      expect(order[1]).toContain('FOR UPDATE');
-      expect(order[order.length - 1]).toBe('COMMIT');
+      expect(order[0]).toBe('BEGIN');
+      expect(order).toHaveLength(3);
+      expect(order[1]).toContain('INSERT INTO receipt_sequence');
+      expect(order[1]).toContain('ON CONFLICT (receipt_date) DO UPDATE SET last_sequence = receipt_sequence.last_sequence + 1');
+      expect(order[1]).toContain('RETURNING last_sequence');
+      expect(order.join('\n')).not.toMatch(/SERIALIZABLE|FOR UPDATE|SELECT last_sequence/);
+      expect(order[2]).toBe('COMMIT');
       expect(db.client.release).toHaveBeenCalledTimes(1);
     });
 
     it('refuses the 1000th id of a day and rolls back, so the counter does not move', async () => {
       lastSequence = 999;
-      const sequenceBefore = lastSequence;
-      db.state.handler = sql => {
-        if (sql.includes('SELECT last_sequence')) {
-          return { rows: [{ last_sequence: 999 }] };
-        }
-        return undefined;
-      };
 
       await expect(generateReceiptId()).rejects.toThrow('Receipt sequence overflow for date: exceeded 999');
 
       expect(statements()).toContain('ROLLBACK');
       expect(statements()).not.toContain('COMMIT');
-      expect(lastSequence).toBe(sequenceBefore);
+      expect(lastSequence).toBe(999);
     });
 
-    describe('contention retries', () => {
-      const contention = (code: string, times: number) => {
+    describe('contention retries (one try plus 3 retries)', () => {
+      const contention = (code: string, times: number, constraint?: string) => {
         let remaining = times;
         const original = db.state.handler;
         db.state.handler = (sql, params) => {
-          if (sql.includes('SELECT last_sequence') && remaining > 0) {
+          if (sql.includes('INSERT INTO receipt_sequence') && remaining > 0) {
             remaining -= 1;
-            throw Object.assign(new Error('could not serialize access'), { code });
+            throw Object.assign(new Error('contention'), { code, constraint });
           }
           return original(sql, params);
         };
       };
 
-      it.each([['40001'], ['23505']])('retries after error code %s and then succeeds', async code => {
-        contention(code, 2);
+      it.each([
+        ['40001', undefined],
+        ['23505', 'receipt_sequence_receipt_date_key']
+      ])('retries after error code %s and then succeeds', async (code, constraint) => {
+        contention(code, 2, constraint);
 
         const pending = generateReceiptId();
         await jest.advanceTimersByTimeAsync(10 + 20);
@@ -252,28 +247,22 @@ describe('receipt id generation (fake database)', () => {
         await pending;
       });
 
-      it('gives up after three attempts and reports the last error', async () => {
+      it('gives up after four attempts in total and reports the SQLSTATE and the attempts', async () => {
         contention('40001', 10);
 
         const pending = generateReceiptId();
-        const assertion = expect(pending).rejects.toThrow('could not serialize access');
+        const assertion = expect(pending).rejects.toMatchObject({ code: '40001', attempts: 4 });
         await jest.advanceTimersByTimeAsync(100);
         await assertion;
 
-        expect(db.pool.connect).toHaveBeenCalledTimes(3);
-        expect(db.client.release).toHaveBeenCalledTimes(3);
+        expect(db.pool.connect).toHaveBeenCalledTimes(4);
+        expect(db.client.release).toHaveBeenCalledTimes(4);
       });
 
       it('does not retry errors that are not contention', async () => {
-        const original = db.state.handler;
-        db.state.handler = (sql, params) => {
-          if (sql.includes('SELECT last_sequence')) {
-            throw Object.assign(new Error('connection lost'), { code: '08006' });
-          }
-          return original(sql, params);
-        };
+        contention('08006', 1);
 
-        await expect(generateReceiptId()).rejects.toThrow('connection lost');
+        await expect(generateReceiptId()).rejects.toMatchObject({ code: '08006' });
 
         expect(db.pool.connect).toHaveBeenCalledTimes(1);
         expect(statements()).toContain('ROLLBACK');
@@ -281,7 +270,7 @@ describe('receipt id generation (fake database)', () => {
     });
   });
 
-  describe('generateReceiptIdInTransaction (caller\'s transaction)', () => {
+  describe("generateReceiptIdInTransaction (caller's transaction)", () => {
     const client = () => db.client as unknown as PoolClient;
 
     it('returns the id and leaves BEGIN and COMMIT to the caller', async () => {
@@ -292,14 +281,15 @@ describe('receipt id generation (fake database)', () => {
       expect(db.pool.connect).not.toHaveBeenCalled();
     });
 
-    it('locks the sequence row of the day', async () => {
+    it('takes the number with one upsert statement', async () => {
       await generateReceiptIdInTransaction(client());
 
-      expect(statements()[0]).toContain('FOR UPDATE');
+      expect(statements()).toHaveLength(1);
+      expect(statements()[0]).toContain('ON CONFLICT (receipt_date) DO UPDATE');
     });
 
     it('refuses to go past 999 and lets the caller roll back', async () => {
-      db.state.handler = sql => (sql.includes('SELECT last_sequence') ? { rows: [{ last_sequence: 999 }] } : undefined);
+      lastSequence = 999;
 
       await expect(generateReceiptIdInTransaction(client())).rejects.toThrow('Receipt sequence overflow');
     });

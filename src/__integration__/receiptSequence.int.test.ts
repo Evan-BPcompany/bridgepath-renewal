@@ -43,11 +43,11 @@ describeIntegration('receipt ids on a real PostgreSQL', ({ url }) => {
     jest.restoreAllMocks();
   });
 
-  // Runs a transaction like estimateService does and returns the id, or throws.
+  // Runs a transaction like estimateService does (READ COMMITTED) and returns the id, or throws.
   const idInTransaction = async (): Promise<string> => {
     const client = await getPool().connect();
     try {
-      await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+      await client.query('BEGIN');
       const id = await generateReceiptIdInTransaction(client);
       await client.query('COMMIT');
       return id;
@@ -100,7 +100,7 @@ describeIntegration('receipt ids on a real PostgreSQL', ({ url }) => {
 
       const client = await getPool().connect();
       try {
-        await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+        await client.query('BEGIN');
         expect(await generateReceiptIdInTransaction(client)).toBe('BP20261013001');
         await client.query('ROLLBACK');
       } finally {
@@ -122,54 +122,73 @@ describeIntegration('receipt ids on a real PostgreSQL', ({ url }) => {
   });
 
   describe('at the same time', () => {
+    // Every request must get a number: no failure is tolerated, no duplicate, no gap.
+    const expectAllNumbered = async (ok: string[], failed: unknown[], expected: number) => {
+      expect(failed).toEqual([]);
+      expect(ok).toHaveLength(expected);
+      expect(new Set(ok).size).toBe(expected);
+      const sequences = ok.map(id => parseReceiptId(id)!.sequence).sort((x, y) => x - y);
+      expect(sequences).toEqual(Array.from({ length: expected }, (_, i) => i + 1));
+      expect(await sequenceRows()).toEqual([{ last_sequence: expected }]);
+    };
+
     it('5 parallel requests all succeed with unique, gap-free numbers', async () => {
       setClock('2026-10-13T03:00:00Z');
 
       const { ok, failed } = await settle(Array.from({ length: 5 }, () => generateReceiptId()));
 
-      expect(failed).toEqual([]);
-      expect(new Set(ok).size).toBe(5);
+      await expectAllNumbered(ok, failed, 5);
       expect([...ok].sort()).toEqual(
         Array.from({ length: 5 }, (_, i) => `BP20261013${String(i + 1).padStart(3, '0')}`)
       );
-      expect(await sequenceRows()).toEqual([{ last_sequence: 5 }]);
     });
 
-    it('30 parallel requests: never a duplicate, never a gap, and failures are only contention', async () => {
+    it('30 parallel requests all succeed: the first number of a day does not race either', async () => {
       setClock('2026-10-13T03:00:00Z');
 
       const { ok, failed } = await settle(Array.from({ length: 30 }, () => generateReceiptId()));
 
-      // Every number that was handed out is unique and the table agrees with the count.
-      expect(new Set(ok).size).toBe(ok.length);
-      const sequences = ok.map(id => parseReceiptId(id)!.sequence).sort((a, b) => a - b);
-      expect(sequences).toEqual(Array.from({ length: ok.length }, (_, i) => i + 1));
-      const rows = await sequenceRows();
-      expect(rows).toEqual(ok.length === 0 ? [] : [{ last_sequence: ok.length }]);
-
-      // A request may give up after its retries, but only because of contention.
-      for (const err of failed) {
-        expect((err as Error).message).toMatch(/after 3 retries/);
-      }
-      // Reported rather than asserted: how many of 30 gave up.
-      // eslint-disable-next-line no-console
-      console.info(`[receiptSequence] 30 parallel: ${ok.length} succeeded, ${failed.length} gave up after retries`);
+      await expectAllNumbered(ok, failed, 30);
     });
 
-    it('parallel estimate-style transactions: unique numbers, only serialization failures allowed', async () => {
+    it('parallel estimate-style transactions all succeed, without any retry', async () => {
       setClock('2026-10-13T03:00:00Z');
 
-      const { ok, failed } = await settle(Array.from({ length: 12 }, () => idInTransaction()));
+      const { ok, failed } = await settle(Array.from({ length: 20 }, () => idInTransaction()));
 
-      expect(new Set(ok).size).toBe(ok.length);
-      const sequences = ok.map(id => parseReceiptId(id)!.sequence).sort((a, b) => a - b);
-      expect(sequences).toEqual(Array.from({ length: ok.length }, (_, i) => i + 1));
-      for (const err of failed) {
-        // 40001 = serialization_failure, 23505 = unique_violation on the first insert of a day.
-        expect(['40001', '23505']).toContain((err as { code?: string }).code);
-      }
-      // eslint-disable-next-line no-console
-      console.info(`[receiptSequence] 12 parallel transactions without retry: ${ok.length} succeeded, ${failed.length} failed with a retryable error`);
+      await expectAllNumbered(ok, failed, 20);
+      // No request was retried: nothing was logged as contention.
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('a rollback in the middle of a burst gives its number back: no gap among the committed ones', async () => {
+      setClock('2026-10-13T03:00:00Z');
+
+      const attempt = async (index: number): Promise<string> => {
+        const client = await getPool().connect();
+        try {
+          await client.query('BEGIN');
+          const id = await generateReceiptIdInTransaction(client);
+          if (index % 3 === 0) {
+            throw new Error('estimate insert failed');
+          }
+          await client.query('COMMIT');
+          return id;
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+      };
+
+      const { ok, failed } = await settle(Array.from({ length: 12 }, (_, i) => attempt(i)));
+
+      expect(failed).toHaveLength(4);
+      expect(ok).toHaveLength(8);
+      const sequences = ok.map(id => parseReceiptId(id)!.sequence).sort((x, y) => x - y);
+      expect(sequences).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(await sequenceRows()).toEqual([{ last_sequence: 8 }]);
     });
   });
 });

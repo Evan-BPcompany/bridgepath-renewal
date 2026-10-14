@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 import { generateEstimateAccessToken } from '../utils/token';
 import { queueEmailInTransaction } from './emailService';
+import { runInTransaction } from '../utils/transactionRetry';
 import logger from '../utils/logger';
 
 export interface CreateEstimateRequest {
@@ -107,114 +108,119 @@ function buildAdminNotificationEmail(data: {
   `;
 }
 
+// Everything happens in one READ COMMITTED transaction: the receipt number, the estimate, its
+// access token and the e-mail outbox rows are committed together or not at all. The receipt
+// number is taken with an atomic upsert, so parallel requests queue on one row instead of
+// failing. As a safeguard the whole transaction runs again (up to 3 retries) on 40001 or a
+// receipt-number collision; each attempt generates a fresh access token.
 export async function createEstimate(
   request: CreateEstimateRequest
 ): Promise<CreateEstimateResponse> {
   const pool = getPool();
-  const client = await pool.connect();
 
   try {
-    await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+    const created = await runInTransaction(
+      pool,
+      async client => {
+        const receipt_id = await generateReceiptIdInTransaction(client);
+        const { token, hash } = generateEstimateAccessToken();
 
-    const receipt_id = await generateReceiptIdInTransaction(client);
-    const { token, hash } = generateEstimateAccessToken();
+        const estimateQuery = `
+          INSERT INTO estimates (
+            receipt_id, category, customer_name, customer_email,
+            customer_phone, company_name, specification_json, status
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'new_receipt')
+          RETURNING id, receipt_id, status, created_at
+        `;
 
-    const estimateQuery = `
-      INSERT INTO estimates (
-        receipt_id, category, customer_name, customer_email,
-        customer_phone, company_name, specification_json, status
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'new_receipt')
-      RETURNING id, receipt_id, status, created_at
-    `;
+        const estimateResult = await client.query(estimateQuery, [
+          receipt_id,
+          request.category,
+          request.customer_name || null,
+          request.customer_email || null,
+          request.customer_phone || null,
+          request.company_name || null,
+          JSON.stringify(request.specification_json)
+        ]);
 
-    const estimateResult = await client.query(estimateQuery, [
-      receipt_id,
-      request.category,
-      request.customer_name || null,
-      request.customer_email || null,
-      request.customer_phone || null,
-      request.company_name || null,
-      JSON.stringify(request.specification_json)
-    ]);
+        if (estimateResult.rows.length === 0) {
+          throw new Error('Failed to create estimate');
+        }
 
-    if (estimateResult.rows.length === 0) {
-      throw new Error('Failed to create estimate');
-    }
+        const estimate = estimateResult.rows[0];
 
-    const estimate = estimateResult.rows[0];
+        const tokenQuery = `
+          INSERT INTO estimate_access_tokens (
+            estimate_id, receipt_id, token
+          )
+          VALUES ($1, $2, $3)
+          RETURNING id
+        `;
 
-    const tokenQuery = `
-      INSERT INTO estimate_access_tokens (
-        estimate_id, receipt_id, token
-      )
-      VALUES ($1, $2, $3)
-      RETURNING id
-    `;
+        await client.query(tokenQuery, [estimate.id, receipt_id, hash]);
 
-    await client.query(tokenQuery, [estimate.id, receipt_id, hash]);
+        // Queue email events (outbox pattern - same transaction)
+        // Customer receipt email
+        if (request.customer_email) {
+          const receiptEmailBody = buildCustomerReceiptEmail({
+            receipt_id,
+            status: 'new_receipt',
+            created_at: estimate.created_at
+          });
 
-    // Queue email events (outbox pattern - same transaction)
-    // Customer receipt email
-    if (request.customer_email) {
-      const receiptEmailBody = buildCustomerReceiptEmail({
-        receipt_id,
-        status: 'new_receipt',
-        created_at: estimate.created_at
-      });
+          await queueEmailInTransaction(client, {
+            recipient_email: request.customer_email,
+            email_type: 'receipt',
+            estimate_id: estimate.id,
+            idempotency_key: `receipt-${estimate.id}`,
+            subject: `Bridge Path 접수 완료: ${receipt_id}`,
+            body: receiptEmailBody
+          });
+        }
 
-      await queueEmailInTransaction(client, {
-        recipient_email: request.customer_email,
-        email_type: 'receipt',
-        estimate_id: estimate.id,
-        idempotency_key: `receipt-${estimate.id}`,
-        subject: `Bridge Path 접수 완료: ${receipt_id}`,
-        body: receiptEmailBody
-      });
-    }
+        // Admin notification email
+        if (config.adminNotificationEmail) {
+          const adminEmailBody = buildAdminNotificationEmail({
+            receipt_id,
+            status: estimate.status,
+            created_at: estimate.created_at
+          });
 
-    // Admin notification email
-    if (config.adminNotificationEmail) {
-      const adminEmailBody = buildAdminNotificationEmail({
-        receipt_id,
-        status: estimate.status,
-        created_at: estimate.created_at
-      });
+          await queueEmailInTransaction(client, {
+            recipient_email: config.adminNotificationEmail,
+            email_type: 'admin_notification',
+            estimate_id: estimate.id,
+            idempotency_key: `admin-${estimate.id}`,
+            subject: `[Bridge Path] 새 접수: ${receipt_id}`,
+            body: adminEmailBody
+          });
+        }
 
-      await queueEmailInTransaction(client, {
-        recipient_email: config.adminNotificationEmail,
-        email_type: 'admin_notification',
-        estimate_id: estimate.id,
-        idempotency_key: `admin-${estimate.id}`,
-        subject: `[Bridge Path] 새 접수: ${receipt_id}`,
-        body: adminEmailBody
-      });
-    }
-
-    await client.query('COMMIT');
+        return { receipt_id, token, estimate };
+      },
+      { label: 'createEstimate' }
+    );
 
     logger.info('Estimate created', {
-      receipt_id,
+      receipt_id: created.receipt_id,
       category: request.category,
       email: request.customer_email ? '[REDACTED]' : 'not-provided'
     });
 
     return {
       success: true,
-      receipt_id,
-      estimate_id: estimate.id,
+      receipt_id: created.receipt_id,
+      estimate_id: created.estimate.id,
       status: 'new_receipt',
-      access_token: token,
-      created_at: new Date(estimate.created_at).toISOString()
+      access_token: created.token,
+      created_at: new Date(created.estimate.created_at).toISOString()
     };
   } catch (err) {
-    await client.query('ROLLBACK');
     logger.error('Failed to create estimate', {
       error: err instanceof Error ? err.message : String(err)
     });
     throw err;
-  } finally {
-    client.release();
   }
 }
 
