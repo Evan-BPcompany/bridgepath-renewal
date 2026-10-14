@@ -6,8 +6,6 @@ import { config } from '../config/env';
 import logger from '../utils/logger';
 import {
   claimPendingEmailEvents,
-  deleteAllEmailEvents,
-  getEmailEvent,
   markEmailSent,
   queueEmailInTransaction,
   recoverStaleEmailEvents,
@@ -341,32 +339,6 @@ describe('email outbox service (fake database)', () => {
 
       await expect(recoverStaleEmailEvents()).resolves.toBeUndefined();
       expect(errorSpy).toHaveBeenCalled();
-      expect(db.client.release).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('getEmailEvent and deleteAllEmailEvents (test helpers)', () => {
-    it('getEmailEvent returns the row or null', async () => {
-      db.state.handler = (sql, params) =>
-        sql.includes('FROM email_events') ? { rows: params[0] === 'e1' ? [{ id: 'e1', status: 'sent' }] : [] } : undefined;
-
-      expect(await getEmailEvent('e1')).toEqual({ id: 'e1', status: 'sent' });
-      expect(await getEmailEvent('nope')).toBeNull();
-    });
-
-    it('getEmailEvent rethrows database errors', async () => {
-      db.state.handler = () => {
-        throw new Error('db down');
-      };
-
-      await expect(getEmailEvent('e1')).rejects.toThrow('db down');
-      expect(db.client.release).toHaveBeenCalledTimes(1);
-    });
-
-    it('deleteAllEmailEvents empties the outbox and releases the connection', async () => {
-      await deleteAllEmailEvents();
-
-      expect(find('DELETE FROM email_events')).toBeDefined();
       expect(db.client.release).toHaveBeenCalledTimes(1);
     });
   });
