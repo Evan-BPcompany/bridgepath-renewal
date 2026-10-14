@@ -18,9 +18,13 @@
 - **Child processes** (`setupDbScript`, `bootstrapLauncher`, ...) start with `cleanChildEnv()` (`helpers/cleanEnv.ts`), which removes `DATABASE_URL`, `TEST_DATABASE_URL`, `PG*`, `AWS_*`, `S3_BUCKET`, `SENDGRID_*`, `JWT_SECRET`, `SENTRY_DSN` before adding the few fake values a test needs.
 - **Tests must prove something.** Behaviour is asserted (status codes, headers, the SQL that is sent, state after the call). Pure "documentation" tests were removed. When a test guards a safety property, check it by breaking the code on purpose (mutation check): the test has to fail.
 
-## Integration tests (written, never run)
+## Integration tests (run on a real PostgreSQL)
 
-Nine suites in `src/__integration__/` run the real SQL against a real PostgreSQL. They are written and compile, but **have not been run once**, because no PostgreSQL is installed yet. Their expectations come from reading the code, so the first run may show a wrong assumption in a test as well as a real defect; look at each failure before deciding which it is.
+Nine suites in `src/__integration__/` run the real SQL against a real PostgreSQL. Result on **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 176 of 176 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites).
+
+The first run found real concurrency defects (parallel estimate creation, failed-login counting, a session surviving a password change), which were fixed in the application, and tests that depended on the server's message language, which now check the SQLSTATE (`23505`, `23503`, `23514`, `23502`) instead. After the fixes the complete run passed on PostgreSQL 16.15 (9 suites, 176 tests), including: parallel estimate creation with every request succeeding and numbers 1..N without a gap; the name `receipt_sequence_receipt_date_key` of the unique constraint that the receipt retry rule (`utils/transactionRetry.ts`) relies on; exactly counted parallel login failures (4 parallel failures count 4, 6 lock the account); and no open session after a login races a password change.
+
+The migration 008 rollback test **logs an error about a NULL `customer_email` on purpose**: it inserts an estimate without e-mail, rolls back 011 to 009, and expects the 008 rollback to be refused with `23502` on `estimates.customer_email`. It then checks that nothing changed (migration still recorded, contact CHECK still present, column still nullable, `knex_migrations_lock.is_locked = 0`) and that the rollback works once the row is gone. That log line is not a failure.
 
 | Suite | What it checks on the real database |
 |---|---|
@@ -57,7 +61,7 @@ npm run it:schemas -- drop it_1a2b3c4d   # drops exactly the named schema(s)
 
 It uses `TEST_DATABASE_URL` only, under the same checks, refuses names that are not `it_` + 8 hex digits, and has no "drop all". Do not run it while the tests are running.
 
-### First run (after PostgreSQL 14+ is installed and approved)
+### Running them (PostgreSQL 14+ on this machine)
 
 ```bash
 # 1. In the terminal session only (not in a file, never in chat or git):
@@ -74,12 +78,10 @@ CI: the `integration` job runs only when started manually with `run_integration`
 
 ## Not verified
 
-These have **never** been run against the real thing and must not be described as verified:
+PostgreSQL is verified (see above: PostgreSQL 16.15, 9 suites, 176 tests). The following have **never** been run against the real thing and must not be described as verified:
 
 | Area | Status |
 |---|---|
-| SQL against a real PostgreSQL (row locking, filters, search, memo/password queries, `FOR UPDATE SKIP LOCKED`, SERIALIZABLE receipt ids) | Integration suites are written but **never run**; the unit tests only cover the SQL text and the surrounding logic with a fake pool. |
-| Migrations 001-011 | Compile and structure are tested; not applied to a real database in this phase. |
 | Real SendGrid delivery | Checked only against a local stub server. |
 | Real AWS S3 upload/delete | Mocked. |
 | Heroku PostgreSQL connection and TLS | Settings are unit tested; no connection was made. |

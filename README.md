@@ -6,7 +6,7 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. Nothing has been run against a real PostgreSQL, AWS or SendGrid yet (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
+**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. The SQL has been run against a real local PostgreSQL 16.15 (9 integration suites, 176 tests passed); AWS and SendGrid are still unverified (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
 
 ## 🔧 Technology Stack
 
@@ -265,13 +265,13 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 
 Security-relevant details are in [docs/SECURITY.md](docs/SECURITY.md); running and deploying is in [docs/OPERATIONS.md](docs/OPERATIONS.md); tests are in [docs/TESTING.md](docs/TESTING.md).
 
-### Integration tests (real PostgreSQL, not run yet)
+### Integration tests (real PostgreSQL)
 
-`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**; they are written but have **not been run once**, and real AWS S3 and SendGrid have never been called (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
+`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**. Run against a real **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 176 of 176 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
 
 - They use `TEST_DATABASE_URL` only (local host, database name contains `test`, never the same as `DATABASE_URL`) and work in a throw-away schema `it_<8 hex>` that is dropped afterwards; nothing else in the database is touched.
 - Without `TEST_DATABASE_URL`, `npm run test:integration` **skips** everything. With `REQUIRE_INTEGRATION=true` and no database it **fails**.
-- After installing PostgreSQL 14+ and creating an empty database such as `bridgepath_test`, set the URL in the terminal session only (never in a file or in git) and run the smoke test first:
+- With PostgreSQL 14+ and an empty database such as `bridgepath_test`, set the URL in the terminal session only (never in a file or in git) and run the smoke test first:
 
   ```powershell
   $env:TEST_DATABASE_URL = "postgres://<test user>:<password>@127.0.0.1:5432/bridgepath_test"
@@ -335,7 +335,7 @@ For questions or issues, please contact: contact@bridgepath.co.kr
 Implemented secure customer quote submission and retrieval with:
 - POST /api/estimates: Quote acceptance with validation and token generation
 - GET /api/estimates/:receipt_id: Token-based retrieval with one-time use enforcement
-- Atomic transaction: receipt_id generation, estimate saving, token creation in single SERIALIZABLE transaction
+- Atomic transaction: receipt_id generation, estimate saving, token creation in a single READ COMMITTED transaction
 - Security: SHA-256 token hashing, one-time use, 7-day expiration
 
 **API Contracts:**
@@ -351,7 +351,7 @@ Error: { error: "Unauthorized", timestamp }
 ```
 
 **Transaction Safety:**
-- Single SERIALIZABLE transaction for receipt ID generation + estimate/token storage
+- Single READ COMMITTED transaction for receipt ID generation + estimate/token storage
 - generateReceiptIdInTransaction() uses existing client (no nested transactions)
 - Atomic token marking: UPDATE with WHERE conditions, no SELECT then UPDATE race condition
 
@@ -472,14 +472,14 @@ All tests passing: ✅ 26/26 (specification validation tests)
 Implemented secure customer quote submission and retrieval with one-time access tokens:
 - POST /api/estimates: Accept customer quote with category and specifications
 - GET /api/estimates/:receipt_id: Retrieve quote details with token-based access
-- Atomic transaction: Receipt ID generation + estimate storage + token creation in single SERIALIZABLE transaction
+- Atomic transaction: Receipt ID generation + estimate storage + token creation in a single READ COMMITTED transaction
 
 **Key Features:**
-- **Receipt ID Generation**: Concurrent-safe with FOR UPDATE row-level locking and exponential backoff retry
+- **Receipt ID Generation**: Concurrent-safe with one atomic upsert (`INSERT ... ON CONFLICT (receipt_date) DO UPDATE ... RETURNING`): parallel requests queue on the row lock instead of failing, and a rolled-back transaction gives its number back (no gaps). More than 999 in a day rolls the whole transaction back. As a safeguard the whole estimate transaction is run again on SQLSTATE `40001` (and `23505` only on the `receipt_sequence_receipt_date_key` constraint; every other unique violation fails at once): one try plus 3 retries, 4 attempts in total, with 10/20/40 ms back-off. An error from `COMMIT` itself is never retried (its outcome is unknown), and the exhausted error carries the SQLSTATE and the attempt count.
 - **Receipt ID format and date basis**: `BP` + `YYYYMMDD` + a 3-digit sequence that restarts every day (for example `BP20261013001`). The date is the calendar date in **Korea (`Asia/Seoul`, UTC+9)**, not the server's local time and not UTC: a server running in UTC (Heroku) therefore switches to the next day at 15:00 UTC, which is 00:00 in Korea. Receipts created from 00:00 to 08:59 Korean time do not get the previous day's date. `validateReceiptId` uses the Korean year for its upper limit as well. Receipt ids issued before this change used the server's local date; no existing ids are rewritten.
 - **Access Token Security**: SHA-256 hashing, one-time use, 7-day expiration
 - **Customer Privacy**: Returns only receipt_id, category, status, specification_json (excludes customer PII)
-- **Transaction Safety**: SERIALIZABLE isolation level prevents race conditions
+- **Transaction Safety**: the receipt number comes from an atomic row-locked upsert (READ COMMITTED), so there are no serialization failures to begin with; the estimate, token and e-mail outbox rows commit together
 
 **API Contracts:**
 
@@ -540,7 +540,7 @@ Implemented multipart/form-data file upload with private S3 storage, magic-byte 
    - Log each compensation step for audit trail
 
    **Estimate vs File Upload Architecture:**
-   - Estimate creation: SERIALIZABLE transaction, atomic commit
+   - Estimate creation: one READ COMMITTED transaction, atomic commit
    - File upload: Separate transaction (outside estimate transaction)
    - Design: **Partial success is allowed**
    - Rationale:
@@ -668,7 +668,7 @@ Implemented asynchronous email notification system using database-driven outbox 
 
 ```
 Estimate Creation Transaction:
-┌─ SERIALIZABLE Transaction ─────────────────┐
+┌─ READ COMMITTED Transaction ───────────────┐
 │ 1. Generate Receipt ID                     │
 │ 2. Insert estimate + token                 │
 │ 3. Queue email_events (idempotency_key)    │
@@ -689,7 +689,7 @@ Estimate Creation Transaction:
 **Key Features:**
 
 1. **Transaction Safety (Outbox Pattern)**
-   - Estimate + email_events creation in single SERIALIZABLE transaction
+   - Estimate + email_events creation in a single READ COMMITTED transaction
    - If email_events INSERT fails → entire estimate creation rolls back
    - If SendGrid fails → estimate exists, email scheduled for retry (at-least-once semantics)
    - Idempotency key prevents duplicate queue entries (UNIQUE constraint)
@@ -816,9 +816,9 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 - DB: migration `008_customer_contact_policy.ts` makes `customer_email` nullable and adds the CHECK `estimates_contact_required`, so the API and the database enforce the same rule. Earlier migrations were not modified.
 - Without an email, the customer receipt email is skipped; the admin notification is still created.
 - Field rules: `customer_email` max 100 chars and a valid address, `customer_phone` max 20 chars with 7-15 digits (digits, spaces, `+`, `-`, `( )` only, `+` only at the start), `customer_name` and `company_name` max 100 chars. Values are trimmed; control characters are rejected.
-- Rolling back migration 008 fails if any estimate has a NULL `customer_email`; resolve those rows first.
+- Rolling back migration 008 fails if any estimate has a NULL `customer_email`; resolve those rows first. The integration suite checks exactly this: the error log line about a NULL `customer_email` (SQLSTATE 23502) during the run is the **intended** failure of that test, which then verifies that the migration stayed recorded, the constraint stayed in place, the column stayed nullable and the knex migration lock was released.
 
-**Verification status**: covered by unit tests with a mocked database and by structural checks of the migration SQL. Migration 008 and the CHECK constraint have **not** been run against a real PostgreSQL (`DATABASE_URL` is not configured), so rollback behaviour is verified by reading the SQL only.
+**Verification status**: covered by unit tests with a mocked database and, for migration 008 and its CHECK constraint (apply, constraint, refused rollback with a NULL e-mail, rollback after cleanup), by the integration suite on PostgreSQL 16.15.
 
 ---
 
@@ -831,8 +831,8 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: all Phase 3 tests so far use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) has **not** been run against a real PostgreSQL (no database is configured, and nine safe local integration suites are written but have not been run; see [docs/TESTING.md](docs/TESTING.md)). Concurrency behaviour is verified only at the SQL-shape level until integration tests are run.
-Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have also not been run because credentials are not configured. The SendGrid 8.x upgrade was checked only against a local stub server.
+**Verification status**: the unit tests use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) and the concurrency behaviour (parallel estimate creation, failed-login counting, login versus password change) are additionally covered by nine local integration suites that passed on PostgreSQL 16.15 (176 tests; see [docs/TESTING.md](docs/TESTING.md)).
+Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have not been run because credentials are not configured: AWS and SendGrid remain unverified. The SendGrid 8.x upgrade was checked only against a local stub server.
 
 ### Admin endpoints (Week 1)
 
@@ -1021,7 +1021,9 @@ Passwords, hashes and tokens are never returned or logged. The audit entry `admi
 
 Rules in `src/utils/loginLockout.ts`, shared by `POST /admin/login` and `PATCH /admin/me/password`:
 - 5 consecutive failed attempts lock the account for 15 minutes. A locked account is refused (401 `Account is locked. Try again later.`), even with the right password, without any password comparison.
-- **When a lock expires, `failed_login_attempts` and `locked_until` are reset** (the login writes the reset before checking the password). Previously the counter stayed at 5, so a single typo after the lock re-locked the account for another 15 minutes; now a lock needs 5 fresh failures.
+- **When a lock expires, the count starts again at 1** with the next failure (the same single `UPDATE` does it; there is no separate reset). Previously the counter stayed at 5, so a single typo after the lock re-locked the account for another 15 minutes; now a lock needs 5 fresh failures.
+- **Failures are counted by the database, atomically** (`recordFailedLogin` in `src/services/loginAttempts.ts`): one `UPDATE ... RETURNING` increments from the stored value, so 4 parallel wrong passwords count exactly 4, and the password comparison (bcrypt) runs outside any row lock. A failure that arrives while a lock is active changes nothing (the counter stops at 5 and the lock is not extended). Requests refused with 429 never reach this code and are not counted.
+- **A login and a password change are serialized on the admin row.** Before a session is created the login takes `SELECT ... FOR UPDATE` on the `admin_users` row and checks again that the password hash is still the one it verified, the account is active and not locked; otherwise it answers 401 and creates no session. Together with the change (which holds the same lock and revokes every session), no session can survive a password change.
 - A successful login clears the counter and the lock.
 - A failed attempt on the password change endpoint counts on the same counter.
 
