@@ -2,6 +2,8 @@ jest.mock('../config/database', () => ({ getPool: jest.fn() }));
 
 import type { PoolClient } from 'pg';
 import { getPool } from '../config/database';
+import path from 'path';
+import { spawnSync } from 'child_process';
 import logger from '../utils/logger';
 import {
   formatDate,
@@ -12,10 +14,11 @@ import {
   validateReceiptId
 } from '../utils/receipt-id';
 import { createFakeDb } from './helpers/adminTestUtils';
+import { cleanChildEnv } from './helpers/cleanEnv';
 
 // Receipt ids: BP + YYYYMMDD + a 3 digit sequence per day. The SQL runs against a fake pool.
 
-const NOW = new Date(2026, 9, 13, 12, 0, 0); // 13 Oct 2026, local time
+const NOW = new Date('2026-10-13T03:00:00Z'); // 12:00 on 13 Oct 2026 in Korea
 const TODAY = '20261013';
 
 describe('receipt id generation (fake database)', () => {
@@ -57,11 +60,55 @@ describe('receipt id generation (fake database)', () => {
 
   describe('helpers', () => {
     it('formats the date as YYYYMMDD and the sequence with three digits', () => {
-      expect(formatDate(new Date(2026, 0, 5))).toBe('20260105');
+      expect(formatDate(new Date('2026-01-05T03:00:00Z'))).toBe('20260105');
       expect(formatDate(NOW)).toBe(TODAY);
       expect(formatSequence(1)).toBe('001');
       expect(formatSequence(42)).toBe('042');
       expect(formatSequence(999)).toBe('999');
+    });
+
+    describe('the date is the Korean (Asia/Seoul, UTC+9) calendar date', () => {
+      it.each([
+        ['one second before Korean midnight', '2026-10-12T14:59:59Z', '20261012'],
+        ['Korean midnight', '2026-10-12T15:00:00Z', '20261013'],
+        ['UTC midnight is already 09:00 in Korea', '2026-10-13T00:00:00Z', '20261013'],
+        ['the last millisecond of the Korean day', '2026-10-13T14:59:59.999Z', '20261013'],
+        ['the next Korean day', '2026-10-13T15:00:00Z', '20261014'],
+        ['new year in Korea while it is still 31 Dec in UTC', '2026-12-31T15:00:00Z', '20270101'],
+        ['the last second of the year in Korea', '2026-12-31T14:59:59Z', '20261231'],
+        ['a leap day', '2028-02-28T15:00:00Z', '20280229']
+      ])('%s', (_name, instant, expected) => {
+        expect(formatDate(new Date(instant))).toBe(expected);
+      });
+
+      it.each(['UTC', 'America/Los_Angeles', 'Asia/Seoul', 'Pacific/Kiritimati'])(
+        'gives the same answer when the server runs in %s',
+        zone => {
+          // A child process, because the time zone of a running Jest worker cannot be switched.
+          const script =
+            "const { formatDate } = require('./src/utils/receipt-id');" +
+            "console.log([new Date('2026-10-12T14:59:59Z'), new Date('2026-10-12T15:00:00Z')].map(formatDate).join(','));";
+          const result = spawnSync(process.execPath, ['-r', 'ts-node/register/transpile-only', '-e', script], {
+            cwd: path.join(__dirname, '..', '..'),
+            env: cleanChildEnv({ TZ: zone, JWT_SECRET: 'child-fake-'.repeat(5) }),
+            encoding: 'utf8',
+            timeout: 60000
+          });
+
+          expect(result.stderr).toBe('');
+          expect(result.stdout.trim()).toBe('20261012,20261013');
+        }
+      );
+
+      it('validateReceiptId uses the Korean year for its upper limit', () => {
+        // 14:30 UTC on 31 Dec is still 2026 in Korea; 15:30 UTC is already 2027.
+        jest.setSystemTime(new Date('2026-12-31T14:30:00Z'));
+        expect(validateReceiptId('BP20271231001')).toBe(true);
+        expect(validateReceiptId('BP20280101001')).toBe(false);
+
+        jest.setSystemTime(new Date('2026-12-31T15:30:00Z'));
+        expect(validateReceiptId('BP20280101001')).toBe(true);
+      });
     });
 
     it('parses valid ids into their parts and rejects everything else', () => {
@@ -80,7 +127,7 @@ describe('receipt id generation (fake database)', () => {
     });
 
     it('validates the date part: year 2020 up to next year, month 1-12, day 1-31', () => {
-      const year = new Date().getFullYear();
+      const year = Number(formatDate(new Date()).slice(0, 4));
 
       expect(validateReceiptId(`BP${year}0101001`)).toBe(true);
       expect(validateReceiptId(`BP${year + 1}1231999`)).toBe(true);
@@ -94,6 +141,27 @@ describe('receipt id generation (fake database)', () => {
   });
 
   describe('generateReceiptId (own transaction)', () => {
+    it('asks for the sequence of the Korean date, also when the server clock (UTC) is still on the day before', async () => {
+      // 16:00 UTC on 12 Oct = 01:00 on 13 Oct in Korea.
+      jest.setSystemTime(new Date('2026-10-12T16:00:00Z'));
+
+      expect(await generateReceiptId()).toBe('BP20261013001');
+      const select = db.client.query.mock.calls.find(call => String(call[0]).includes('SELECT last_sequence'))!;
+      expect(select[1]).toEqual(['20261013']);
+    });
+
+    it('still uses the previous Korean date at 23:30 Korean time (14:30 UTC)', async () => {
+      jest.setSystemTime(new Date('2026-10-12T14:30:00Z'));
+
+      expect(await generateReceiptId()).toBe('BP20261012001');
+    });
+
+    it('the transaction variant uses the Korean date too', async () => {
+      jest.setSystemTime(new Date('2026-10-12T16:00:00Z'));
+
+      expect(await generateReceiptIdInTransaction(db.client as never)).toBe('BP20261013001');
+    });
+
     it('starts at 001 for the first request of the day', async () => {
       expect(await generateReceiptId()).toBe(`BP${TODAY}001`);
 

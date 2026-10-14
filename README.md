@@ -460,6 +460,7 @@ Implemented secure customer quote submission and retrieval with one-time access 
 
 **Key Features:**
 - **Receipt ID Generation**: Concurrent-safe with FOR UPDATE row-level locking and exponential backoff retry
+- **Receipt ID format and date basis**: `BP` + `YYYYMMDD` + a 3-digit sequence that restarts every day (for example `BP20261013001`). The date is the calendar date in **Korea (`Asia/Seoul`, UTC+9)**, not the server's local time and not UTC: a server running in UTC (Heroku) therefore switches to the next day at 15:00 UTC, which is 00:00 in Korea. Receipts created from 00:00 to 08:59 Korean time do not get the previous day's date. `validateReceiptId` uses the Korean year for its upper limit as well. Receipt ids issued before this change used the server's local date; no existing ids are rewritten.
 - **Access Token Security**: SHA-256 hashing, one-time use, 7-day expiration
 - **Customer Privacy**: Returns only receipt_id, category, status, specification_json (excludes customer PII)
 - **Transaction Safety**: SERIALIZABLE isolation level prevents race conditions

@@ -7,10 +7,28 @@ const SEQUENCE_PAD_WIDTH = 3;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 10;
 
+// The date in a receipt id is the calendar date in Korea (Asia/Seoul, UTC+9, no daylight
+// saving). It does not depend on the server's time zone: a Heroku dyno runs in UTC, where
+// 00:00-08:59 Korean time still belongs to the previous day.
+export const RECEIPT_TIME_ZONE = 'Asia/Seoul';
+
+const seoulDateFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: RECEIPT_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+function seoulDateParts(date: Date): { year: string; month: string; day: string } {
+  const parts: Record<string, string> = {};
+  for (const part of seoulDateFormat.formatToParts(date)) {
+    parts[part.type] = part.value;
+  }
+  return { year: parts.year, month: parts.month, day: parts.day };
+}
+
 export function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const { year, month, day } = seoulDateParts(date);
   return `${year}${month}${day}`;
 }
 
@@ -163,7 +181,7 @@ export function validateReceiptId(receiptId: string): boolean {
 
   const { year, month, day } = parsed;
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = Number(seoulDateParts(new Date()).year);
   if (year < 2020 || year > currentYear + 1) {
     return false;
   }
