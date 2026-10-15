@@ -348,10 +348,10 @@ Implemented secure customer quote submission and retrieval with:
 POST /api/estimates
 Request: { category, specification_json, customer_type, customer_name, company_name?, customer_email?, customer_phone?, privacy_consent, privacy_consent_version }
          (at least one of customer_email / customer_phone; company_name required for business_brand; see "Customer type and privacy consent")
-Response: { success, receipt_id, status, access_token, created_at }
+Response: { success, receipt_id, access_token, created_at, message }   (no internal status; files, when sent, are listed under "files")
 
 GET /api/estimates/:receipt_id?token=xxx
-Response: { receipt_id, category, status, specification_json, created_at, updated_at }
+Response: { receipt_id, category, specification_json, created_at, updated_at, message }   (no internal status)
 Error: { error: "Unauthorized", timestamp }
 ```
 
@@ -367,8 +367,8 @@ Error: { error: "Unauthorized", timestamp }
 - No token or email in logs
 
 **Customer Response Privacy:**
-- Returns: receipt_id, category, status, specification_json, timestamps
-- Excludes: customer_name, customer_email, customer_phone, company_name, customer_type and everything about the privacy consent
+- Returns: receipt_id, category, specification_json, timestamps, and the fixed `message` (see "What customers see after an estimate request")
+- Excludes: the internal status, customer_name, customer_email, customer_phone, company_name, customer_type and everything about the privacy consent
 - Rationale: Customer already knows their own information
 
 ---
@@ -483,7 +483,7 @@ Implemented secure customer quote submission and retrieval with one-time access 
 - **Receipt ID Generation**: Concurrent-safe with one atomic upsert (`INSERT ... ON CONFLICT (receipt_date) DO UPDATE ... RETURNING`): parallel requests queue on the row lock instead of failing, and a rolled-back transaction gives its number back (no gaps). More than 999 in a day rolls the whole transaction back. As a safeguard the whole estimate transaction is run again on SQLSTATE `40001` (and `23505` only on the `receipt_sequence_receipt_date_key` constraint; every other unique violation fails at once): one try plus 3 retries, 4 attempts in total, with 10/20/40 ms back-off. An error from `COMMIT` itself is never retried (its outcome is unknown), and the exhausted error carries the SQLSTATE and the attempt count.
 - **Receipt ID format and date basis**: `BP` + `YYYYMMDD` + a 3-digit sequence that restarts every day (for example `BP20261013001`). The date is the calendar date in **Korea (`Asia/Seoul`, UTC+9)**, not the server's local time and not UTC: a server running in UTC (Heroku) therefore switches to the next day at 15:00 UTC, which is 00:00 in Korea. Receipts created from 00:00 to 08:59 Korean time do not get the previous day's date. `validateReceiptId` uses the Korean year for its upper limit as well. Receipt ids issued before this change used the server's local date; no existing ids are rewritten.
 - **Access Token Security**: SHA-256 hashing, one-time use, 7-day expiration
-- **Customer Privacy**: Returns only receipt_id, category, status, specification_json (excludes customer PII)
+- **Customer Privacy**: Returns only receipt_id, category, specification_json, timestamps and a fixed message (excludes customer PII and the internal status)
 - **Transaction Safety**: the receipt number comes from an atomic row-locked upsert (READ COMMITTED), so there are no serialization failures to begin with; the estimate, token and e-mail outbox rows commit together
 
 **API Contracts:**
@@ -491,10 +491,10 @@ Implemented secure customer quote submission and retrieval with one-time access 
 ```
 POST /api/estimates
 Request:  { category, specification_json, customer_type, customer_name, company_name?, customer_email?, customer_phone?, privacy_consent, privacy_consent_version }  (at least one of customer_email / customer_phone; company_name required for business_brand; 400 otherwise, see "Customer type and privacy consent")
-Response: { success: true, receipt_id, status, access_token, created_at }
+Response: { success: true, receipt_id, access_token, created_at, message }   (no internal status)
 
 GET /api/estimates/:receipt_id?token=xxx
-Response: { receipt_id, category, status, specification_json, created_at, updated_at }
+Response: { receipt_id, category, specification_json, created_at, updated_at, message }   (no internal status)
 Error:    { error: "Unauthorized", timestamp }
 ```
 
@@ -890,6 +890,38 @@ With files, send `multipart/form-data` with the same field names: `customer_type
 2. `TRUST_PROXY=1` on Heroku (otherwise all customers share one rate-limit budget; see "Rate limiting and TRUST_PROXY").
 3. Migration 012 is applied and one server instance is running (the rate limits are per process).
 4. A retention period and deletion process for personal data is decided; none is implemented yet.
+
+---
+
+## What customers see after an estimate request (PRD FR-4.9.2, FR-4.9.3)
+
+Customers never see the internal status of their request (PRD FR-4.9.3). The status is stored (a new request is `new_receipt`) and used by the admin API; what the customer is told is a fixed explanation instead (FR-4.9.2).
+
+**Creating a request** (`POST /api/estimates`, `201`):
+
+```json
+{
+  "success": true,
+  "receipt_id": "BP20261013001",
+  "access_token": "<64 hex characters>",
+  "created_at": "2026-10-13T03:00:00.000Z",
+  "message": "<CUSTOMER_GUIDANCE_MESSAGE>"
+}
+```
+
+With uploaded files the answer also has `files` (`id`, `filename`, `size`, `status`). That `status` is the scan state of the **file** (for example `quarantine`), not the status of the request.
+
+**Looking a request up** (`GET /api/estimates/:receipt_id?token=...`, `200`): `receipt_id`, `category`, `specification_json`, `created_at`, `updated_at` and `message`. The answer is built field by field in the route, so nothing the service might add later can reach the customer, and the query does not even read the status column. The old `status` field is gone from both answers (a breaking change for a client that read it; there is none yet).
+
+**The fixed message** (`CUSTOMER_GUIDANCE_MESSAGE` in `src/utils/customerMessages.ts`, the only place of this text; the sentence of PRD FR-4.9.2, word for word):
+
+> 견적 요청이 정상적으로 접수되었습니다. 담당자가 요청 내용과 제품 사양을 검토한 후 필요한 경우 추가정보를 요청하고, 공장 확인을 거쳐 정식견적을 안내드립니다.
+
+The PRD allows the final wording to be polished in the UX and content step as long as the meaning stays, and asks to avoid phrases that sound like a promise of time ("빠른 시일 내", "곧", "최대한 신속하게"). A unit test checks that the constant still appears verbatim in the PRD and contains no such phrase. The front end shows `message` on the receipt screen.
+
+**Customer e-mail** (the receipt e-mail queued with the request): subject `Bridge Path 접수 완료: <receipt number>`; body with the message above, the receipt number and the receipt time. It has **no status row, no status code and no promise of time**; the former sentence "저희 팀에서 빠른 시일 내에 연락드리겠습니다" was removed for that reason.
+
+**What stays internal.** The admin API (`/admin/estimates`, the status change and the status history) and the **admin notification e-mail** keep showing the internal status, because staff work with it. The status values and their meaning for staff are described under "Status transitions".
 
 ---
 
