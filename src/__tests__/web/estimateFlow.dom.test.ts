@@ -87,12 +87,6 @@ function open(page: string, card?: string): void {
   }
 }
 
-function fillCustomer(): void {
-  check($('#customerTypeIndividual'));
-  type($('#customerName'), 'Kim');
-  type($('#customerEmail'), 'a@b.co');
-  check($('#privacyConsent'));
-}
 
 describe.each(PAGES)('$page estimate page: the three steps', ({ page, card, fill, required }) => {
   it('starts on step 1 with three steps in the indicator and the customer form mounted in step 3', () => {
@@ -199,31 +193,6 @@ describe.each(PAGES)('$page estimate page: the three steps', ({ page, card, fill
     type($('#quantity'), '<img src=x onerror=alert(1)>');
     click($('#nextBtn2'));
     expect($('#step2-content img')).toBeNull();
-  });
-
-  it('does not run the page script while the customer information is wrong', () => {
-    open(page, card);
-    fill();
-    click($('#nextBtn2'));
-    click($('#submitBtn'));
-    expect(logSpy).not.toHaveBeenCalled();
-    expect($('#successMessage').style.display).toBe('none');
-    expect($('#customerErrorSummary').hidden).toBe(false);
-    expect(g.document.activeElement).toBe($('#customerTypeIndividual'));
-    expect(g.alert).not.toHaveBeenCalled();
-  });
-
-  it('runs the page script once the customer information is right and shows the success message in step 3', () => {
-    open(page, card);
-    fill();
-    click($('#nextBtn2'));
-    fillCustomer();
-    click($('#submitBtn'));
-    expect(logSpy).toHaveBeenCalledTimes(1);
-    expect($('#successMessage').style.display).toBe('block');
-    expect($('#customerStep').style.display).toBe('none');
-    expect($('#step3-content .form-buttons').style.display).toBe('none');
-    expect($('#step3-content').contains($('#successMessage'))).toBe(true);
   });
 
   it('gives the way back from step 3 to step 2 and from step 2 to step 1', () => {

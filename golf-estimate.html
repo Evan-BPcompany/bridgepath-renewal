@@ -166,9 +166,13 @@
                 <button class="btn-primary" id="submitBtn">견적 요청하기</button>
             </div>
 
-            <div id="successMessage" class="success-message" style="display: none;">
-                <p>✓ 골프용품 견적 요청이 접수되었습니다!</p>
-                <p>빠른 시간 내에 담당자가 연락드리겠습니다.</p>
+            <div id="successMessage" class="success-message" role="status" tabindex="-1" style="display: none;">
+                <h3 id="successTitle">견적 요청이 접수되었어요</h3>
+                <p>접수번호: <strong id="receiptId"></strong></p>
+                <p id="receiptTimeRow" hidden>접수 시각: <span id="receiptTime"></span></p>
+                <p id="receiptMessage" hidden></p>
+                <p>접수번호를 메모해 주세요.</p>
+                <p><a href="index.html">홈으로 돌아가기</a></p>
             </div>
         </section>
     </div>

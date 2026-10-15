@@ -118,3 +118,39 @@
         text-align: center;
     }
 }
+
+/* Success screen and the error of the request (step 3) */
+.success-message:focus {
+    outline: none;
+}
+
+.success-message h3 {
+    margin: 0 0 0.8rem;
+    font-size: 1.2rem;
+}
+
+.success-message[hidden],
+.success-message p[hidden] {
+    display: none;
+}
+
+.success-message a {
+    color: #155724;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.success-message a:focus-visible {
+    outline: 3px solid #155724;
+    outline-offset: 2px;
+}
+
+#submitBtn:disabled,
+#step3-content .btn-secondary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#submitError {
+    margin-top: 1rem;
+}

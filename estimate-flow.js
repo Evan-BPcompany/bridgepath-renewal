@@ -198,16 +198,150 @@
             });
         }
 
-        // ---- the customer information has to be right before the page script goes on. This listener
-        // is registered before the one of the page script and stops it while the input is wrong.
+        // ---- step 3: send the request (JSON only; files come in a later change)
         if (submitButton && customerStep) {
-            submitButton.addEventListener('click', function (event) {
-                var result = customerStep.validate({ focus: true });
-                if (!result.valid) {
-                    event.stopImmediatePropagation();
-                }
-            });
+            initSubmit(page, estimate, customerStep, submitButton, showProductErrors);
         }
+    }
+
+    var CUSTOMER_FIELDS = ['customer_type', 'customer_name', 'company_name', 'customer_email', 'customer_phone', 'contact', 'privacy_consent'];
+
+    function formatTime(value) {
+        var date = new Date(value);
+        if (isNaN(date.getTime())) {
+            return value;
+        }
+        try {
+            return new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'medium', timeStyle: 'short' }).format(date);
+        } catch (error) {
+            return value;
+        }
+    }
+
+    function initSubmit(page, estimate, customerStep, submitButton, showProductErrors) {
+        var config = globalThis.BridgePathConfig || {};
+        var stepThree = document.getElementById('step3-content');
+        var buttons = stepThree.querySelector('.form-buttons');
+        var label = submitButton.textContent;
+        var submitting = false; // also stays true after a success: one request per page
+        var locked = [];
+
+        var errorBox = document.createElement('div');
+        errorBox.id = 'submitError';
+        errorBox.className = 'customer-error-summary';
+        errorBox.setAttribute('role', 'alert');
+        errorBox.setAttribute('tabindex', '-1');
+        errorBox.hidden = true;
+        buttons.parentNode.insertBefore(errorBox, buttons);
+
+        function showError(text) {
+            errorBox.textContent = text;
+            errorBox.hidden = false;
+            errorBox.focus();
+        }
+
+        function setBusy(busy) {
+            if (busy) {
+                locked = Array.prototype.slice.call(stepThree.querySelectorAll('#customerStep input, .btn-secondary'));
+                locked.forEach(function (element) { element.disabled = true; });
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-busy', 'true');
+                submitButton.textContent = '보내는 중…';
+            } else {
+                locked.forEach(function (element) { element.disabled = false; });
+                locked = [];
+                submitButton.disabled = false;
+                submitButton.removeAttribute('aria-busy');
+                submitButton.textContent = label;
+            }
+        }
+
+        // Only the three things the answer is meant to give are shown, and only as text.
+        function showSuccess(result) {
+            var box = document.getElementById('successMessage');
+            document.getElementById('receiptId').textContent = result.receiptId;
+            if (result.createdAt) {
+                document.getElementById('receiptTime').textContent = formatTime(result.createdAt);
+                document.getElementById('receiptTimeRow').hidden = false;
+            }
+            if (result.message) {
+                var message = document.getElementById('receiptMessage');
+                message.textContent = result.message;
+                message.hidden = false;
+            }
+            errorBox.hidden = true;
+            customerStep.reset();
+            document.getElementById('customerStep').style.display = 'none';
+            buttons.style.display = 'none';
+            box.style.display = 'block';
+            box.focus();
+        }
+
+        function showFailure(result) {
+            if (result.kind === 'validation') {
+                var mine = result.fieldErrors.filter(function (error) { return CUSTOMER_FIELDS.indexOf(error.field) !== -1; });
+                if (mine.length > 0) {
+                    customerStep.showServerErrors(mine);
+                    return;
+                }
+            }
+            showError(estimate.messageForResult(result));
+        }
+
+        async function submit() {
+            if (submitting) {
+                return;
+            }
+            var customer = customerStep.validate({ focus: true });
+            if (!customer.valid) {
+                return;
+            }
+            var subtype = selectedSubtype();
+            var built = estimate.buildSpecification(page, subtype, collectValues(page));
+            if (!built.ok) {
+                if (typeof globalThis.goToStep === 'function') {
+                    globalThis.goToStep(2);
+                }
+                showProductErrors(built.errors);
+                return;
+            }
+
+            submitting = true;
+            errorBox.hidden = true;
+            setBusy(true);
+            var result;
+            try {
+                var request = estimate.buildRequest({
+                    apiBase: config.API_BASE,
+                    page: page,
+                    subtype: subtype,
+                    spec: built.spec,
+                    customer: customer.value,
+                    consentVersion: config.PRIVACY_CONSENT_VERSION,
+                    files: []
+                });
+                result = await estimate.submitEstimate({
+                    request: request,
+                    fetch: function (url, init) { return globalThis.fetch(url, init); },
+                    timeoutMs: config.REQUEST_TIMEOUT_MS,
+                    hadFiles: false
+                });
+            } catch (error) {
+                result = { kind: 'unexpected' };
+            }
+
+            if (result.kind === 'success') {
+                submitButton.removeAttribute('aria-busy');
+                showSuccess(result);
+                return; // `submitting` stays true: one request per page
+            }
+            // The form is given back first, so that the focus can go to a field.
+            setBusy(false);
+            submitting = false;
+            showFailure(result);
+        }
+
+        submitButton.addEventListener('click', submit);
     }
 
     globalThis.BridgePathFlow = { init: init, collectValues: collectValues, CONTROLS: CONTROLS };

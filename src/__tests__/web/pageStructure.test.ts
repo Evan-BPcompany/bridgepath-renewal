@@ -81,11 +81,18 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
     });
   });
 
-  it('does not use innerHTML in the page script and shows the success message from step 3', () => {
-    const script = read(`${page}-estimate.js`);
-    expect(script).not.toContain('innerHTML');
-    expect(script).toContain("document.getElementById('customerStep')");
-    expect(script).toContain("document.querySelector('#step3-content .form-buttons')");
+  it('has no behaviour of its own in the page script any more (no fake submit, no redirect)', () => {
+    const code = read(`${page}-estimate.js`).replace(/^\s*\/\/.*$/gm, '').trim();
+    expect(code).toBe('');
+  });
+
+  it('has the success screen with places for the receipt number, the time and the message of the server', () => {
+    const three = section('step3-content');
+    expect(three).toContain('id="successMessage" class="success-message" role="status"');
+    ['receiptId', 'receiptTime', 'receiptMessage'].forEach(id => expect(three).toContain(`id="${id}"`));
+    expect(three).toContain('접수번호를 메모해 주세요.');
+    expect(three).toContain('<a href="index.html">홈으로 돌아가기</a>');
+    expect(three).not.toMatch(/빠른 시간|곧 |이내|영업일|연락드리겠/);
   });
 });
 
@@ -95,9 +102,18 @@ describe('the new scripts', () => {
     expect(code).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });
 
-  it.each(['estimate-customer-step.js', 'estimate-flow.js'])('%s sends nothing', file => {
-    const code = read(file).replace(/^\s*\/\/.*$/gm, '');
-    expect(code).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon|FormData|submitEstimate|localStorage|sessionStorage/);
+  it('estimate-customer-step.js sends and stores nothing', () => {
+    const code = read('estimate-customer-step.js').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/fetch|XMLHttpRequest|sendBeacon|FormData|submitEstimate|localStorage|sessionStorage|console\./);
+  });
+
+  it('estimate-flow.js sends only through submitEstimate, and stores and logs nothing', () => {
+    const code = read('estimate-flow.js').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/XMLHttpRequest|sendBeacon|FormData|localStorage|sessionStorage|indexedDB|document\.cookie|console\.|alert\(|setTimeout|location/);
+    expect((code.match(/(?<![.\w])fetch\(/g) || []).length).toBe(0);
+    expect((code.match(/globalThis\.fetch\(/g) || []).length).toBe(1);
+    expect((code.match(/submitEstimate\(/g) || []).length).toBe(1);
+    expect(code).not.toMatch(/access_token|accessToken|\.status/);
   });
 });
 
