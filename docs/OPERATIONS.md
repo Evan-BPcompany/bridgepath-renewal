@@ -17,7 +17,7 @@ The server **refuses to start** (throws while loading the configuration) if:
 - `NODE_ENV=production` and `DATABASE_URL` contains `sslmode`, `ssl`, `sslcert`, `sslkey`, `sslrootcert` or `uselibpqcompat` (they would silently override `DATABASE_SSL*`);
 - `JWT_SECRET` is missing or shorter than 32 characters; `CORS_ORIGINS` contains `*`; `TRUST_PROXY` is not an integer 0-10; `FILE_DOWNLOAD_ENABLED=true` without a download provider.
 
-It starts but **logs a warning** in production when `TRUST_PROXY=0` (behind Heroku every client would share the router IP, breaking rate limits and audit IPs) or when `DATABASE_SSL_REJECT_UNAUTHORIZED=false`.
+It starts but **logs a warning** in production when `TRUST_PROXY=0` (behind Heroku every client would share the router IP, breaking rate limits and audit IPs; the public estimate limit of 10 per hour would then be shared by ALL customers) or when `DATABASE_SSL_REJECT_UNAUTHORIZED=false`.
 
 Recommended Heroku config (values are examples; set secrets with `heroku config:set`, never in files):
 
@@ -65,4 +65,4 @@ npm run db:migrate                            # knex, development environment
 
 ## Not available yet
 
-ClamAV scanning (files stay quarantined, downloads blocked), customer status emails, durable audit logs, a shared rate-limit store for multiple instances, public API rate limiting. See README, "Required before public launch".
+ClamAV scanning (files stay quarantined, downloads blocked), customer status emails, durable audit logs, a shared rate-limit store for multiple instances (the limits, including the public API limits, are per process: run one instance). See README, "Required before public launch".

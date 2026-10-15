@@ -253,6 +253,8 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 | `ADMIN_API_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 60000 / 120 | All `/admin` requests per IP. |
 | `ADMIN_MUTATION_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 60000 / 30 | Status changes and memo creation per admin. |
 | `ADMIN_PASSWORD_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 5 | Password change attempts per admin. |
+| `CUSTOMER_ESTIMATE_CREATE_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 3600000 / 10 | `POST /api/estimates` per client IP (public). |
+| `CUSTOMER_ESTIMATE_READ_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 30 | `GET /api/estimates/:receipt_id` per client IP (public). |
 | `FILE_DOWNLOAD_ENABLED` | no | `false` | `true` without a download provider stops the server at startup. |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | for file upload | - | S3 storage for estimate files. |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | for email | - | Without a key the worker keeps events pending and retries. |
@@ -1030,7 +1032,7 @@ Rules in `src/utils/loginLockout.ts`, shared by `POST /admin/login` and `PATCH /
 
 ### Rate limiting and TRUST_PROXY (Week 2)
 
-Uses `express-rate-limit` with its default **in-memory store**. Exceeding a limit returns `429 { error, code: 'RATE_LIMITED', retry_after_seconds, timestamp }` with a `Retry-After` header and the standard `RateLimit-*` headers. Limiters run before the request body is parsed.
+Uses `express-rate-limit` with its default **in-memory store**. Exceeding a limit returns `429 { error, code: 'RATE_LIMITED', retry_after_seconds, timestamp }` with a `Retry-After` header and the standard `RateLimit` / `RateLimit-Policy` headers (draft-7), which are listed in `Access-Control-Expose-Headers` so a front end on another origin can read them. Limiters run before the request body is parsed.
 
 | Limiter | Applies to | Counted per | Counts | Variables | Default |
 |---|---|---|---|---|---|
@@ -1038,8 +1040,11 @@ Uses `express-rate-limit` with its default **in-memory store**. Exceeding a limi
 | admin API | everything under `/admin` (login and token refresh included, also unauthenticated requests) | client IP | every request | `ADMIN_API_RATE_LIMIT_WINDOW_MS` / `_MAX` | 1 min / 120 |
 | mutation | status change and memo creation (`/admin/estimates/*`, non-GET) | signed-in admin | every non-GET request | `ADMIN_MUTATION_RATE_LIMIT_WINDOW_MS` / `_MAX` | 1 min / 30 |
 | password change | `PATCH /admin/me/password` | signed-in admin | every request | `ADMIN_PASSWORD_RATE_LIMIT_WINDOW_MS` / `_MAX` | 15 min / 5 |
+| estimate creation (public) | `POST /api/estimates` | client IP | **every request**, valid or not | `CUSTOMER_ESTIMATE_CREATE_RATE_LIMIT_WINDOW_MS` / `_MAX` | 1 hour / 10 |
+| estimate lookup (public) | `GET /api/estimates/:receipt_id` | client IP | every request | `CUSTOMER_ESTIMATE_READ_RATE_LIMIT_WINDOW_MS` / `_MAX` | 15 min / 30 |
 
 - Window is 1000 ms to 24 h and max is 1 to 100000. A missing or empty variable uses the default; an invalid value stops the server at startup.
+- **The public limiters run before the JSON parser and before Multer**, which is mounted inside the `/api` router. A refused `POST /api/estimates` therefore parses no body, reads no uploaded file, writes nothing to S3 or the database, takes no receipt number and queues no e-mail. A refused lookup does not touch the one-time access token. Invalid requests count too, so the validation cannot be probed for free. The public limiters share no counter with the admin limiters and never touch an account's failed-login counter.
 - Mutation and password limits follow the admin id (unauthenticated requests are rejected by authentication first and never use an admin's budget). Without a signed-in admin they fall back to the IP.
 - **`TRUST_PROXY`** is the number of reverse proxies in front of the app (integer 0-10, default 0; Heroku: `1`). It decides which address `req.ip` reports, for rate limiting and for the audit log. `true` is deliberately not accepted because it would trust every `X-Forwarded-For` entry, which clients can forge. If it is too low, every client looks like the proxy and shares one budget; if it is too high, clients can pick their own IP.
 
@@ -1054,7 +1059,9 @@ Uses `express-rate-limit` with its default **in-memory store**. Exceeding a limi
 - Counters reset on every restart and deploy.
 - Use a shared store (for example Redis) before scaling out. This is follow-up work.
 - Anyone who knows an admin username can lock that account for 15 minutes with 5 wrong passwords; the IP limiter does not prevent this from many addresses.
-- **The public customer API (`POST /api/estimates`, `GET /api/estimates/:receipt_id`) has no rate limit**, so uploads, database writes and notification emails can be abused. Adding one is required before public launch.
+- **Single server only.** The public limits (creation: 10 per hour per IP; lookup: 30 per 15 minutes per IP) are also in process memory, so they are per server process, reset on restart and deploy, and are multiplied by the number of instances. Run **one** instance until a shared store exists. They stop casual abuse from one address; they do not stop a distributed attack, and a client that changes IP address (mobile networks, proxies) gets a fresh budget.
+- **With `TRUST_PROXY=0` behind a proxy (Heroku) all customers share one IP and one budget**: after 10 creations in an hour nobody could submit a request. Set `TRUST_PROXY=1` on Heroku; the server logs a warning at start in production when it is 0 but cannot detect the proxy itself.
+- Customers behind one shared address (an office, a school) share one budget too. Raise `CUSTOMER_ESTIMATE_CREATE_RATE_LIMIT_MAX` if that becomes a problem.
 
 In tests every `createApp()` creates its own limiters and counters, and `createApp({ rateLimits, trustProxy })` accepts small limits, so no test depends on real time or on another test.
 
@@ -1157,6 +1164,6 @@ How compatibility was checked (no real SendGrid call):
 - Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
 - Send a real test email through SendGrid 8.x (only verified against a local stub so far), and review the accepted development-dependency findings when the jest toolchain is updated.
 - Creating new admin accounts: `admin:bootstrap` only initializes an existing account that is still flagged `must_change_password`; there is no command or API that creates an account.
-- Rate limiting for the public customer API, and a shared (for example Redis) store for the admin limiters before running more than one instance.
+- A shared (for example Redis) store for the admin and public limiters before running more than one instance (the public customer API now has per-IP limits, but only in process memory).
 - Durable audit logs: detail views, memo access and blocked file attempts exist only in the application log, which Heroku does not keep.
 - Resetting another admin's password (admin-initiated reset); today an admin can only change their own.
