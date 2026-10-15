@@ -262,6 +262,11 @@ describe('Admin estimates API (mocked database)', () => {
     it.each([
       [{ status: 'bogus' }],
       [{ status: 'new_receipt,bogus' }],
+      // Statuses retired by migration 013 are not statuses any more.
+      [{ status: 'rejected' }],
+      [{ status: 'archived' }],
+      [{ status: 'negotiating' }],
+      [{ status: 'quoted,negotiating' }],
       [{ category: 'cars' }],
       [{ limit: '101' }],
       [{ limit: '0' }],
@@ -341,7 +346,7 @@ describe('Admin estimates API (mocked database)', () => {
   });
 
   describe('GET /admin/estimates/:id (detail)', () => {
-    const detailRows = (estimateOverrides: Record<string, unknown> = {}) => {
+    const detailRows = (estimateOverrides: Record<string, unknown> = {}, historyRows?: Array<Record<string, unknown>>) => {
       db.state.handler = sql => {
         if (sql.includes('FROM estimates WHERE id')) {
           return {
@@ -386,7 +391,7 @@ describe('Admin estimates API (mocked database)', () => {
         }
         if (sql.includes('FROM status_history')) {
           return {
-            rows: [
+            rows: historyRows ?? [
               {
                 id: 'h1',
                 old_status: 'new_receipt',
@@ -456,6 +461,90 @@ describe('Admin estimates API (mocked database)', () => {
       expect(query.sql.replace(/\s+/g, ' ')).toContain(
         'customer_type, privacy_consent_at, privacy_consent_version'
       );
+    });
+
+    describe('status history of requests from before migration 013 (retired_status)', () => {
+      const entry = (id: string, old_status: string | null, new_status: string) => ({
+        id,
+        old_status,
+        new_status,
+        reason: 'note',
+        created_at: new Date('2026-10-13T01:30:00Z'),
+        changed_by: ADMIN_ID,
+        changed_by_username: 'master'
+      });
+      const historyOf = async (rows: Array<Record<string, unknown>>) => {
+        detailRows({}, rows);
+        const res = await request(app).get(`/admin/estimates/${ESTIMATE_ID}`).set('Cookie', authCookie('admin'));
+        expect(res.status).toBe(200);
+        return res.body.data.status_history as Array<{
+          old_status: string | null;
+          new_status: string;
+          retired_status: boolean;
+        }>;
+      };
+
+      it('returns the stored values untouched and flags an entry that names a retired status', async () => {
+        const history = await historyOf([
+          entry('h1', 'completed', 'archived'),
+          entry('h2', 'quoted', 'negotiating'),
+          entry('h3', 'under_review', 'rejected'),
+          entry('h4', 'rejected', 'archived'),
+          entry('h5', 'negotiating', 'accepted')
+        ]);
+
+        expect(history.map(h => [h.old_status, h.new_status, h.retired_status])).toEqual([
+          ['completed', 'archived', true],
+          ['quoted', 'negotiating', true],
+          ['under_review', 'rejected', true],
+          ['rejected', 'archived', true],
+          ['negotiating', 'accepted', true]
+        ]);
+      });
+
+      it('is false for every entry that uses only current statuses, including a first entry without an old status', async () => {
+        const history = await historyOf([
+          entry('h1', null, 'new_receipt'),
+          entry('h2', 'new_receipt', 'under_review'),
+          entry('h3', 'under_review', 'info_requested'),
+          entry('h4', 'info_requested', 'under_review'),
+          entry('h5', 'under_review', 'factory_checking'),
+          entry('h6', 'factory_checking', 'quoted'),
+          entry('h7', 'quoted', 'customer_review'),
+          entry('h8', 'customer_review', 'accepted'),
+          entry('h9', 'accepted', 'completed'),
+          entry('h10', 'under_review', 'cancelled'),
+          entry('h11', 'under_review', 'on_hold')
+        ]);
+
+        expect(history.every(h => h.retired_status === false)).toBe(true);
+      });
+
+      it('does not turn a retired status into a current one: no entry is changed into a self-transition', async () => {
+        const [only] = await historyOf([entry('h1', 'completed', 'archived')]);
+
+        expect(only.old_status).toBe('completed');
+        expect(only.new_status).toBe('archived');
+        expect(only.old_status).not.toBe(only.new_status);
+      });
+
+      it('is a plain boolean on each entry and is not on the estimate itself', async () => {
+        detailRows({}, [entry('h1', 'quoted', 'negotiating')]);
+
+        const res = await request(app).get(`/admin/estimates/${ESTIMATE_ID}`).set('Cookie', authCookie('manager'));
+
+        expect(res.body.data.status_history[0].retired_status).toBe(true);
+        expect(res.body.data.estimate).not.toHaveProperty('retired_status');
+        expect(Object.keys(res.body.data.status_history[0]).sort()).toEqual([
+          'changed_by', 'created_at', 'id', 'new_status', 'old_status', 'reason', 'retired_status'
+        ]);
+      });
+
+      it('is never part of the customer answer', async () => {
+        const res = await request(app).get('/api/estimates/BP20261013001').query({ token: 'a'.repeat(64) });
+
+        expect(JSON.stringify(res.body)).not.toMatch(/retired_status|status_history/);
+      });
     });
 
     it('answers null for all three when the request is from before migration 012 (a legacy row)', async () => {
@@ -654,6 +743,39 @@ describe('Admin estimates API (mocked database)', () => {
       expect(notString.body.code).toBe('INVALID_STATUS');
     });
 
+    it.each(['rejected', 'archived', 'negotiating'])(
+      'refuses the retired status %s as a target and as expected_status (400 INVALID_STATUS), without a query',
+      async retired => {
+        const target = await patch({ to_status: retired, reason: 'x' });
+        const expected = await patch({ to_status: 'under_review', expected_status: retired });
+
+        expect([target.status, expected.status]).toEqual([400, 400]);
+        expect([target.body.code, expected.body.code]).toEqual(['INVALID_STATUS', 'INVALID_STATUS']);
+        expect(sqlOf(db.state).filter(statement => statement.includes('FROM estimates'))).toHaveLength(0);
+      }
+    );
+
+    it('accepts the two new statuses as targets and filters', async () => {
+      db.state.handler = sql => {
+        if (sql.includes('FOR UPDATE')) {
+          return { rows: [{ id: ESTIMATE_ID, receipt_id: 'BP20261013001', status: 'under_review' }] };
+        }
+        if (sql.includes('UPDATE estimates')) {
+          return { rows: [{ updated_at: new Date() }] };
+        }
+        if (sql.includes('INSERT INTO status_history')) {
+          return { rows: [{ id: 'h-new' }] };
+        }
+        return undefined;
+      };
+
+      for (const to_status of ['info_requested', 'factory_checking']) {
+        const res = await patch({ to_status }, 'manager');
+        expect(res.status).toBe(200);
+        expect(res.body.data).toMatchObject({ previous_status: 'under_review', status: to_status });
+      }
+    });
+
     it('returns 400 VALIDATION_ERROR for malformed bodies', async () => {
       const bodies: unknown[] = [
         {},
@@ -790,7 +912,7 @@ describe('Admin estimates API (mocked database)', () => {
 
     it('rejects the second of two sequential changes made from the same starting status', async () => {
       const first = await patch({ to_status: 'under_review', expected_status: 'new_receipt' }, 'manager');
-      const second = await patch({ to_status: 'rejected', reason: 'duplicate', expected_status: 'new_receipt' }, 'admin');
+      const second = await patch({ to_status: 'cancelled', reason: 'duplicate', expected_status: 'new_receipt' }, 'admin');
 
       expect(first.status).toBe(200);
       expect(second.status).toBe(409);

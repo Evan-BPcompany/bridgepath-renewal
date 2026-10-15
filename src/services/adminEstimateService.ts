@@ -6,7 +6,8 @@ import {
   EstimateStatus,
   STATUS_ERRORS,
   checkTransition,
-  isEstimateStatus
+  isEstimateStatus,
+  isRetiredStatus
 } from '../utils/statusTransitions';
 
 const SORT_COLUMNS: Record<SortField, string> = {
@@ -164,6 +165,9 @@ export interface EstimateDetail {
     changed_by: { id: string; username: string } | null;
     reason: string | null;
     created_at: string;
+    // true when old_status or new_status is one of the statuses retired by migration 013
+    // (rejected, archived, negotiating). The stored values are returned as they were written.
+    retired_status: boolean;
   }>;
   memos: Array<{
     id: string;
@@ -243,7 +247,8 @@ export async function getEstimateDetail(id: string): Promise<EstimateDetail | nu
       new_status: h.new_status,
       changed_by: h.changed_by ? { id: h.changed_by, username: h.changed_by_username } : null,
       reason: h.reason,
-      created_at: iso(h.created_at)
+      created_at: iso(h.created_at),
+      retired_status: isRetiredStatus(h.old_status) || isRetiredStatus(h.new_status)
     })),
     memos: memosResult.rows.map(m => ({
       id: m.id,

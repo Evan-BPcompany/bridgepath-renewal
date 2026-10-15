@@ -1019,30 +1019,33 @@ Only the 10 values allowed by the `estimates.status` CHECK constraint are used. 
 | Current status | Next status | manager | admin | reason required |
 |---|---|---|---|---|
 | new_receipt | under_review | allowed | allowed | no |
-| new_receipt | rejected | denied | allowed | yes |
 | new_receipt | cancelled | denied | allowed | yes |
+| under_review | info_requested | allowed | allowed | no |
+| under_review | factory_checking | allowed | allowed | no |
 | under_review | quoted | allowed | allowed | no |
 | under_review | on_hold | allowed | allowed | yes |
-| under_review | rejected | denied | allowed | yes |
 | under_review | cancelled | denied | allowed | yes |
-| quoted | negotiating | allowed | allowed | no |
+| info_requested | under_review | allowed | allowed | no |
+| info_requested | on_hold | allowed | allowed | yes |
+| info_requested | cancelled | denied | allowed | yes |
+| factory_checking | quoted | allowed | allowed | no |
+| factory_checking | info_requested | allowed | allowed | no |
+| factory_checking | on_hold | allowed | allowed | yes |
+| factory_checking | cancelled | denied | allowed | yes |
+| quoted | customer_review | allowed | allowed | no |
 | quoted | accepted | allowed | allowed | no |
 | quoted | on_hold | allowed | allowed | yes |
-| quoted | rejected | denied | allowed | yes |
 | quoted | cancelled | denied | allowed | yes |
-| negotiating | quoted | allowed | allowed | no |
-| negotiating | accepted | allowed | allowed | no |
-| negotiating | on_hold | allowed | allowed | yes |
-| negotiating | rejected | denied | allowed | yes |
-| negotiating | cancelled | denied | allowed | yes |
+| customer_review | accepted | allowed | allowed | no |
+| customer_review | quoted | allowed | allowed | no |
+| customer_review | factory_checking | allowed | allowed | no |
+| customer_review | on_hold | allowed | allowed | yes |
+| customer_review | cancelled | denied | allowed | yes |
 | accepted | completed | allowed | allowed | yes |
 | accepted | on_hold | allowed | allowed | yes |
 | accepted | cancelled | denied | allowed | yes |
 | on_hold | under_review | allowed | allowed | no |
 | on_hold | cancelled | denied | allowed | yes |
-| completed | archived | denied | allowed | no |
-| rejected | archived | denied | allowed | no |
-| cancelled | archived | denied | allowed | no |
 <!-- STATUS_TRANSITIONS:END -->
 
 `archived` is terminal (no outgoing transitions). Any pair not listed above is invalid.

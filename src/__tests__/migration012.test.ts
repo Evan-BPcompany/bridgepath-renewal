@@ -16,10 +16,11 @@ describe('Migration 012: customer type and privacy consent on estimates', () => 
   // The SQL only, without the explanatory comments (which mention words like UPDATE).
   const withoutComments = (text: string): string => text.replace(/^\s*\/\/.*$/gm, '');
 
-  it('is the file after 011, with no other migration changed or added after it', () => {
+  it('is the file right after 011', () => {
     const files = fs.readdirSync(migrationsDir).filter(name => /^\d{3}_/.test(name)).sort();
-    expect(files[files.length - 1]).toBe(FILE);
-    expect(files[files.length - 2]).toBe('011_admin_must_change_password.ts');
+    const index = files.indexOf(FILE);
+    expect(index).toBeGreaterThan(0);
+    expect(files[index - 1]).toBe('011_admin_must_change_password.ts');
   });
 
   describe('up', () => {

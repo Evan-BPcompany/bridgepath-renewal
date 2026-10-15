@@ -162,6 +162,274 @@ describeIntegration('admin estimates on a real PostgreSQL', ({ url }) => {
     });
   });
 
+  describe('the ten statuses of the PRD (migration 013)', () => {
+    let id: string;
+
+    beforeEach(async () => {
+      id = (await insertEstimate(suite().db)).id;
+    });
+
+    const statusOf = async (estimateId = id) => (await suite().db('estimates').where({ id: estimateId }).first()).status;
+    const move = (to: string, reason?: string, session = manager, estimateId = id) =>
+      patchStatus(estimateId, reason ? { to_status: to, reason } : { to_status: to }, session);
+    const detailHistory = async (estimateId = id) =>
+      (await get(`/admin/estimates/${estimateId}`)).body.data.status_history as Array<{
+        old_status: string | null;
+        new_status: string;
+        retired_status: boolean;
+      }>;
+
+    it('a manager walks a request through the whole working flow, every step is recorded and none is retired', async () => {
+      const flow: Array<[string, string?]> = [
+        ['under_review'], ['info_requested'], ['under_review'], ['factory_checking'], ['quoted'],
+        ['customer_review'], ['quoted'], ['customer_review'], ['accepted'], ['completed', 'delivered']
+      ];
+
+      for (const [to, reason] of flow) {
+        const res = await move(to, reason);
+        expect(res.status).toBe(200);
+        expect(res.body.data.status).toBe(to);
+      }
+
+      expect(await statusOf()).toBe('completed');
+      const rows = await history(id);
+      expect(rows).toHaveLength(flow.length);
+      expect(rows.map(r => r.new_status)).toEqual(flow.map(([to]) => to));
+      for (let i = 1; i < rows.length; i += 1) {
+        expect(rows[i].old_status).toBe(rows[i - 1].new_status);
+      }
+      expect((await detailHistory()).every(h => h.retired_status === false)).toBe(true);
+    });
+
+    it('a quote can be accepted directly, and also after the customer review', async () => {
+      const direct = id;
+      const viaReview = (await insertEstimate(suite().db)).id;
+      for (const target of [direct, viaReview]) {
+        expect((await move('under_review', undefined, manager, target)).status).toBe(200);
+        expect((await move('quoted', undefined, manager, target)).status).toBe(200);
+      }
+
+      expect((await move('accepted', undefined, manager, direct)).status).toBe(200);
+      expect((await move('customer_review', undefined, manager, viaReview)).status).toBe(200);
+      expect((await move('accepted', undefined, manager, viaReview)).status).toBe(200);
+
+      expect([await statusOf(direct), await statusOf(viaReview)]).toEqual(['accepted', 'accepted']);
+    });
+
+    it('completed and cancelled are end points: every change out of them is refused with 422', async () => {
+      await move('under_review');
+      await move('quoted');
+      await move('accepted');
+      await move('completed', 'done');
+      const cancelled = (await insertEstimate(suite().db)).id;
+      expect((await move('cancelled', 'customer asked', admin, cancelled)).status).toBe(200);
+
+      for (const [target, from] of [[id, 'completed'], [cancelled, 'cancelled']] as const) {
+        for (const to of ['new_receipt', 'under_review', 'info_requested', 'factory_checking', 'quoted', 'customer_review', 'accepted', 'on_hold', 'completed', 'cancelled']) {
+          if (to === from) {
+            continue;
+          }
+          const res = await patchStatus(target, { to_status: to, reason: 'again' }, admin);
+          expect(res.status).toBe(422);
+          expect(res.body.code).toBe('INVALID_TRANSITION');
+        }
+      }
+      expect(await statusOf()).toBe('completed');
+      expect(await statusOf(cancelled)).toBe('cancelled');
+    });
+
+    it('refuses what the table does not list, without touching the request', async () => {
+      const skip = await move('info_requested'); // new_receipt -> info_requested is not listed
+      await move('under_review');
+      const back = await move('new_receipt');
+      const jump = await move('accepted');
+      const noFactory = await move('customer_review');
+
+      expect([skip.status, back.status, jump.status, noFactory.status]).toEqual([422, 422, 422, 422]);
+      expect(await statusOf()).toBe('under_review');
+      expect(await history(id)).toHaveLength(1);
+    });
+
+    it('needs a reason for on_hold, cancelled and accepted -> completed; only an admin may cancel', async () => {
+      await move('under_review');
+
+      const noReason = await move('on_hold');
+      expect([noReason.status, noReason.body.code]).toEqual([422, 'REASON_REQUIRED']);
+      expect((await move('on_hold', 'waiting for samples')).status).toBe(200);
+      expect((await move('under_review')).status).toBe(200);
+
+      const managerCancel = await move('cancelled', 'customer asked', manager);
+      expect([managerCancel.status, managerCancel.body.code]).toEqual([403, 'INSUFFICIENT_ROLE']);
+      const adminNoReason = await move('cancelled', undefined, admin);
+      expect([adminNoReason.status, adminNoReason.body.code]).toEqual([422, 'REASON_REQUIRED']);
+      expect((await move('cancelled', 'customer asked', admin)).status).toBe(200);
+
+      const other = (await insertEstimate(suite().db)).id;
+      await move('under_review', undefined, manager, other);
+      await move('quoted', undefined, manager, other);
+      await move('accepted', undefined, manager, other);
+      const completeNoReason = await move('completed', undefined, manager, other);
+      expect([completeNoReason.status, completeNoReason.body.code]).toEqual([422, 'REASON_REQUIRED']);
+      expect((await move('completed', 'delivered', manager, other)).status).toBe(200);
+    });
+
+    it('the retired statuses are refused as a target, as expected_status and in the list filter (400)', async () => {
+      for (const retired of ['rejected', 'archived', 'negotiating']) {
+        const target = await patchStatus(id, { to_status: retired, reason: 'x' });
+        const expected = await patchStatus(id, { to_status: 'under_review', expected_status: retired });
+        const filter = await get(`/admin/estimates?status=${retired}`);
+
+        expect([target.status, expected.status, filter.status]).toEqual([400, 400, 400]);
+      }
+      expect(await statusOf()).toBe('new_receipt');
+      expect(await history(id)).toHaveLength(0);
+    });
+
+    it('the list filters by the new statuses', async () => {
+      const second = (await insertEstimate(suite().db)).id;
+      await move('under_review');
+      await move('info_requested');
+      await move('under_review', undefined, manager, second);
+      await move('factory_checking', undefined, manager, second);
+
+      const infoRequested = await get('/admin/estimates?status=info_requested');
+      const both = await get('/admin/estimates?status=info_requested,factory_checking');
+
+      expect(infoRequested.body.data.map((item: { id: string }) => item.id)).toEqual([id]);
+      expect(both.body.data.map((item: { id: string }) => item.id).sort()).toEqual([id, second].sort());
+      expect(both.body.data.map((item: { status: string }) => item.status).sort()).toEqual(['factory_checking', 'info_requested']);
+    });
+
+    describe('old history is shown as it was written', () => {
+      it('returns the stored values with retired_status, and a new entry is added next to them', async () => {
+        // A request migrated from negotiating (now customer_review) with the history it had before.
+        const migrated = await insertEstimate(suite().db, { status: 'customer_review' });
+        const entries: Array<[string | null, string, string]> = [
+          [null, 'new_receipt', '2026-10-01T01:00:00Z'],
+          ['new_receipt', 'under_review', '2026-10-01T02:00:00Z'],
+          ['under_review', 'quoted', '2026-10-01T03:00:00Z'],
+          ['quoted', 'negotiating', '2026-10-01T04:00:00Z']
+        ];
+        for (const [oldStatus, newStatus, at] of entries) {
+          await suite().db('status_history').insert({
+            estimate_id: migrated.id, old_status: oldStatus, new_status: newStatus, changed_by: MASTER_ID, reason: 'old', created_at: at
+          });
+        }
+
+        expect((await move('accepted', undefined, manager, migrated.id)).status).toBe(200);
+
+        const rows = await detailHistory(migrated.id);
+        expect(rows.map(h => [h.old_status, h.new_status, h.retired_status])).toEqual([
+          ['customer_review', 'accepted', false],
+          ['quoted', 'negotiating', true],
+          ['under_review', 'quoted', false],
+          ['new_receipt', 'under_review', false],
+          [null, 'new_receipt', false]
+        ]);
+        // The stored rows were not changed by the new entry.
+        const stored = await history(migrated.id);
+        expect(stored.slice(0, 4).map(r => [r.old_status, r.new_status])).toEqual(entries.map(([o, n]) => [o, n]));
+      });
+
+      it('shows completed -> archived and a rejected entry exactly as stored, on a request that is cancelled/completed now', async () => {
+        const cancelled = await insertEstimate(suite().db, { status: 'cancelled' });
+        const completed = await insertEstimate(suite().db, { status: 'completed' });
+        await suite().db('status_history').insert([
+          { estimate_id: cancelled.id, old_status: 'under_review', new_status: 'rejected', changed_by: MASTER_ID, reason: 'cannot make it', created_at: '2026-10-02T01:00:00Z' },
+          { estimate_id: completed.id, old_status: 'accepted', new_status: 'completed', changed_by: MASTER_ID, reason: 'done', created_at: '2026-10-02T01:00:00Z' },
+          { estimate_id: completed.id, old_status: 'completed', new_status: 'archived', changed_by: MASTER_ID, reason: null, created_at: '2026-10-02T02:00:00Z' }
+        ]);
+
+        const afterReject = await detailHistory(cancelled.id);
+        const afterArchive = await detailHistory(completed.id);
+
+        expect(afterReject.map(h => [h.old_status, h.new_status, h.retired_status])).toEqual([['under_review', 'rejected', true]]);
+        expect(afterArchive.map(h => [h.old_status, h.new_status, h.retired_status])).toEqual([
+          ['completed', 'archived', true],
+          ['accepted', 'completed', false]
+        ]);
+        // The current status of the request is a current one.
+        const detail = (await get(`/admin/estimates/${completed.id}`)).body.data.estimate;
+        expect(detail.status).toBe('completed');
+      });
+
+      it('retired_status is never in the customer answer', async () => {
+        const migrated = await insertEstimate(suite().db, { status: 'customer_review' });
+        await suite().db('estimate_access_tokens').insert({
+          estimate_id: migrated.id, receipt_id: migrated.receipt_id, token: hashEstimateToken('t-for-013')
+        });
+        await suite().db('status_history').insert({
+          estimate_id: migrated.id, old_status: 'quoted', new_status: 'negotiating', changed_by: MASTER_ID
+        });
+
+        const res = await request(app).get(`/api/estimates/${migrated.receipt_id}`).query({ token: 't-for-013' });
+
+        expect(res.status).toBe(200);
+        expect(JSON.stringify(res.body)).not.toMatch(/retired_status|status_history|negotiating|customer_review/);
+      });
+    });
+
+    describe('at the same time', () => {
+      it('five different changes from the same status, each expecting it: exactly one wins, the others get 409', async () => {
+        await move('under_review');
+        const attempts: Array<[string, string | undefined, typeof admin]> = [
+          ['info_requested', undefined, manager],
+          ['factory_checking', undefined, manager],
+          ['quoted', undefined, manager],
+          ['on_hold', 'waiting', manager],
+          ['cancelled', 'customer asked', admin]
+        ];
+
+        const results = await Promise.all(
+          attempts.map(([to, reason, session]) =>
+            patchStatus(id, { to_status: to, ...(reason ? { reason } : {}), expected_status: 'under_review' }, session)
+          )
+        );
+
+        expect(results.filter(r => r.status === 200)).toHaveLength(1);
+        expect(results.filter(r => r.status === 409)).toHaveLength(4);
+        const winner = attempts[results.findIndex(r => r.status === 200)][0];
+        expect(await statusOf()).toBe(winner);
+        const rows = await history(id);
+        expect(rows).toHaveLength(2); // under_review, then the winner
+        expect(rows[1]).toMatchObject({ old_status: 'under_review', new_status: winner });
+      });
+
+      it('accepting a quote and sending it to the customer review at once: one wins', async () => {
+        await move('under_review');
+        await move('quoted');
+
+        const [accept, review] = await Promise.all([
+          patchStatus(id, { to_status: 'accepted', expected_status: 'quoted' }, manager),
+          patchStatus(id, { to_status: 'customer_review', expected_status: 'quoted' }, admin)
+        ]);
+
+        expect([accept.status, review.status].sort()).toEqual([200, 409]);
+        expect(await history(id)).toHaveLength(3);
+        expect(['accepted', 'customer_review']).toContain(await statusOf());
+      });
+
+      it('many changes without expected_status leave an unbroken chain of current statuses only', async () => {
+        await move('under_review');
+        const targets = ['info_requested', 'factory_checking', 'quoted', 'on_hold', 'info_requested', 'quoted', 'customer_review', 'accepted'];
+
+        const results = await Promise.all(
+          targets.map((to, i) => patchStatus(id, { to_status: to, reason: `r${i}` }, i % 2 === 0 ? admin : manager))
+        );
+
+        for (const res of results) {
+          expect([200, 422]).toContain(res.status);
+        }
+        const rows = await history(id);
+        for (let i = 1; i < rows.length; i += 1) {
+          expect(rows[i].old_status).toBe(rows[i - 1].new_status);
+        }
+        expect(await statusOf()).toBe(rows[rows.length - 1].new_status);
+        expect((await detailHistory()).every(h => h.retired_status === false)).toBe(true);
+      });
+    });
+  });
+
   describe('customer type and privacy consent', () => {
     const CONSENT_AT = '2026-10-16T01:02:03.000Z';
     let withConsent: { id: string; receipt_id: string };
@@ -361,19 +629,19 @@ describeIntegration('admin estimates on a real PostgreSQL', ({ url }) => {
     it('a manager may make allowed changes but not admin-only ones', async () => {
       expect((await patchStatus(id, { to_status: 'under_review' }, manager)).status).toBe(200);
 
-      const denied = await patchStatus(id, { to_status: 'rejected', reason: 'no' }, manager);
+      const denied = await patchStatus(id, { to_status: 'cancelled', reason: 'no' }, manager);
       expect(denied.status).toBe(403);
       expect(denied.body.code).toBe('INSUFFICIENT_ROLE');
       expect(await statusOf()).toBe('under_review');
       expect(await history(id)).toHaveLength(1);
 
-      expect((await patchStatus(id, { to_status: 'rejected', reason: 'no' }, admin)).status).toBe(200);
+      expect((await patchStatus(id, { to_status: 'cancelled', reason: 'no' }, admin)).status).toBe(200);
     });
 
     it('refuses invalid changes without touching the database', async () => {
       const same = await patchStatus(id, { to_status: 'new_receipt' });
       const invalid = await patchStatus(id, { to_status: 'completed', reason: 'x' });
-      const noReason = await patchStatus(id, { to_status: 'rejected' });
+      const noReason = await patchStatus(id, { to_status: 'cancelled' });
       const unknown = await patchStatus(id, { to_status: 'bogus' });
 
       expect([same.status, invalid.status, noReason.status, unknown.status]).toEqual([422, 422, 422, 400]);

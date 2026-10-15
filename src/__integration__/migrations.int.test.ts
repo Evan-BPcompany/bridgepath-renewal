@@ -28,9 +28,11 @@ const MIGRATIONS = [
   '009_admin_api_indexes.ts',
   '010_admin_memos_content_check.ts',
   '011_admin_must_change_password.ts',
-  '012_customer_type_and_privacy_consent.ts'
+  '012_customer_type_and_privacy_consent.ts',
+  '013_align_estimate_statuses.ts'
 ];
 
+// Compared after a plain (not locale-dependent) sort on both sides.
 const APPLICATION_TABLES = [
   'admin_memos',
   'admin_sessions',
@@ -38,16 +40,17 @@ const APPLICATION_TABLES = [
   'base_prices',
   'email_events',
   'estimate_access_tokens',
+  'estimate_status_backup',
   'estimates',
   'files',
   'quotations',
   'receipt_sequence',
   'status_history'
-];
+].sort();
 
-// Migrations 001-012 on a real PostgreSQL: apply, constraints, seed, roll back step by step,
+// Migrations 001-013 on a real PostgreSQL: apply, constraints, seed, roll back step by step,
 // apply again. The suite starts on an empty schema and leaves it empty.
-describeIntegration('migrations 001-012', ({ url }) => {
+describeIntegration('migrations 001-013', ({ url }) => {
   const suite = useIsolatedSchema(url, { migrate: false });
 
   const appliedNames = async (): Promise<string[]> => {
@@ -61,7 +64,7 @@ describeIntegration('migrations 001-012', ({ url }) => {
        WHERE table_schema = ? AND table_name NOT LIKE 'knex\\_%' ORDER BY table_name`,
       [suite().schema]
     );
-    return result.rows.map((row: { table_name: string }) => row.table_name);
+    return result.rows.map((row: { table_name: string }) => row.table_name).sort();
   };
 
   const constraintNames = async (): Promise<string[]> => {
@@ -78,7 +81,7 @@ describeIntegration('migrations 001-012', ({ url }) => {
   };
 
   describe('applying', () => {
-    it('applies all twelve migrations in order', async () => {
+    it('applies all thirteen migrations in order', async () => {
       await migrateLatest(suite().db);
 
       expect(await appliedNames()).toEqual(MIGRATIONS);
@@ -198,10 +201,15 @@ describeIntegration('migrations 001-012', ({ url }) => {
         await rejects(insertEstimate(suite().db, { status: 'bogus' }), CHECK);
 
         for (const status of [
-          'new_receipt', 'under_review', 'quoted', 'negotiating', 'accepted',
-          'completed', 'cancelled', 'rejected', 'on_hold', 'archived'
+          'new_receipt', 'under_review', 'info_requested', 'factory_checking', 'quoted',
+          'customer_review', 'accepted', 'on_hold', 'completed', 'cancelled'
         ]) {
           await expect(insertEstimate(suite().db, { status })).resolves.toBeDefined();
+        }
+
+        // The statuses retired by migration 013 are not allowed any more.
+        for (const retired of ['rejected', 'archived', 'negotiating']) {
+          await rejects(insertEstimate(suite().db, { status: retired }), CHECK, 'estimates_status_check');
         }
       });
 
@@ -460,6 +468,7 @@ describeIntegration('migrations 001-012', ({ url }) => {
         )).rows.map((row: { column_name: string }) => row.column_name);
 
       expect(await columns()).toContain('must_change_password');
+      await migrateDownOne(db); // 013 (no estimate is in a status the old set lacks)
       await migrateDownOne(db); // 012 (no estimate holds a customer type or consent here)
       await migrateDownOne(db); // 011
       expect(await columns()).not.toContain('must_change_password');
@@ -509,10 +518,11 @@ describeIntegration('migrations 001-012', ({ url }) => {
         const db = suite().db;
         const estimate = await insertEstimate(db, record);
 
+        await migrateDownOne(db); // 013 first (nothing blocks it)
         await expect(migrateDownOne(db)).rejects.toThrow(/Refusing to roll back migration 012: 1 estimate\(s\)/);
 
         // One transaction: still recorded, columns and constraints still there, data intact, lock released.
-        expect(await appliedNames()).toEqual(MIGRATIONS);
+        expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 12));
         expect(await estimateColumns()).toEqual(expect.arrayContaining(NEW_COLUMNS));
         const names = (await constraintNames()).join('\n');
         expect(names).toContain('estimates_customer_type_check');
@@ -532,7 +542,8 @@ describeIntegration('migrations 001-012', ({ url }) => {
         const db = suite().db;
         const legacy = await insertEstimate(db);
 
-        await migrateDownOne(db);
+        await migrateDownOne(db); // 013
+        await migrateDownOne(db); // 012
         expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 11));
         const columns = await estimateColumns();
         for (const column of NEW_COLUMNS) {
@@ -553,7 +564,8 @@ describeIntegration('migrations 001-012', ({ url }) => {
 
       it('a request written while the migration was rolled back (no columns) gets NULLs when applied again', async () => {
         const db = suite().db;
-        await migrateDownOne(db);
+        await migrateDownOne(db); // 013
+        await migrateDownOne(db); // 012
         const written = await insertEstimate(db);
 
         await migrateLatest(db);
@@ -563,10 +575,343 @@ describeIntegration('migrations 001-012', ({ url }) => {
       });
     });
 
+    describe('013 (estimate statuses of the PRD)', () => {
+      const OLD_STATUSES = [
+        'new_receipt', 'under_review', 'quoted', 'negotiating', 'accepted',
+        'completed', 'cancelled', 'rejected', 'on_hold', 'archived'
+      ];
+      const MIGRATED: Record<string, string> = {
+        rejected: 'cancelled',
+        archived: 'completed',
+        negotiating: 'customer_review'
+      };
+      const OLD_UPDATED_AT = '2026-01-02T03:04:05.000Z';
+
+      // The state right before 013: the old status set, with one estimate per old status.
+      const atTwelve = async () => {
+        await migrateDownOne(suite().db); // 013
+        expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 12));
+      };
+      const statusesOf = async (): Promise<Record<string, string>> =>
+        Object.fromEntries(
+          (await suite().db('estimates').select('receipt_id', 'status')).map((row: { receipt_id: string; status: string }) => [
+            row.receipt_id,
+            row.status
+          ])
+        );
+      const insertOneOfEach = async () => {
+        const ids: Record<string, string> = {};
+        for (const status of OLD_STATUSES) {
+          const estimate = await insertEstimate(suite().db, {
+            receipt_id: `BP20260101${800 + OLD_STATUSES.indexOf(status)}`,
+            status
+          });
+          await suite().db('estimates').where({ id: estimate.id }).update({ updated_at: OLD_UPDATED_AT });
+          ids[status] = estimate.id;
+        }
+        return ids;
+      };
+      const historyRows = async () =>
+        JSON.stringify(await suite().db('status_history').select('*').orderBy('id'));
+      const insertHistory = async (estimateId: string) => {
+        const rows = [
+          [null, 'new_receipt'], ['new_receipt', 'under_review'], ['under_review', 'quoted'],
+          ['quoted', 'negotiating'], ['negotiating', 'accepted'], ['accepted', 'completed'],
+          ['completed', 'archived'], ['under_review', 'rejected'], ['rejected', 'archived'],
+          ['quoted', 'a-value-nobody-knows']
+        ];
+        for (const [oldStatus, newStatus] of rows) {
+          await suite().db('status_history').insert({
+            estimate_id: estimateId, old_status: oldStatus, new_status: newStatus, changed_by: MASTER_ID, reason: 'seed'
+          });
+        }
+      };
+      const lockState = async (): Promise<number[]> =>
+        (await suite().db('knex_migrations_lock').select('is_locked')).map((row: { is_locked: number }) =>
+          Number(row.is_locked)
+        );
+      const rejects = async (promise: Promise<unknown>, code: string, constraint?: string) => {
+        await expect(promise).rejects.toMatchObject(constraint ? { code, constraint } : { code });
+      };
+      const backupExists = async (): Promise<boolean> =>
+        (await tableNames()).includes('estimate_status_backup');
+      const NEW_STATUSES = [
+        'new_receipt', 'under_review', 'info_requested', 'factory_checking', 'quoted',
+        'customer_review', 'accepted', 'on_hold', 'completed', 'cancelled'
+      ];
+      // The CHECK constraints on estimates.status (the only ones that mention new_receipt).
+      const statusChecks = async (): Promise<Array<{ conname: string; def: string }>> =>
+        (
+          await suite().db.raw(
+            `SELECT conname, pg_get_constraintdef(oid) AS def
+             FROM pg_constraint
+             WHERE conrelid = 'estimates'::regclass AND contype = 'c'
+               AND pg_get_constraintdef(oid) LIKE '%new_receipt%'`
+          )
+        ).rows;
+
+      afterEach(async () => {
+        await suite().db.raw('TRUNCATE estimates, email_events, receipt_sequence CASCADE');
+        await migrateLatest(suite().db);
+      });
+
+      it('migrates only the three retired statuses, leaves the other seven and every updated_at alone', async () => {
+        await atTwelve();
+        const ids = await insertOneOfEach();
+        const before = await statusesOf();
+        expect(Object.values(before).sort()).toEqual([...OLD_STATUSES].sort());
+
+        await migrateLatest(suite().db);
+
+        const after = await suite().db('estimates').select('id', 'status', 'updated_at');
+        for (const status of OLD_STATUSES) {
+          const row = after.find((r: { id: string }) => r.id === ids[status]);
+          expect(row.status).toBe(MIGRATED[status] ?? status);
+          // The migration is not a change made by a user.
+          expect(new Date(row.updated_at).toISOString()).toBe(OLD_UPDATED_AT);
+        }
+        expect(await appliedNames()).toEqual(MIGRATIONS);
+      });
+
+      it('saves exactly the changed rows in the backup table, with the value they were given', async () => {
+        await atTwelve();
+        const ids = await insertOneOfEach();
+
+        await migrateLatest(suite().db);
+
+        const backup = await suite().db('estimate_status_backup').select('estimate_id', 'original_status', 'migrated_status');
+        expect(
+          backup.map((row: { estimate_id: string; original_status: string; migrated_status: string }) => [row.original_status, row.migrated_status]).sort()
+        ).toEqual([
+          ['archived', 'completed'],
+          ['negotiating', 'customer_review'],
+          ['rejected', 'cancelled']
+        ]);
+        expect(new Set(backup.map((row: { estimate_id: string }) => row.estimate_id))).toEqual(
+          new Set([ids.rejected, ids.archived, ids.negotiating])
+        );
+      });
+
+      it('never touches status_history: byte-identical after up, after down and after up again', async () => {
+        await atTwelve();
+        const ids = await insertOneOfEach();
+        await insertHistory(ids.completed);
+        await insertHistory(ids.rejected);
+        const original = await historyRows();
+        const rowCount = (JSON.parse(original) as unknown[]).length;
+        expect(rowCount).toBe(20);
+
+        await migrateLatest(suite().db);
+        expect(await historyRows()).toBe(original);
+
+        // No entry was turned into a self-transition such as completed -> completed.
+        const selfTransitions = await suite().db('status_history').whereRaw('old_status = new_status');
+        expect(selfTransitions).toHaveLength(0);
+        expect(
+          await suite().db('status_history').where({ old_status: 'completed', new_status: 'archived' })
+        ).toHaveLength(2);
+
+        await migrateDownOne(suite().db);
+        expect(await historyRows()).toBe(original);
+
+        await migrateLatest(suite().db);
+        expect(await historyRows()).toBe(original);
+      });
+
+      it('rolling back gives rejected, archived and negotiating their original status back, exactly', async () => {
+        await atTwelve();
+        await insertOneOfEach();
+        const original = await statusesOf();
+        await migrateLatest(suite().db);
+
+        await migrateDownOne(suite().db);
+
+        expect(await statusesOf()).toEqual(original);
+        expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 12));
+        expect(await backupExists()).toBe(false);
+        // The new CHECK was dropped before the old statuses were restored and the original one is
+        // back: exactly one CHECK on the status, named as before, with the original ten statuses.
+        const checks = await statusChecks();
+        expect(checks).toHaveLength(1);
+        expect(checks[0].conname).toBe('estimates_status_check');
+        expect(checks[0].def).not.toMatch(/customer_review|info_requested|factory_checking/);
+        for (const status of OLD_STATUSES) {
+          expect(checks[0].def).toContain(`'${status}'`);
+        }
+        for (const status of OLD_STATUSES) {
+          await expect(insertEstimate(suite().db, { status })).resolves.toBeDefined();
+        }
+        for (const status of ['info_requested', 'factory_checking', 'customer_review', 'bogus']) {
+          await rejects(insertEstimate(suite().db, { status }), CHECK, 'estimates_status_check');
+        }
+      });
+
+      it('a failure at the end undoes the whole rollback: the dropped CHECK is back and no status was restored', async () => {
+        await atTwelve();
+        const ids = await insertOneOfEach();
+        await migrateLatest(suite().db);
+        // A CHECK that lets one stray status in, so that the final verification of down() fails.
+        const permissive = `ALTER TABLE estimates ADD CONSTRAINT estimates_status_check CHECK (status IN (${NEW_STATUSES.map(
+          status => `'${status}'`
+        ).join(', ')}, 'stray'))`;
+        await suite().db.raw('ALTER TABLE estimates DROP CONSTRAINT estimates_status_check');
+        await suite().db.raw(permissive);
+        try {
+          await suite().db('estimates').where({ id: ids.accepted }).update({ status: 'stray' });
+          const before = await statusesOf();
+          const historyBefore = await historyRows();
+
+          await expect(migrateDownOne(suite().db)).rejects.toThrow(/would leave 1 estimate\(s\) with a status/);
+
+          // Everything down() did before the failure was undone, the CHECK it dropped included.
+          expect(await appliedNames()).toEqual(MIGRATIONS);
+          expect(await statusesOf()).toEqual(before); // rejected/archived/negotiating were not restored
+          expect(await historyRows()).toBe(historyBefore);
+          const checks = await statusChecks();
+          expect(checks).toHaveLength(1);
+          expect(checks[0].def).toContain('stray');
+          expect(await backupExists()).toBe(true);
+          expect(await suite().db('estimate_status_backup')).toHaveLength(3);
+          expect(await lockState()).toEqual([0]);
+        } finally {
+          await suite().db('estimates').where({ status: 'stray' }).update({ status: 'accepted' });
+          await suite().db.raw('ALTER TABLE estimates DROP CONSTRAINT estimates_status_check');
+          await suite().db.raw(
+            `ALTER TABLE estimates ADD CONSTRAINT estimates_status_check CHECK (status IN (${NEW_STATUSES.map(
+              status => `'${status}'`
+            ).join(', ')}))`
+          );
+        }
+      });
+
+      it('there is exactly one CHECK on the status after applying, and it is the new one', async () => {
+        const checks = await statusChecks();
+
+        expect(checks).toHaveLength(1);
+        expect(checks[0].conname).toBe('estimates_status_check');
+        for (const status of NEW_STATUSES) {
+          expect(checks[0].def).toContain(`'${status}'`);
+        }
+        expect(checks[0].def).not.toMatch(/rejected|archived|negotiating/);
+      });
+
+      it.each(['info_requested', 'factory_checking'])(
+        'refuses to roll back while an estimate is in %s, and changes nothing',
+        async status => {
+          await atTwelve();
+          const ids = await insertOneOfEach();
+          await migrateLatest(suite().db);
+          const blocked = await insertEstimate(suite().db, { status });
+          const before = await statusesOf();
+          const historyBefore = await historyRows();
+
+          await expect(migrateDownOne(suite().db)).rejects.toThrow(
+            /Refusing to roll back migration 013: 1 estimate\(s\) are in info_requested or factory_checking/
+          );
+
+          // One transaction: nothing changed, the backup is still there, the lock was released.
+          expect(await appliedNames()).toEqual(MIGRATIONS);
+          expect(await statusesOf()).toEqual(before);
+          expect(await historyRows()).toBe(historyBefore);
+          expect(await backupExists()).toBe(true);
+          expect(await lockState()).toEqual([0]);
+          await rejects(insertEstimate(suite().db, { status: 'rejected' }), CHECK, 'estimates_status_check');
+          // Refused before anything was changed: the new CHECK was not even dropped for a moment.
+          const checks = await statusChecks();
+          expect(checks).toHaveLength(1);
+          expect(checks[0].def).toContain('info_requested');
+          expect(await suite().db('estimate_status_backup')).toHaveLength(3);
+
+          // Once that estimate is moved to another status the rollback works.
+          await suite().db('estimates').where({ id: blocked.id }).update({ status: 'under_review' });
+          await migrateDownOne(suite().db);
+          expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 12));
+          expect((await suite().db('estimates').where({ id: ids.rejected }).first()).status).toBe('rejected');
+        }
+      );
+
+      it('does not overwrite a row that changed after the migration; renames the rest of customer_review', async () => {
+        await atTwelve();
+        const ids = await insertOneOfEach();
+        const second = await insertEstimate(suite().db, { receipt_id: 'BP20260109900', status: 'negotiating' });
+        await migrateLatest(suite().db);
+        // After up(): a row that was negotiating moves on; a row is created in customer_review and in cancelled.
+        await suite().db('estimates').where({ id: ids.negotiating }).update({ status: 'accepted' });
+        const created = await insertEstimate(suite().db, { receipt_id: 'BP20260109901', status: 'customer_review' });
+        const cancelled = await insertEstimate(suite().db, { receipt_id: 'BP20260109902', status: 'cancelled' });
+        // A backed-up row that was edited by hand afterwards.
+        await suite().db('estimates').where({ id: ids.rejected }).update({ status: 'on_hold' });
+
+        await migrateDownOne(suite().db);
+
+        const status = async (id: string) => (await suite().db('estimates').where({ id }).first()).status;
+        expect(await status(ids.negotiating)).toBe('accepted'); // changed since: left alone
+        expect(await status(ids.rejected)).toBe('on_hold'); // changed since: left alone
+        expect(await status(ids.archived)).toBe('archived'); // still what up() gave it: restored
+        expect(await status(second.id)).toBe('negotiating'); // restored
+        expect(await status(created.id)).toBe('negotiating'); // customer_review is negotiating under its old name
+        expect(await status(cancelled.id)).toBe('cancelled'); // a valid old status: unchanged
+      });
+
+      it('the new CHECK allows exactly the ten statuses of the PRD', async () => {
+        for (const status of [
+          'new_receipt', 'under_review', 'info_requested', 'factory_checking', 'quoted',
+          'customer_review', 'accepted', 'on_hold', 'completed', 'cancelled'
+        ]) {
+          await expect(insertEstimate(suite().db, { status })).resolves.toBeDefined();
+        }
+        for (const refused of ['rejected', 'archived', 'negotiating', 'bogus', '', 'NEW_RECEIPT']) {
+          await rejects(insertEstimate(suite().db, { status: refused }), CHECK, 'estimates_status_check');
+        }
+        const constraints = (await constraintNames()).join('\n');
+        expect(constraints).toContain('estimates_status_check');
+        expect(constraints).toContain('estimates_contact_required');
+      });
+
+      it('a status change that is still open when the migration starts is waited for, and its result is migrated', async () => {
+        const target = await insertEstimate(suite().db, { receipt_id: 'BP20260109800', status: 'under_review' });
+        await atTwelve();
+
+        // An admin is changing the status right now (not committed yet).
+        const change = await suite().db.transaction();
+        change.executionPromise.catch(() => undefined);
+        await change('estimates').where({ id: target.id }).update({ status: 'rejected' });
+
+        let finished = false;
+        const migrating = migrateLatest(suite().db).then(() => {
+          finished = true;
+        });
+        await new Promise(resolve => setTimeout(resolve, 600));
+        expect(finished).toBe(false); // waits for the open change
+
+        await change.commit();
+        await migrating;
+
+        expect(finished).toBe(true);
+        expect((await suite().db('estimates').where({ id: target.id }).first()).status).toBe('cancelled');
+        const backup = await suite().db('estimate_status_backup').where({ estimate_id: target.id }).first();
+        expect(backup).toMatchObject({ original_status: 'rejected', migrated_status: 'cancelled' });
+      });
+
+      it('applies with no estimates at all, and rolls back and applies again to the same schema', async () => {
+        await suite().db.raw('TRUNCATE estimates CASCADE');
+        const first = await snapshotSchema(suite().db, suite().schema);
+
+        await migrateDownOne(suite().db);
+        expect(await backupExists()).toBe(false);
+        await migrateLatest(suite().db);
+
+        expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+        expect(await backupExists()).toBe(true);
+        expect(await suite().db('estimate_status_backup')).toHaveLength(0);
+      });
+    });
+
     it('008 refuses to roll back while an estimate has no e-mail, and changes nothing', async () => {
       const db = suite().db;
       await insertEstimate(db, { customer_email: null, customer_phone: '010-1234-5678' });
 
+      await migrateDownOne(db); // 013 (the estimate is in new_receipt)
       await migrateDownOne(db); // 012 (the estimate holds no customer type or consent)
       await migrateDownOne(db); // 011
       await migrateDownOne(db); // 010
