@@ -35,6 +35,8 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   api: BIG,
   mutation: BIG,
   password: BIG,
+  estimateCreate: BIG,
+  estimateRead: BIG,
   ...overrides
 });
 
@@ -44,7 +46,9 @@ describe('Rate limit configuration', () => {
       login: { windowMs: 15 * 60 * 1000, max: 10 },
       api: { windowMs: 60 * 1000, max: 120 },
       mutation: { windowMs: 60 * 1000, max: 30 },
-      password: { windowMs: 15 * 60 * 1000, max: 5 }
+      password: { windowMs: 15 * 60 * 1000, max: 5 },
+      estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
+      estimateRead: { windowMs: 15 * 60 * 1000, max: 30 }
     });
     expect(parseRateLimits({})).toEqual(RATE_LIMIT_DEFAULTS);
     expect(parseTrustProxy(undefined)).toBe(0);
@@ -104,7 +108,14 @@ describe('Rate limit configuration', () => {
   });
 
   it('the running config exposes the same shape (defaults unless the environment overrides them)', () => {
-    expect(Object.keys(config.rateLimits).sort()).toEqual(['api', 'login', 'mutation', 'password']);
+    expect(Object.keys(config.rateLimits).sort()).toEqual([
+      'api',
+      'estimateCreate',
+      'estimateRead',
+      'login',
+      'mutation',
+      'password'
+    ]);
     expect(Number.isInteger(config.trustProxy)).toBe(true);
   });
 });
@@ -339,7 +350,7 @@ describe('Rate limiting (mocked database)', () => {
       expect((await request(app).get('/admin/estimates').set('X-Forwarded-For', '10.0.0.2')).status).toBe(401);
     });
 
-    it('does not apply to /health or the public customer API (documented gap)', async () => {
+    it('does not apply to /health or the public customer API (which has its own limiters)', async () => {
       const app = makeApp({ api: { windowMs: 60_000, max: 1 }, login: { windowMs: WINDOW, max: 1 } });
 
       for (let i = 0; i < 8; i += 1) {

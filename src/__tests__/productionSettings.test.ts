@@ -79,6 +79,8 @@ describe('production warnings', () => {
 
     expect(warnings).toHaveLength(2);
     expect(warnings.join(' ')).toMatch(/TRUST_PROXY/);
+    // The warning says what is at stake for the public customer API.
+    expect(warnings.join(' ')).toMatch(/shared by ALL customers/);
     expect(warnings.join(' ')).toMatch(/DATABASE_SSL_REJECT_UNAUTHORIZED/);
   });
 

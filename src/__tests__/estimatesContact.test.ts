@@ -21,7 +21,8 @@ const createdResult = {
 };
 
 describe('POST /api/estimates contact policy (email OR phone)', () => {
-  const app = createApp();
+  // Ten requests from one IP in one app: keep clear of the default creation limit.
+  const app = createApp({ rateLimits: { estimateCreate: { windowMs: 60 * 60 * 1000, max: 1000 } } });
   const base = { category: 'eyewear', specification_json: { quantity: 10 } };
 
   beforeEach(() => {

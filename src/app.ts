@@ -44,13 +44,21 @@ export function createApp(options: CreateAppOptions = {}): Express {
       origin: config.corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-      allowedHeaders: ['Content-Type', 'Authorization']
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      // Without this a front end on another origin cannot read how long to wait after a 429.
+      exposedHeaders: ['Retry-After', 'RateLimit', 'RateLimit-Policy']
     })
   );
 
   // Rate limits run before the body is parsed, so rejected requests cost almost nothing.
   app.use('/admin', limiters.api);
   app.post('/admin/login', limiters.login);
+
+  // Public customer API: per IP, in process memory (see README, "Rate limiting"). These run
+  // before the JSON parser and before the router that holds Multer, so a refused request is
+  // never parsed and no file reaches S3.
+  app.post('/api/estimates', limiters.estimateCreate);
+  app.get('/api/estimates/:receipt_id', limiters.estimateRead);
 
   app.use(express.json());
   app.use(cookieParser());

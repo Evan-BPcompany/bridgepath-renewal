@@ -8,7 +8,8 @@ import { hashEstimateToken } from '../utils/token';
 import { formatDate, validateReceiptId } from '../utils/receipt-id';
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
-import { SHOE_SPEC, createTestApp, resetData } from './helpers/fixtures';
+import { createApp } from '../app';
+import { MASTER_ID, SHOE_SPEC, createTestApp, resetData } from './helpers/fixtures';
 
 // The customer API on a real PostgreSQL: create an estimate (one transaction: receipt id,
 // estimate, access token, e-mail events), read it back once with the token, and the contact
@@ -245,6 +246,83 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
       expect(await suite().db('receipt_sequence').select('last_sequence')).toEqual([{ last_sequence: n }]);
       // Nothing needed a retry.
       expect(logger.warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rate limits of the public API (in process memory, per IP)', () => {
+    const HOUR = 60 * 60 * 1000;
+    const QUARTER = 15 * 60 * 1000;
+    const BIG = { windowMs: HOUR, max: 100_000 };
+    const limited = (overrides: Record<string, { windowMs: number; max: number }>): Express =>
+      createApp({
+        rateLimits: { login: BIG, api: BIG, mutation: BIG, password: BIG, estimateCreate: BIG, estimateRead: BIG, ...overrides }
+      });
+    const sendTo = (target: Express, email: string) =>
+      request(target).post('/api/estimates').send({ category: 'shoes', specification_json: SHOE_SPEC, customer_email: email });
+
+    it('the requests over the limit get 429 and consume no receipt number, estimate or e-mail event', async () => {
+      const target = limited({ estimateCreate: { windowMs: HOUR, max: 3 } });
+
+      const results = [];
+      for (let i = 0; i < 5; i += 1) {
+        results.push(await sendTo(target, `limit${i}@example.com`));
+      }
+
+      expect(results.map(r => r.status)).toEqual([201, 201, 201, 429, 429]);
+      expect(Number(results[3].headers['retry-after'])).toBeGreaterThanOrEqual(1);
+      expect(results[3].headers['ratelimit']).toBeDefined();
+      expect(results.slice(0, 3).map(r => Number(r.body.receipt_id.slice(-3)))).toEqual([1, 2, 3]);
+      expect(await count('estimates')).toBe(3);
+      expect(await count('estimate_access_tokens')).toBe(3);
+      expect(await count('email_events')).toBe(6);
+      expect(await suite().db('receipt_sequence').select('last_sequence')).toEqual([{ last_sequence: 3 }]);
+    });
+
+    it('20 parallel requests with a limit of 10: exactly 10 are created (numbers 1..10) and 10 are refused', async () => {
+      const target = limited({ estimateCreate: { windowMs: HOUR, max: 10 } });
+
+      const results = await Promise.all(Array.from({ length: 20 }, (_, i) => sendTo(target, `burst${i}@example.com`)));
+
+      expect(results.filter(r => r.status === 201)).toHaveLength(10);
+      expect(results.filter(r => r.status === 429)).toHaveLength(10);
+      const numbers = results.filter(r => r.status === 201).map(r => Number(r.body.receipt_id.slice(-3))).sort((a, b) => a - b);
+      expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(await count('estimates')).toBe(10);
+      expect(await suite().db('receipt_sequence').select('last_sequence')).toEqual([{ last_sequence: 10 }]);
+    });
+
+    it('reading: the first lookup works once, refused requests do not touch the one-time token', async () => {
+      const created = await sendTo(createTestApp(), 'reader@example.com');
+      expect(created.status).toBe(201);
+      const target = limited({ estimateRead: { windowMs: QUARTER, max: 2 } });
+      const url = `/api/estimates/${created.body.receipt_id}`;
+      const token = created.body.access_token as string;
+
+      expect((await request(target).get(url).query({ token })).status).toBe(200);
+      // The token was used up by the first lookup; the second request is a normal 401.
+      expect((await request(target).get(url).query({ token })).status).toBe(401);
+      const refused = await request(target).get(url).query({ token });
+
+      expect(refused.status).toBe(429);
+      const row = await suite().db('estimate_access_tokens').where({ receipt_id: created.body.receipt_id }).first();
+      expect(row.is_used).toBe(true);
+      // Only the first lookup counted as a visit; the second matched nothing and the refused one never reached the service.
+      expect(Number(row.visit_count)).toBe(1);
+    });
+
+    it('refused public requests leave the admin lockout counter and the admin login alone', async () => {
+      const target = limited({ estimateCreate: { windowMs: HOUR, max: 1 }, estimateRead: { windowMs: QUARTER, max: 1 } });
+      await sendTo(target, 'first@example.com');
+      for (let i = 0; i < 5; i += 1) {
+        expect((await sendTo(target, `more${i}@example.com`)).status).toBe(429);
+        expect((await request(target).get('/api/estimates/BP20261013001').query({ token: 'a'.repeat(64) })).status).toBeGreaterThanOrEqual(401);
+      }
+
+      const admin = await suite().db('admin_users').where({ id: MASTER_ID }).first();
+      expect(admin.failed_login_attempts).toBe(0);
+      expect(admin.locked_until).toBeNull();
+      const login = await request(target).post('/admin/login').send({ username: 'master', password: 'Correct-Horse-9' });
+      expect(login.status).toBe(200);
     });
   });
 });

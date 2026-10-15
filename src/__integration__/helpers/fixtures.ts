@@ -28,7 +28,14 @@ export const passwordHash = (password: string): string => bcrypt.hashSync(passwo
 export function createTestApp(): Express {
   const unlimited = { windowMs: 60_000, max: 100_000 };
   return createApp({
-    rateLimits: { login: unlimited, api: unlimited, mutation: unlimited, password: unlimited }
+    rateLimits: {
+      login: unlimited,
+      api: unlimited,
+      mutation: unlimited,
+      password: unlimited,
+      estimateCreate: unlimited,
+      estimateRead: unlimited
+    }
   });
 }
 

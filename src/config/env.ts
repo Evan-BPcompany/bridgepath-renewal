@@ -13,13 +13,18 @@ export interface RateLimitSettings {
   api: RateLimitSetting;
   mutation: RateLimitSetting;
   password: RateLimitSetting;
+  // Public customer API (no login): per client IP.
+  estimateCreate: RateLimitSetting;
+  estimateRead: RateLimitSetting;
 }
 
 export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
   login: { windowMs: 15 * 60 * 1000, max: 10 },
   api: { windowMs: 60 * 1000, max: 120 },
   mutation: { windowMs: 60 * 1000, max: 30 },
-  password: { windowMs: 15 * 60 * 1000, max: 5 }
+  password: { windowMs: 15 * 60 * 1000, max: 5 },
+  estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
+  estimateRead: { windowMs: 15 * 60 * 1000, max: 30 }
 };
 
 const RATE_LIMIT_WINDOW_MS_RANGE = { min: 1000, max: 24 * 60 * 60 * 1000 };
@@ -143,7 +148,17 @@ export function parseRateLimits(env: NodeJS.ProcessEnv): RateLimitSettings {
     login: parseRateLimitSetting('ADMIN_LOGIN_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.login),
     api: parseRateLimitSetting('ADMIN_API_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.api),
     mutation: parseRateLimitSetting('ADMIN_MUTATION_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.mutation),
-    password: parseRateLimitSetting('ADMIN_PASSWORD_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.password)
+    password: parseRateLimitSetting('ADMIN_PASSWORD_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.password),
+    estimateCreate: parseRateLimitSetting(
+      'CUSTOMER_ESTIMATE_CREATE_RATE_LIMIT',
+      env,
+      RATE_LIMIT_DEFAULTS.estimateCreate
+    ),
+    estimateRead: parseRateLimitSetting(
+      'CUSTOMER_ESTIMATE_READ_RATE_LIMIT',
+      env,
+      RATE_LIMIT_DEFAULTS.estimateRead
+    )
   };
 }
 
@@ -173,7 +188,8 @@ export function productionWarnings(settings: {
   const warnings: string[] = [];
   if (settings.trustProxy === 0) {
     warnings.push(
-      'TRUST_PROXY is 0: behind a reverse proxy (Heroku: 1) every client shares the proxy IP, so rate limits and audit logs are wrong.'
+      'TRUST_PROXY is 0: behind a reverse proxy (Heroku: 1) every client shares the proxy IP, so the rate limits and audit logs are wrong. ' +
+        'The public customer API limits (estimate creation: 10 per hour per IP by default) would then be shared by ALL customers together and block the site.'
     );
   }
   if (settings.databaseSsl && !settings.databaseSsl.rejectUnauthorized) {

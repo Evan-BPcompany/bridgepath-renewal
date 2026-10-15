@@ -61,6 +61,12 @@ export interface RateLimiters {
   mutation: RequestHandler;
   // Password change: per admin.
   password: RequestHandler;
+  // Public customer API, per client IP. Every request counts (valid or not, successful or not):
+  // creating an estimate parses up to 10 uploaded files and writes to S3 and the database,
+  // reading one consumes a one-time token. Mount them before the body parser and before
+  // Multer so a refused request costs almost nothing.
+  estimateCreate: RequestHandler;
+  estimateRead: RequestHandler;
 }
 
 export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
@@ -74,6 +80,8 @@ export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
       keyGenerator: adminKey,
       skip: req => SAFE_METHODS.includes(req.method)
     }),
-    password: build(settings.password, { keyGenerator: adminKey })
+    password: build(settings.password, { keyGenerator: adminKey }),
+    estimateCreate: build(settings.estimateCreate, { keyGenerator: clientKey }),
+    estimateRead: build(settings.estimateRead, { keyGenerator: clientKey })
   };
 }
