@@ -27,7 +27,8 @@ const MIGRATIONS = [
   '008_customer_contact_policy.ts',
   '009_admin_api_indexes.ts',
   '010_admin_memos_content_check.ts',
-  '011_admin_must_change_password.ts'
+  '011_admin_must_change_password.ts',
+  '012_customer_type_and_privacy_consent.ts'
 ];
 
 const APPLICATION_TABLES = [
@@ -44,9 +45,9 @@ const APPLICATION_TABLES = [
   'status_history'
 ];
 
-// Migrations 001-011 on a real PostgreSQL: apply, constraints, seed, roll back step by step,
+// Migrations 001-012 on a real PostgreSQL: apply, constraints, seed, roll back step by step,
 // apply again. The suite starts on an empty schema and leaves it empty.
-describeIntegration('migrations 001-011', ({ url }) => {
+describeIntegration('migrations 001-012', ({ url }) => {
   const suite = useIsolatedSchema(url, { migrate: false });
 
   const appliedNames = async (): Promise<string[]> => {
@@ -77,7 +78,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
   };
 
   describe('applying', () => {
-    it('applies all eleven migrations in order', async () => {
+    it('applies all twelve migrations in order', async () => {
       await migrateLatest(suite().db);
 
       expect(await appliedNames()).toEqual(MIGRATIONS);
@@ -283,6 +284,92 @@ describeIntegration('migrations 001-011', ({ url }) => {
       });
     });
 
+    describe('customer type and privacy consent (012)', () => {
+      const CONSENT_AT = '2026-10-16T01:02:03Z';
+
+      it('new columns are nullable, have no default, and an ordinary insert leaves them NULL', async () => {
+        const columns = await suite().db.raw(
+          `SELECT column_name, data_type, is_nullable, column_default
+           FROM information_schema.columns
+           WHERE table_schema = ? AND table_name = 'estimates'
+             AND column_name IN ('customer_type', 'privacy_consent_at', 'privacy_consent_version')
+           ORDER BY column_name`,
+          [suite().schema]
+        );
+        expect(columns.rows).toEqual([
+          { column_name: 'customer_type', data_type: 'character varying', is_nullable: 'YES', column_default: null },
+          { column_name: 'privacy_consent_at', data_type: 'timestamp with time zone', is_nullable: 'YES', column_default: null },
+          { column_name: 'privacy_consent_version', data_type: 'character varying', is_nullable: 'YES', column_default: null }
+        ]);
+
+        const estimate = await insertEstimate(suite().db);
+        const row = await suite().db('estimates').where({ id: estimate.id }).first();
+        expect(row.customer_type).toBeNull();
+        expect(row.privacy_consent_at).toBeNull();
+        expect(row.privacy_consent_version).toBeNull();
+      });
+
+      it.each(['individual_startup', 'business_brand'])('accepts the customer type %s', async customerType => {
+        const estimate = await insertEstimate(suite().db, { customer_type: customerType });
+        const row = await suite().db('estimates').where({ id: estimate.id }).first();
+        expect(row.customer_type).toBe(customerType);
+      });
+
+      it.each(['individual', 'business', 'Individual_Startup', '개인·창업 준비 중', ''])(
+        'rejects the customer type %j',
+        async customerType => {
+          await rejects(
+            insertEstimate(suite().db, { customer_type: customerType }),
+            CHECK,
+            'estimates_customer_type_check'
+          );
+        }
+      );
+
+      it('accepts a consent (time and version together), stored as given', async () => {
+        const estimate = await insertEstimate(suite().db, {
+          customer_type: 'business_brand',
+          privacy_consent_at: CONSENT_AT,
+          privacy_consent_version: 'v1'
+        });
+        const row = await suite().db('estimates').where({ id: estimate.id }).first();
+        expect(new Date(row.privacy_consent_at).toISOString()).toBe('2026-10-16T01:02:03.000Z');
+        expect(row.privacy_consent_version).toBe('v1');
+      });
+
+      it('rejects a consent time without a version, a version without a time, and a blank version', async () => {
+        await rejects(
+          insertEstimate(suite().db, { privacy_consent_at: CONSENT_AT }),
+          CHECK,
+          'estimates_privacy_consent_consistent'
+        );
+        await rejects(
+          insertEstimate(suite().db, { privacy_consent_version: 'v1' }),
+          CHECK,
+          'estimates_privacy_consent_consistent'
+        );
+        await rejects(
+          insertEstimate(suite().db, { privacy_consent_at: CONSENT_AT, privacy_consent_version: '   ' }),
+          CHECK,
+          'estimates_privacy_consent_consistent'
+        );
+      });
+
+      it('a customer type without a consent is allowed by the database (the API decides what a request needs)', async () => {
+        await expect(insertEstimate(suite().db, { customer_type: 'individual_startup' })).resolves.toBeDefined();
+      });
+
+      it('an estimate from before the migration (all NULL) can still be updated', async () => {
+        const estimate = await insertEstimate(suite().db);
+
+        await suite().db('estimates').where({ id: estimate.id }).update({ status: 'under_review' });
+
+        const row = await suite().db('estimates').where({ id: estimate.id }).first();
+        expect(row.status).toBe('under_review');
+        expect(row.customer_type).toBeNull();
+      });
+    });
+
     describe('foreign keys', () => {
       it('a file needs an existing estimate', async () => {
         await rejects(suite().db('files').insert({
@@ -373,6 +460,7 @@ describeIntegration('migrations 001-011', ({ url }) => {
         )).rows.map((row: { column_name: string }) => row.column_name);
 
       expect(await columns()).toContain('must_change_password');
+      await migrateDownOne(db); // 012 (no estimate holds a customer type or consent here)
       await migrateDownOne(db); // 011
       expect(await columns()).not.toContain('must_change_password');
 
@@ -388,10 +476,98 @@ describeIntegration('migrations 001-011', ({ url }) => {
       expect(await appliedNames()).toEqual(MIGRATIONS);
     });
 
+    describe('012 (customer type and privacy consent)', () => {
+      const estimateColumns = async (): Promise<string[]> =>
+        (
+          await suite().db.raw(
+            `SELECT column_name FROM information_schema.columns
+             WHERE table_schema = ? AND table_name = 'estimates' ORDER BY column_name`,
+            [suite().schema]
+          )
+        ).rows.map((row: { column_name: string }) => row.column_name);
+      const NEW_COLUMNS = ['customer_type', 'privacy_consent_at', 'privacy_consent_version'];
+      const lockState = async (): Promise<number[]> =>
+        (await suite().db('knex_migrations_lock').select('is_locked')).map((row: { is_locked: number }) =>
+          Number(row.is_locked)
+        );
+      const clearRecords = () =>
+        suite().db('estimates').update({
+          customer_type: null,
+          privacy_consent_at: null,
+          privacy_consent_version: null
+        });
+
+      afterEach(async () => {
+        await suite().db.raw('TRUNCATE estimates, email_events, receipt_sequence CASCADE');
+        await migrateLatest(suite().db);
+      });
+
+      it.each([
+        ['a customer type and a consent', { customer_type: 'business_brand', privacy_consent_at: '2026-10-16T01:02:03Z', privacy_consent_version: 'v1' }],
+        ['a customer type only', { customer_type: 'individual_startup' }]
+      ])('refuses to roll back while an estimate holds %s, and changes nothing', async (_name, record) => {
+        const db = suite().db;
+        const estimate = await insertEstimate(db, record);
+
+        await expect(migrateDownOne(db)).rejects.toThrow(/Refusing to roll back migration 012: 1 estimate\(s\)/);
+
+        // One transaction: still recorded, columns and constraints still there, data intact, lock released.
+        expect(await appliedNames()).toEqual(MIGRATIONS);
+        expect(await estimateColumns()).toEqual(expect.arrayContaining(NEW_COLUMNS));
+        const names = (await constraintNames()).join('\n');
+        expect(names).toContain('estimates_customer_type_check');
+        expect(names).toContain('estimates_privacy_consent_consistent');
+        const row = await db('estimates').where({ id: estimate.id }).first();
+        expect(row.customer_type).toBe(record.customer_type);
+        expect(await lockState()).toEqual([0]);
+
+        // Once the records are cleared on purpose the rollback works.
+        await clearRecords();
+        await migrateDownOne(db);
+        expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 11));
+        expect(await estimateColumns()).not.toEqual(expect.arrayContaining(NEW_COLUMNS));
+      });
+
+      it('rolls back when every estimate has NULLs, keeps those estimates, and applies again with NULLs', async () => {
+        const db = suite().db;
+        const legacy = await insertEstimate(db);
+
+        await migrateDownOne(db);
+        expect(await appliedNames()).toEqual(MIGRATIONS.slice(0, 11));
+        const columns = await estimateColumns();
+        for (const column of NEW_COLUMNS) {
+          expect(columns).not.toContain(column);
+        }
+        const names = (await constraintNames()).join('\n');
+        expect(names).not.toContain('estimates_customer_type_check');
+        expect(names).not.toContain('estimates_privacy_consent_consistent');
+        expect(await db('estimates').where({ id: legacy.id }).first()).toMatchObject({ receipt_id: legacy.receipt_id });
+
+        await migrateLatest(db);
+        expect(await appliedNames()).toEqual(MIGRATIONS);
+        const row = await db('estimates').where({ id: legacy.id }).first();
+        expect(row.customer_type).toBeNull();
+        expect(row.privacy_consent_at).toBeNull();
+        expect(row.privacy_consent_version).toBeNull();
+      });
+
+      it('a request written while the migration was rolled back (no columns) gets NULLs when applied again', async () => {
+        const db = suite().db;
+        await migrateDownOne(db);
+        const written = await insertEstimate(db);
+
+        await migrateLatest(db);
+
+        const row = await db('estimates').where({ id: written.id }).first();
+        expect(row.customer_type).toBeNull();
+      });
+    });
+
     it('008 refuses to roll back while an estimate has no e-mail, and changes nothing', async () => {
       const db = suite().db;
       await insertEstimate(db, { customer_email: null, customer_phone: '010-1234-5678' });
 
+      await migrateDownOne(db); // 012 (the estimate holds no customer type or consent)
       await migrateDownOne(db); // 011
       await migrateDownOne(db); // 010
       await migrateDownOne(db); // 009

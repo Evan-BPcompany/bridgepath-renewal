@@ -89,6 +89,9 @@ export interface NewEstimate {
   customer_email?: string | null;
   customer_phone?: string | null;
   company_name?: string | null;
+  customer_type?: string | null;
+  privacy_consent_at?: Date | string | null;
+  privacy_consent_version?: string | null;
   created_at?: Date | string;
 }
 
@@ -105,6 +108,11 @@ export async function insertEstimate(db: Knex, estimate: NewEstimate = {}): Prom
       customer_email: estimate.customer_email === undefined ? 'kim@example.com' : estimate.customer_email,
       customer_phone: estimate.customer_phone ?? null,
       company_name: estimate.company_name ?? null,
+      ...(estimate.customer_type !== undefined ? { customer_type: estimate.customer_type } : {}),
+      ...(estimate.privacy_consent_at !== undefined ? { privacy_consent_at: estimate.privacy_consent_at } : {}),
+      ...(estimate.privacy_consent_version !== undefined
+        ? { privacy_consent_version: estimate.privacy_consent_version }
+        : {}),
       specification_json: JSON.stringify(SHOE_SPEC),
       ...(estimate.created_at ? { created_at: estimate.created_at } : {})
     })

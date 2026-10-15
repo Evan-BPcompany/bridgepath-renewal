@@ -1,7 +1,9 @@
+import fs from 'fs';
 import {
   IsolatedDatabase,
   createIsolatedDatabase,
   dropIsolatedDatabase,
+  MIGRATIONS_DIRECTORY,
   migrateLatest,
   rollbackAll,
   snapshotSchema
@@ -9,7 +11,7 @@ import {
 import { describeIntegration } from './helpers/integrationMode';
 
 // Smoke test for the harness itself. It is skipped unless TEST_DATABASE_URL points at a safe
-// PostgreSQL 14+ test database on this machine; it has NOT been run yet.
+// PostgreSQL 14+ test database on this machine.
 describeIntegration('integration harness', ({ url }) => {
   let isolated: IsolatedDatabase;
 
@@ -24,8 +26,16 @@ describeIntegration('integration harness', ({ url }) => {
   it('applies every migration inside its own schema', async () => {
     await migrateLatest(isolated.db);
 
-    const applied = await isolated.db('knex_migrations').count({ count: '*' }).first();
-    expect(Number(applied?.count)).toBe(11);
+    // The expected migrations are the numbered files in the migrations folder, so adding a
+    // migration does not need an edit here.
+    const files = fs
+      .readdirSync(MIGRATIONS_DIRECTORY)
+      .filter(name => /^\d{3}_.+\.ts$/.test(name))
+      .sort();
+    expect(files.length).toBeGreaterThan(0);
+
+    const applied = await isolated.db('knex_migrations').orderBy('id').select('name');
+    expect(applied.map((row: { name: string }) => row.name)).toEqual(files);
 
     const snapshot = await snapshotSchema(isolated.db, isolated.schema);
     expect(snapshot.columns.length).toBeGreaterThan(0);

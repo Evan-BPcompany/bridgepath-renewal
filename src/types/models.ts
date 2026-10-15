@@ -25,13 +25,25 @@ export interface AdminSession {
   expires_at: Date;
 }
 
+// Customer type of an estimate request (PRD FR-4.2): "individual / preparing to start a business"
+// and "business / running a brand". Stored in estimates.customer_type (migration 012).
+export type CustomerType = 'individual_startup' | 'business_brand';
+
 export interface Estimate {
   id: string;
   receipt_id: string;
   category: 'eyewear' | 'shoes' | 'golf_products' | 'other';
   status: string;
+  customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  company_name: string | null;
+  // NULL for requests received before migration 012: no customer type and no consent was recorded.
+  customer_type: CustomerType | null;
+  // When the customer consented (database time) and the version of the consent text.
+  // Both are set together or both are NULL.
+  privacy_consent_at: Date | null;
+  privacy_consent_version: string | null;
   specification_json: Record<string, unknown>;
   is_consultation: boolean;
   created_at: Date;
