@@ -6,6 +6,7 @@ import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { validateReceiptId } from '../utils/receipt-id';
 import { validateCustomerSubmission } from '../utils/customerValidation';
 import { getAcceptedConsentVersions } from '../config/privacyConsent';
+import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { config } from '../config/env';
 import {
   uploadMiddleware,
@@ -168,9 +169,9 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
         res.status(201).json({
           success: result.success,
           receipt_id: result.receipt_id,
-          status: result.status,
           access_token: result.access_token,
           created_at: result.created_at,
+          message: CUSTOMER_GUIDANCE_MESSAGE,
           files: fileResults
         });
         return;
@@ -190,9 +191,9 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
     res.status(201).json({
       success: result.success,
       receipt_id: result.receipt_id,
-      status: result.status,
       access_token: result.access_token,
-      created_at: result.created_at
+      created_at: result.created_at,
+      message: CUSTOMER_GUIDANCE_MESSAGE
     });
   } catch (err) {
     if (err instanceof InvalidSpecificationJsonError) {
@@ -246,7 +247,16 @@ router.get('/estimates/:receipt_id', async (req: Request, res: Response) => {
       return;
     }
 
-    res.status(200).json(estimate);
+    // Field by field on purpose: the customer never gets the internal status or anything else
+    // the service might add later (PRD FR-4.9.3).
+    res.status(200).json({
+      receipt_id: estimate.receipt_id,
+      category: estimate.category,
+      specification_json: estimate.specification_json,
+      created_at: estimate.created_at,
+      updated_at: estimate.updated_at,
+      message: CUSTOMER_GUIDANCE_MESSAGE
+    });
   } catch (err) {
     logger.error('Error retrieving estimate', {
       error: err instanceof Error ? err.message : String(err)

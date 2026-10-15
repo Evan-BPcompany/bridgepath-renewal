@@ -9,6 +9,7 @@ import { formatDate, validateReceiptId } from '../utils/receipt-id';
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
 import { createApp } from '../app';
+import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import * as privacyConsent from '../config/privacyConsent';
 import { CUSTOMER_PROFILE, MASTER_ID, SHOE_SPEC, createTestApp, resetData } from './helpers/fixtures';
 
@@ -48,7 +49,9 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
       expect(res.status).toBe(201);
       expect(res.body.receipt_id).toMatch(new RegExp(`^BP${today()}\\d{3}$`));
       expect(validateReceiptId(res.body.receipt_id)).toBe(true);
-      expect(res.body.status).toBe('new_receipt');
+      // The internal status is not shown to the customer (PRD FR-4.9.3); it is stored as new_receipt.
+      expect(res.body).not.toHaveProperty('status');
+      expect(res.body.message).toBe(CUSTOMER_GUIDANCE_MESSAGE);
       expect(res.body.access_token).toMatch(/^[a-f0-9]{64}$/);
       expect(JSON.stringify(res.body)).not.toContain('Buyer@Example.com');
 
@@ -79,6 +82,15 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
         ['receipt', 'Buyer@Example.com', 'pending', 0]
       ]);
       expect(events.map(e => e.idempotency_key).sort()).toEqual([`admin-${estimate.id}`, `receipt-${estimate.id}`]);
+
+      // The customer e-mail shows the fixed guidance and no internal status; the admin one keeps it.
+      const receipt = events.find(e => e.email_type === 'receipt');
+      const admin = events.find(e => e.email_type === 'admin_notification');
+      expect(receipt.body).toContain(CUSTOMER_GUIDANCE_MESSAGE);
+      expect(receipt.body).toContain(res.body.receipt_id);
+      expect(receipt.body).not.toMatch(/new_receipt|under_review|quoted|negotiating|customer_review|상태/);
+      expect(receipt.body).not.toMatch(/빠른 시일|신속|즉시/);
+      expect(admin.body).toContain('new_receipt');
     });
 
     it('numbers consecutive estimates 001, 002, ... of the same day', async () => {
@@ -175,7 +187,11 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
       const res = await read(receipt, token);
 
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ receipt_id: receipt, category: 'shoes', status: 'new_receipt' });
+      expect(res.body).toMatchObject({ receipt_id: receipt, category: 'shoes', message: CUSTOMER_GUIDANCE_MESSAGE });
+      // The internal status is not part of the customer's answer (PRD FR-4.9.3).
+      expect(Object.keys(res.body)).not.toContain('status');
+      expect(res.body).not.toHaveProperty('status');
+      expect(JSON.stringify(res.body)).not.toContain('new_receipt');
       expect(res.body.specification_json).toEqual(SHOE_SPEC);
       expect(JSON.stringify(res.body)).not.toMatch(/reader@example|010-1111|Reader/);
 
@@ -350,12 +366,13 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
       expect(Object.keys(res.body).sort()).toEqual([
         'category',
         'created_at',
+        'message',
         'receipt_id',
         'specification_json',
-        'status',
         'updated_at'
       ]);
-      expect(JSON.stringify(res.body)).not.toMatch(/Secret Person|look@example|consent|customer_type/);
+      expect(res.body.message).toBe(CUSTOMER_GUIDANCE_MESSAGE);
+      expect(JSON.stringify(res.body)).not.toMatch(/Secret Person|look@example|consent|customer_type|new_receipt/);
     });
 
     describe('per environment', () => {

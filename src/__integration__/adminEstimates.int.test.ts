@@ -279,7 +279,7 @@ describeIntegration('admin estimates on a real PostgreSQL', ({ url }) => {
 
       expect(res.status).toBe(200);
       expect(Object.keys(res.body).sort()).toEqual([
-        'category', 'created_at', 'receipt_id', 'specification_json', 'status', 'updated_at'
+        'category', 'created_at', 'message', 'receipt_id', 'specification_json', 'updated_at'
       ]);
       expect(JSON.stringify(res.body)).not.toMatch(/Kim|Acme|business_brand|privacy_consent|dev-draft/);
     });

@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 import { generateEstimateAccessToken } from '../utils/token';
 import { queueEmailInTransaction } from './emailService';
+import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { runInTransaction } from '../utils/transactionRetry';
 import logger from '../utils/logger';
 import type { CustomerType } from '../types/models';
@@ -20,19 +21,20 @@ export interface CreateEstimateRequest {
   privacy_consent_version: string;
 }
 
+// What the customer is told after a request: no internal status (PRD FR-4.9.3). The status of a
+// new request is always new_receipt; it stays in the database and in the admin API only.
 export interface CreateEstimateResponse {
   success: boolean;
   receipt_id: string;
   estimate_id: string;
-  status: string;
   access_token: string;
   created_at: string;
 }
 
+// The customer lookup: the specification and the dates, never the internal status.
 export interface EstimateDetails {
   receipt_id: string;
   category: string;
-  status: string;
   specification_json: unknown;
   created_at: string;
   updated_at: string;
@@ -43,7 +45,6 @@ export interface EstimateDetails {
  */
 function buildCustomerReceiptEmail(data: {
   receipt_id: string;
-  status: string;
   created_at: string;
 }): string {
   const createdAt = new Date(data.created_at).toLocaleString('ko-KR', {
@@ -54,22 +55,17 @@ function buildCustomerReceiptEmail(data: {
     <html>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
         <h2>Bridge Path 접수 완료</h2>
-        <p>귀사의 견적 요청이 정상적으로 접수되었습니다.</p>
+        <p>${CUSTOMER_GUIDANCE_MESSAGE}</p>
         <table style="border-collapse: collapse; margin: 20px 0;">
           <tr>
             <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수번호</td>
             <td style="padding: 10px; border: 1px solid #ddd;">${data.receipt_id}</td>
           </tr>
           <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">상태</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">${data.status}</td>
-          </tr>
-          <tr>
             <td style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9;">접수일시</td>
             <td style="padding: 10px; border: 1px solid #ddd;">${createdAt}</td>
           </tr>
         </table>
-        <p>저희 팀에서 빠른 시일 내에 연락드리겠습니다.</p>
         <p>문의사항이 있으시면 contact@bridgepath.co.kr로 연락주세요.</p>
       </body>
     </html>
@@ -173,7 +169,6 @@ export async function createEstimate(
         if (request.customer_email) {
           const receiptEmailBody = buildCustomerReceiptEmail({
             receipt_id,
-            status: 'new_receipt',
             created_at: estimate.created_at
           });
 
@@ -220,7 +215,6 @@ export async function createEstimate(
       success: true,
       receipt_id: created.receipt_id,
       estimate_id: created.estimate.id,
-      status: 'new_receipt',
       access_token: created.token,
       created_at: new Date(created.estimate.created_at).toISOString()
     };
@@ -260,7 +254,7 @@ export async function getEstimateByReceiptId(
 
     const query = `
       SELECT
-        e.receipt_id, e.category, e.status, e.specification_json,
+        e.receipt_id, e.category, e.specification_json,
         e.created_at, e.updated_at
       FROM estimates e
       WHERE e.id = $1
@@ -281,7 +275,6 @@ export async function getEstimateByReceiptId(
     return {
       receipt_id: row.receipt_id,
       category: row.category,
-      status: row.status,
       specification_json: row.specification_json,
       created_at: new Date(row.created_at).toISOString(),
       updated_at: new Date(row.updated_at).toISOString()

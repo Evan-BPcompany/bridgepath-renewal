@@ -10,6 +10,7 @@ import type { Express } from 'express';
 import logger from '../utils/logger';
 import { createApp } from '../app';
 import { PROFILE, withMultipartProfile } from './helpers/customerFixtures';
+import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { hashEstimateToken } from '../utils/token';
@@ -54,8 +55,10 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
       const res = await post().send({ ...PROFILE, category: 'shoes', specification_json: SPEC, customer_email: 'buyer@example.com' });
 
       expect(res.status).toBe(201);
-      expect(Object.keys(res.body).sort()).toEqual(['access_token', 'created_at', 'receipt_id', 'status', 'success']);
-      expect(res.body).toMatchObject({ success: true, receipt_id: 'BP20261013001', status: 'new_receipt' });
+      expect(Object.keys(res.body).sort()).toEqual(['access_token', 'created_at', 'message', 'receipt_id', 'success']);
+      expect(res.body).toMatchObject({ success: true, receipt_id: 'BP20261013001', message: CUSTOMER_GUIDANCE_MESSAGE });
+      // The service result still carries the internal status; the customer must not get it.
+      expect(res.body).not.toHaveProperty('status');
       expect(JSON.stringify(res.body)).not.toContain('internal-estimate-uuid');
       expect(res.body).not.toHaveProperty('estimate_id');
     });
@@ -241,7 +244,10 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
       const res = await request(app).get('/api/estimates/BP20261013001?token=my-secret-token');
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual(estimate);
+      // The service result below still has an internal status; the answer must not.
+      const { status: _internal, ...visible } = estimate;
+      expect(res.body).toEqual({ ...visible, message: CUSTOMER_GUIDANCE_MESSAGE });
+      expect(res.body).not.toHaveProperty('status');
       expect(lookup).toHaveBeenCalledWith('BP20261013001', hashEstimateToken('my-secret-token'));
       expect(JSON.stringify(lookup.mock.calls)).not.toContain('my-secret-token');
     });

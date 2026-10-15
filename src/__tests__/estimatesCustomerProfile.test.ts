@@ -284,7 +284,7 @@ describe('customer type and privacy consent on POST /api/estimates', () => {
     it('the 201 answer carries no customer type, name, consent or version', async () => {
       const res = await json();
 
-      expect(Object.keys(res.body).sort()).toEqual(['access_token', 'created_at', 'receipt_id', 'status', 'success']);
+      expect(Object.keys(res.body).sort()).toEqual(['access_token', 'created_at', 'message', 'receipt_id', 'success']);
       expect(JSON.stringify(res.body)).not.toMatch(/customer_type|consent|individual_startup|dev-draft/);
     });
 
@@ -304,9 +304,9 @@ describe('customer type and privacy consent on POST /api/estimates', () => {
       expect(Object.keys(res.body).sort()).toEqual([
         'category',
         'created_at',
+        'message',
         'receipt_id',
         'specification_json',
-        'status',
         'updated_at'
       ]);
     });

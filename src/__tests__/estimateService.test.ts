@@ -77,9 +77,10 @@ describe('estimate service (fake database)', () => {
         success: true,
         receipt_id: 'BP20261013001',
         estimate_id: 'est-1',
-        status: 'new_receipt',
         created_at: '2026-10-13T03:00:00.000Z'
       });
+      // The internal status stays in the database (new_receipt); the customer-facing result has none.
+      expect(result).not.toHaveProperty('status');
       expect(db.client.release).toHaveBeenCalledTimes(1);
     });
 
@@ -336,11 +337,14 @@ describe('estimate service (fake database)', () => {
       expect(result).toEqual({
         receipt_id: 'BP20261013001',
         category: 'shoes',
-        status: 'new_receipt',
         specification_json: { quantity: 500 },
         created_at: '2026-10-13T03:00:00.000Z',
         updated_at: '2026-10-13T03:00:00.000Z'
       });
+      expect(result).not.toHaveProperty('status');
+      // The lookup does not even read the status column.
+      const select = find('FROM estimates e')!;
+      expect(select.sql).not.toMatch(/\bstatus\b/);
       expect(statements()[0]).toBe('BEGIN');
       expect(statements()[statements().length - 1]).toBe('COMMIT');
     });

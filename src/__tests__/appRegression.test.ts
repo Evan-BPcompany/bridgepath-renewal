@@ -178,7 +178,7 @@ describe('App regression after the app.ts split', () => {
       expect(res.status).toBe(200);
       expect(res.body.receipt_id).toBe('BP20261013001');
       expect(Object.keys(res.body).sort()).toEqual(
-        ['category', 'created_at', 'receipt_id', 'specification_json', 'status', 'updated_at']
+        ['category', 'created_at', 'message', 'receipt_id', 'specification_json', 'updated_at']
       );
     });
 
