@@ -120,6 +120,10 @@ describe('Admin estimates API (mocked database)', () => {
       status: 'new_receipt',
       company_name: 'Acme',
       customer_name: 'Kim',
+      customer_type: 'business_brand',
+      // Present in the row on purpose: the list must not pass these on.
+      privacy_consent_at: new Date('2026-10-13T01:00:00Z'),
+      privacy_consent_version: 'dev-draft',
       customer_email: 'buyer@example.com',
       customer_phone: '010-1234-5678',
       specification_json: { secret: 'spec' },
@@ -138,6 +142,53 @@ describe('Admin estimates API (mocked database)', () => {
         }
         return undefined;
       };
+    });
+
+    it('shows the customer type in each list item (FR-5.2) and nothing of the consent', async () => {
+      const res = await request(app).get('/admin/estimates').set('Cookie', authCookie('manager'));
+
+      expect(res.body.data[0].customer_type).toBe('business_brand');
+      const text = JSON.stringify(res.body);
+      expect(text).not.toMatch(/privacy_consent|dev-draft/);
+      const listQuery = db.state.queries.find(q => q.sql.includes('ORDER BY'))!;
+      expect(listQuery.sql).toContain('e.customer_type');
+      expect(listQuery.sql).not.toContain('privacy_consent');
+    });
+
+    it('shows null for the customer type of a request from before migration 012', async () => {
+      db.state.handler = sql => {
+        if (sql.includes('COUNT(*)::int AS total')) {
+          return { rows: [{ total: 2 }] };
+        }
+        if (sql.includes('ORDER BY')) {
+          return { rows: [{ ...row, customer_type: null }, { ...row, customer_type: undefined }] };
+        }
+        return undefined;
+      };
+
+      const res = await request(app).get('/admin/estimates').set('Cookie', authCookie('admin'));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.map((item: { customer_type: unknown }) => item.customer_type)).toEqual([null, null]);
+    });
+
+    it('does not search or sort by the customer type or the consent: the WHERE clause and the ordering are unchanged', async () => {
+      await request(app)
+        .get('/admin/estimates')
+        .query({ q: 'business_brand', sort: 'status', order: 'asc' })
+        .set('Cookie', authCookie('admin'));
+
+      const listQuery = db.state.queries.find(q => q.sql.includes('ORDER BY'))!;
+      expect(listQuery.sql).toContain('ORDER BY e.status ASC, e.id ASC');
+      const where = listQuery.sql.slice(listQuery.sql.indexOf('FROM estimates e'), listQuery.sql.indexOf('ORDER BY'));
+      expect(where).not.toMatch(/customer_type|privacy_consent/);
+      const parsed = parseListQuery({ q: 'business_brand' });
+      expect(parsed.valid).toBe(true);
+      if (parsed.valid) {
+        const { clause } = buildListWhere(parsed.value);
+        expect(clause).toContain('ILIKE');
+        expect(clause).not.toMatch(/customer_type|privacy_consent/);
+      }
     });
 
     it('applies defaults and returns pagination metadata', async () => {
@@ -162,6 +213,7 @@ describe('Admin estimates API (mocked database)', () => {
           'company_name',
           'created_at',
           'customer_name',
+          'customer_type',
           'file_count',
           'id',
           'receipt_id',
@@ -289,7 +341,7 @@ describe('Admin estimates API (mocked database)', () => {
   });
 
   describe('GET /admin/estimates/:id (detail)', () => {
-    const detailRows = () => {
+    const detailRows = (estimateOverrides: Record<string, unknown> = {}) => {
       db.state.handler = sql => {
         if (sql.includes('FROM estimates WHERE id')) {
           return {
@@ -303,10 +355,14 @@ describe('Admin estimates API (mocked database)', () => {
                 customer_email: 'buyer@example.com',
                 customer_phone: '010-1234-5678',
                 company_name: 'Acme',
+                customer_type: 'business_brand',
+                privacy_consent_at: new Date('2026-10-13T00:59:30Z'),
+                privacy_consent_version: 'dev-draft',
                 specification_json: { quantity: 100 },
                 is_consultation: false,
                 created_at: new Date('2026-10-13T01:00:00Z'),
-                updated_at: new Date('2026-10-13T02:00:00Z')
+                updated_at: new Date('2026-10-13T02:00:00Z'),
+                ...estimateOverrides
               }
             ]
           };
@@ -379,6 +435,60 @@ describe('Admin estimates API (mocked database)', () => {
       expect(res.body.code).toBe('ESTIMATE_NOT_FOUND');
       const messages = warnSpy.mock.calls.map(call => String(call[0]));
       expect(messages.some(m => m.startsWith('admin_audit') && m.includes('"result":"not_found"'))).toBe(true);
+    });
+
+    it('shows the customer type and the consent (time and version) to both roles', async () => {
+      detailRows();
+
+      for (const role of ['admin', 'manager'] as const) {
+        const res = await request(app)
+          .get(`/admin/estimates/${ESTIMATE_ID}`)
+          .set('Cookie', authCookie(role));
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.estimate).toMatchObject({
+          customer_type: 'business_brand',
+          privacy_consent_at: '2026-10-13T00:59:30.000Z',
+          privacy_consent_version: 'dev-draft'
+        });
+      }
+      const query = db.state.queries.find(q => q.sql.includes('FROM estimates WHERE id'))!;
+      expect(query.sql.replace(/\s+/g, ' ')).toContain(
+        'customer_type, privacy_consent_at, privacy_consent_version'
+      );
+    });
+
+    it('answers null for all three when the request is from before migration 012 (a legacy row)', async () => {
+      detailRows({ customer_type: null, privacy_consent_at: null, privacy_consent_version: null });
+
+      const res = await request(app).get(`/admin/estimates/${ESTIMATE_ID}`).set('Cookie', authCookie('admin'));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.estimate).toMatchObject({
+        customer_type: null,
+        privacy_consent_at: null,
+        privacy_consent_version: null
+      });
+    });
+
+    it('also answers null when the columns are missing from the row', async () => {
+      detailRows({ customer_type: undefined, privacy_consent_at: undefined, privacy_consent_version: undefined });
+
+      const res = await request(app).get(`/admin/estimates/${ESTIMATE_ID}`).set('Cookie', authCookie('manager'));
+
+      expect(res.body.data.estimate.customer_type).toBeNull();
+      expect(res.body.data.estimate.privacy_consent_at).toBeNull();
+      expect(res.body.data.estimate.privacy_consent_version).toBeNull();
+    });
+
+    it('does not show them to a caller without a session, and runs no estimate query', async () => {
+      detailRows();
+
+      const res = await request(app).get(`/admin/estimates/${ESTIMATE_ID}`);
+
+      expect(res.status).toBe(401);
+      expect(JSON.stringify(res.body)).not.toMatch(/privacy_consent|customer_type/);
+      expect(sqlOf(db.state).filter(s => s.includes('FROM estimates'))).toHaveLength(0);
     });
 
     it('returns estimate, file metadata, history and memos to both roles', async () => {

@@ -3,6 +3,7 @@ jest.mock('../config/database', () => ({ getPool: jest.fn() }));
 import request from 'supertest';
 import type { Express } from 'express';
 import logger from '../utils/logger';
+import { hashEstimateToken } from '../utils/token';
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
 import {
@@ -67,7 +68,7 @@ describeIntegration('admin estimates on a real PostgreSQL', ({ url }) => {
       expect(receiptsOf(res)).toEqual(['BP20261004001', 'BP20261003002', 'BP20261003001', 'BP20261002001', 'BP20261001001']);
       expect(res.body.pagination).toEqual({ page: 1, limit: 20, total: 5, total_pages: 1 });
       expect(Object.keys(res.body.data[0]).sort()).toEqual([
-        'category', 'company_name', 'created_at', 'customer_name', 'file_count', 'id', 'receipt_id', 'status', 'updated_at'
+        'category', 'company_name', 'created_at', 'customer_name', 'customer_type', 'file_count', 'id', 'receipt_id', 'status', 'updated_at'
       ]);
     });
 
@@ -158,6 +159,129 @@ describeIntegration('admin estimates on a real PostgreSQL', ({ url }) => {
     it('a manager can list as well; a request without a session cannot', async () => {
       expect((await get('/admin/estimates', manager)).status).toBe(200);
       expect((await request(app).get('/admin/estimates')).status).toBe(401);
+    });
+  });
+
+  describe('customer type and privacy consent', () => {
+    const CONSENT_AT = '2026-10-16T01:02:03.000Z';
+    let withConsent: { id: string; receipt_id: string };
+    let legacy: { id: string; receipt_id: string };
+
+    beforeEach(async () => {
+      // One request as the API stores it now, one as it was stored before migration 012.
+      withConsent = await insertEstimate(suite().db, {
+        receipt_id: 'BP20261016001',
+        customer_name: 'Kim',
+        company_name: 'Acme',
+        customer_type: 'business_brand',
+        privacy_consent_at: CONSENT_AT,
+        privacy_consent_version: 'dev-draft',
+        created_at: '2026-10-16T02:00:00Z'
+      });
+      legacy = await insertEstimate(suite().db, {
+        receipt_id: 'BP20261015001',
+        customer_name: 'Old',
+        created_at: '2026-10-15T02:00:00Z'
+      });
+    });
+
+    it('the list shows the customer type, null for the legacy request, and no consent field', async () => {
+      const res = await get('/admin/estimates');
+
+      expect(res.status).toBe(200);
+      const byReceipt = Object.fromEntries(
+        res.body.data.map((item: { receipt_id: string; customer_type: string | null }) => [item.receipt_id, item.customer_type])
+      );
+      expect(byReceipt).toEqual({ BP20261016001: 'business_brand', BP20261015001: null });
+      expect(JSON.stringify(res.body)).not.toMatch(/privacy_consent|dev-draft/);
+    });
+
+    it('the detail shows the type, the consent time (ISO) and the consent version to admin and manager', async () => {
+      for (const session of [admin, manager]) {
+        const res = await get(`/admin/estimates/${withConsent.id}`, session);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.estimate).toMatchObject({
+          customer_type: 'business_brand',
+          privacy_consent_at: CONSENT_AT,
+          privacy_consent_version: 'dev-draft'
+        });
+      }
+    });
+
+    it('the detail of a legacy request answers 200 with null for all three', async () => {
+      const res = await get(`/admin/estimates/${legacy.id}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.estimate).toMatchObject({
+        receipt_id: 'BP20261015001',
+        customer_type: null,
+        privacy_consent_at: null,
+        privacy_consent_version: null
+      });
+    });
+
+    it('both detail answers still carry no secrets: no S3 key, scan result, token or hash', async () => {
+      await suite().db('files').insert({
+        estimate_id: withConsent.id, filename: 'a.png', file_size: 1, mime_type: 'image/png',
+        s3_key: 'estimates/secret-key/a.png', virus_scan_result: 'internal scanner output'
+      });
+      await suite().db('estimate_access_tokens').insert({
+        estimate_id: withConsent.id, receipt_id: withConsent.receipt_id, token: 'token-hash-xyz'
+      });
+
+      const text = JSON.stringify((await get(`/admin/estimates/${withConsent.id}`)).body);
+
+      expect(text).not.toMatch(/secret-key|internal scanner output|token-hash-xyz|s3_key|password_hash/);
+    });
+
+    it('a status change keeps the type and the consent of a request, and works on a legacy request', async () => {
+      expect((await patchStatus(withConsent.id, { to_status: 'under_review' })).status).toBe(200);
+      expect((await patchStatus(legacy.id, { to_status: 'under_review' })).status).toBe(200);
+
+      const kept = await suite().db('estimates').where({ id: withConsent.id }).first();
+      expect(kept.status).toBe('under_review');
+      expect(kept.customer_type).toBe('business_brand');
+      expect(new Date(kept.privacy_consent_at).toISOString()).toBe(CONSENT_AT);
+      expect(kept.privacy_consent_version).toBe('dev-draft');
+
+      const old = await suite().db('estimates').where({ id: legacy.id }).first();
+      expect(old.status).toBe('under_review');
+      expect(old.customer_type).toBeNull();
+      expect(old.privacy_consent_at).toBeNull();
+      expect(old.privacy_consent_version).toBeNull();
+    });
+
+    it('search and sort are unchanged: the type and the consent are not searchable', async () => {
+      expect(receiptsOf(await get('/admin/estimates?q=business_brand'))).toEqual([]);
+      expect(receiptsOf(await get('/admin/estimates?q=dev-draft'))).toEqual([]);
+      expect(receiptsOf(await get('/admin/estimates?q=Acme'))).toEqual(['BP20261016001']);
+      expect(receiptsOf(await get('/admin/estimates?sort=receipt_id&order=asc'))).toEqual(['BP20261015001', 'BP20261016001']);
+      expect((await get('/admin/estimates?sort=customer_type')).status).toBe(400);
+    });
+
+    it('is not shown without a session', async () => {
+      const list = await request(app).get('/admin/estimates');
+      const detail = await request(app).get(`/admin/estimates/${withConsent.id}`);
+
+      expect([list.status, detail.status]).toEqual([401, 401]);
+      expect(JSON.stringify([list.body, detail.body])).not.toMatch(/privacy_consent|customer_type|business_brand/);
+    });
+
+    it('the customer lookup with the access token still shows no personal data and no consent', async () => {
+      await suite().db('estimate_access_tokens').insert({
+        estimate_id: withConsent.id, receipt_id: withConsent.receipt_id, token: hashEstimateToken('customer-token')
+      });
+
+      const res = await request(app)
+        .get(`/api/estimates/${withConsent.receipt_id}`)
+        .query({ token: 'customer-token' });
+
+      expect(res.status).toBe(200);
+      expect(Object.keys(res.body).sort()).toEqual([
+        'category', 'created_at', 'receipt_id', 'specification_json', 'status', 'updated_at'
+      ]);
+      expect(JSON.stringify(res.body)).not.toMatch(/Kim|Acme|business_brand|privacy_consent|dev-draft/);
     });
   });
 
