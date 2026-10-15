@@ -5,6 +5,7 @@ import { generateEstimateAccessToken } from '../utils/token';
 import { queueEmailInTransaction } from './emailService';
 import { runInTransaction } from '../utils/transactionRetry';
 import logger from '../utils/logger';
+import type { CustomerType } from '../types/models';
 
 export interface CreateEstimateRequest {
   category: string;
@@ -13,6 +14,10 @@ export interface CreateEstimateRequest {
   customer_email?: string;
   customer_phone?: string;
   company_name?: string;
+  customer_type: CustomerType;
+  // The version of the consent text the customer saw. The time of the consent is not a field:
+  // it is the database time of the insert (privacy_consent_at = CURRENT_TIMESTAMP).
+  privacy_consent_version: string;
 }
 
 export interface CreateEstimateResponse {
@@ -128,9 +133,10 @@ export async function createEstimate(
         const estimateQuery = `
           INSERT INTO estimates (
             receipt_id, category, customer_name, customer_email,
-            customer_phone, company_name, specification_json, status
+            customer_phone, company_name, specification_json, status,
+            customer_type, privacy_consent_at, privacy_consent_version
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, 'new_receipt')
+          VALUES ($1, $2, $3, $4, $5, $6, $7, 'new_receipt', $8, CURRENT_TIMESTAMP, $9)
           RETURNING id, receipt_id, status, created_at
         `;
 
@@ -141,7 +147,9 @@ export async function createEstimate(
           request.customer_email || null,
           request.customer_phone || null,
           request.company_name || null,
-          JSON.stringify(request.specification_json)
+          JSON.stringify(request.specification_json),
+          request.customer_type,
+          request.privacy_consent_version
         ]);
 
         if (estimateResult.rows.length === 0) {

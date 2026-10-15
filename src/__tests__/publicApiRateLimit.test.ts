@@ -20,6 +20,7 @@ import { createApp } from '../app';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { createFakeDb } from './helpers/adminTestUtils';
+import { PROFILE } from './helpers/customerFixtures';
 
 // The public customer API limiters: POST /api/estimates (default 10 per hour per IP) and
 // GET /api/estimates/:receipt_id (default 30 per 15 minutes per IP). No real database, S3 or
@@ -69,7 +70,7 @@ describe('public customer API rate limits', () => {
   const makeApp = (overrides: Partial<RateLimitSettings>, trustProxy = 0): Express =>
     createApp({ rateLimits: limits(overrides), trustProxy });
 
-  const valid = { category: 'shoes', specification_json: SPEC, customer_email: 'buyer@example.com' };
+  const valid = { ...PROFILE, category: 'shoes', specification_json: SPEC, customer_email: 'buyer@example.com' };
   const post = (app: Express, ip?: string, body: object = valid) => {
     const req = request(app).post('/api/estimates');
     if (ip) {
@@ -171,6 +172,10 @@ describe('public customer API rate limits', () => {
         .field('category', 'shoes')
         .field('specification_json', JSON.stringify(SPEC))
         .field('customer_email', 'buyer@example.com')
+        .field('customer_type', 'individual_startup')
+        .field('customer_name', 'Kim')
+        .field('privacy_consent', 'true')
+        .field('privacy_consent_version', 'dev-draft')
         .attach('files', PNG, { filename: 'logo.png', contentType: 'image/png' });
 
       expect(blocked.status).toBe(429);

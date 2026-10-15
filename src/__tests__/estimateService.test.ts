@@ -11,6 +11,7 @@ import { queueEmailInTransaction } from '../services/emailService';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { hashEstimateToken } from '../utils/token';
 import { createFakeDb } from './helpers/adminTestUtils';
+import { SERVICE_PROFILE } from './helpers/customerFixtures';
 import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 
 const queueEmail = queueEmailInTransaction as jest.Mock;
@@ -39,6 +40,7 @@ describe('estimate service (fake database)', () => {
 
   describe('createEstimate', () => {
     const request = {
+      ...SERVICE_PROFILE,
       category: 'shoes',
       specification_json: { quantity: 500 },
       customer_name: 'Kim',
@@ -91,12 +93,33 @@ describe('estimate service (fake database)', () => {
         'buyer@example.com',
         '010-1234-5678',
         'Acme',
-        JSON.stringify({ quantity: 500 })
+        JSON.stringify({ quantity: 500 }),
+        'individual_startup',
+        'dev-draft'
       ]);
     });
 
+    it('stores the customer type and the consent version, and stamps the consent time with the database time', async () => {
+      await createEstimate({
+        ...request,
+        customer_type: 'business_brand',
+        privacy_consent_version: '2026-v1',
+        // Not part of the request type: whatever a caller adds must not reach the database.
+        ...({ privacy_consent_at: '1999-01-01T00:00:00Z', privacy_consent: true } as object)
+      });
+
+      const insert = find('INSERT INTO estimates')!;
+      expect(insert.sql.replace(/\s+/g, ' ')).toContain(
+        'customer_type, privacy_consent_at, privacy_consent_version'
+      );
+      expect(insert.sql.replace(/\s+/g, ' ')).toContain("'new_receipt', $8, CURRENT_TIMESTAMP, $9)");
+      expect(insert.params).toHaveLength(9);
+      expect(insert.params.slice(7)).toEqual(['business_brand', '2026-v1']);
+      expect(JSON.stringify(insert.params)).not.toContain('1999');
+    });
+
     it('stores NULL for contact details that were not given', async () => {
-      await createEstimate({ category: 'shoes', specification_json: {}, customer_phone: '010-1234-5678' });
+      await createEstimate({ ...SERVICE_PROFILE, category: 'shoes', specification_json: {}, customer_phone: '010-1234-5678' });
 
       const params = find('INSERT INTO estimates')!.params;
       expect(params.slice(2, 6)).toEqual([null, null, '010-1234-5678', null]);

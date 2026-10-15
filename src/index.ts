@@ -1,4 +1,5 @@
 import { config, productionWarnings } from './config/env';
+import { consentWarnings } from './config/privacyConsent';
 import logger from './utils/logger';
 import { createApp } from './app';
 import { initializeEmailWorker } from './services/emailWorker';
@@ -13,6 +14,7 @@ app.listen(PORT, () => {
   console.log(`✓ CORS origins: ${config.corsOrigins.join(', ')}`);
 
   productionWarnings(config).forEach(warning => logger.warn(warning));
+  consentWarnings(config.nodeEnv).forEach(warning => logger.warn(warning));
 
   // Initialize email worker (Phase 2 Day 3)
   if (config.nodeEnv !== 'test') {

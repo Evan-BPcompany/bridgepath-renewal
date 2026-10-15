@@ -9,7 +9,8 @@ import { formatDate, validateReceiptId } from '../utils/receipt-id';
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
 import { createApp } from '../app';
-import { MASTER_ID, SHOE_SPEC, createTestApp, resetData } from './helpers/fixtures';
+import * as privacyConsent from '../config/privacyConsent';
+import { CUSTOMER_PROFILE, MASTER_ID, SHOE_SPEC, createTestApp, resetData } from './helpers/fixtures';
 
 // The customer API on a real PostgreSQL: create an estimate (one transaction: receipt id,
 // estimate, access token, e-mail events), read it back once with the token, and the contact
@@ -21,7 +22,7 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
   let originalAdminEmail: string | undefined;
 
   const create = (body: Record<string, unknown>) =>
-    request(app).post('/api/estimates').send({ category: 'shoes', specification_json: SHOE_SPEC, ...body });
+    request(app).post('/api/estimates').send({ ...CUSTOMER_PROFILE, category: 'shoes', specification_json: SHOE_SPEC, ...body });
   const count = async (table: string) => Number((await suite().db(table).count({ n: '*' }).first())?.n);
   const today = () => formatDate(new Date());
 
@@ -249,6 +250,145 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
     });
   });
 
+  describe('customer type and privacy consent', () => {
+    const SECONDS = 60;
+    const rowOf = async (receiptId: string) => suite().db('estimates').where({ receipt_id: receiptId }).first();
+    // The consent time must be the database's own time: close to now() of the same server.
+    const closeToDatabaseNow = async (receiptId: string): Promise<boolean> => {
+      const result = await suite().db.raw(
+        `SELECT privacy_consent_at BETWEEN now() - make_interval(secs => ?) AND now() + make_interval(secs => 1) AS close
+         FROM estimates WHERE receipt_id = ?`,
+        [SECONDS, receiptId]
+      );
+      return result.rows[0].close === true;
+    };
+    const untouched = async () => {
+      expect(await count('estimates')).toBe(0);
+      expect(await count('estimate_access_tokens')).toBe(0);
+      expect(await count('email_events')).toBe(0);
+      expect(await suite().db('receipt_sequence').select('last_sequence')).toEqual([]);
+    };
+
+    it('stores the customer type, the consent version and the database time of the request (JSON)', async () => {
+      const res = await create({ customer_type: 'business_brand', company_name: 'Acme', customer_email: 'biz@example.com' });
+
+      expect(res.status).toBe(201);
+      const row = await rowOf(res.body.receipt_id);
+      expect(row).toMatchObject({
+        customer_type: 'business_brand',
+        customer_name: 'Kim',
+        company_name: 'Acme',
+        privacy_consent_version: 'dev-draft'
+      });
+      expect(await closeToDatabaseNow(res.body.receipt_id)).toBe(true);
+    });
+
+    it('stores the same for multipart/form-data, where the consent is the text "true"', async () => {
+      const res = await request(app)
+        .post('/api/estimates')
+        .field('category', 'shoes')
+        .field('specification_json', JSON.stringify(SHOE_SPEC))
+        .field('customer_phone', '010-1234-5678')
+        .field('customer_type', 'individual_startup')
+        .field('customer_name', 'Lee')
+        .field('privacy_consent', 'true')
+        .field('privacy_consent_version', 'dev-draft');
+
+      expect(res.status).toBe(201);
+      const row = await rowOf(res.body.receipt_id);
+      expect(row).toMatchObject({
+        customer_type: 'individual_startup',
+        customer_name: 'Lee',
+        company_name: null,
+        privacy_consent_version: 'dev-draft'
+      });
+      expect(await closeToDatabaseNow(res.body.receipt_id)).toBe(true);
+    });
+
+    it('ignores a consent time sent by the client', async () => {
+      const res = await create({ privacy_consent_at: '1999-01-01T00:00:00Z', consent_at: '1999-01-01T00:00:00Z', created_at: '1999-01-01T00:00:00Z' });
+
+      expect(res.status).toBe(201);
+      const row = await rowOf(res.body.receipt_id);
+      expect(new Date(row.privacy_consent_at).getFullYear()).toBeGreaterThanOrEqual(2026);
+      expect(await closeToDatabaseNow(res.body.receipt_id)).toBe(true);
+    });
+
+    it.each([
+      ['no customer type', { customer_type: undefined }],
+      ['an unknown customer type', { customer_type: 'business' }],
+      ['no name', { customer_name: undefined }],
+      ['a business without a company name', { customer_type: 'business_brand', company_name: undefined }],
+      ['no consent', { privacy_consent: undefined }],
+      ['consent false', { privacy_consent: false }],
+      ['consent as the JSON text "true"', { privacy_consent: 'true' }],
+      ['no consent version', { privacy_consent_version: undefined }],
+      ['an unknown consent version', { privacy_consent_version: 'v999' }],
+      ['no contact', { customer_email: undefined }]
+    ])('a request with %s is refused with 400 and nothing is written: no estimate, no number, no e-mail', async (_name, change) => {
+      const res = await create({ customer_email: 'x@example.com', ...change });
+
+      expect(res.status).toBe(400);
+      await untouched();
+    });
+
+    it('a refused request does not use up a receipt number: the next valid request is number 1', async () => {
+      expect((await create({ privacy_consent: false })).status).toBe(400);
+      const ok = await create({ customer_email: 'next@example.com' });
+
+      expect(ok.status).toBe(201);
+      expect(Number(ok.body.receipt_id.slice(-3))).toBe(1);
+    });
+
+    it('the customer lookup shows neither personal data nor the consent', async () => {
+      const created = await create({ customer_email: 'look@example.com', customer_name: 'Secret Person' });
+      const res = await request(app)
+        .get(`/api/estimates/${created.body.receipt_id}`)
+        .query({ token: created.body.access_token });
+
+      expect(res.status).toBe(200);
+      expect(Object.keys(res.body).sort()).toEqual([
+        'category',
+        'created_at',
+        'receipt_id',
+        'specification_json',
+        'status',
+        'updated_at'
+      ]);
+      expect(JSON.stringify(res.body)).not.toMatch(/Secret Person|look@example|consent|customer_type/);
+    });
+
+    describe('per environment', () => {
+      const originalNodeEnv = config.nodeEnv;
+      afterEach(() => {
+        config.nodeEnv = originalNodeEnv;
+      });
+
+      it('production with no approved consent version answers 503 and stores nothing', async () => {
+        config.nodeEnv = 'production';
+
+        const res = await create({ customer_email: 'prod@example.com' });
+
+        expect(res.status).toBe(503);
+        expect(res.body.code).toBe('PRIVACY_CONSENT_NOT_CONFIGURED');
+        await untouched();
+      });
+
+      it('production with an approved version refuses dev-draft (400, nothing stored) and stores the approved one', async () => {
+        config.nodeEnv = 'production';
+        jest.spyOn(privacyConsent, 'getAcceptedConsentVersions').mockReturnValue(['2026-v1']);
+
+        const refused = await create({ customer_email: 'prod@example.com', privacy_consent_version: 'dev-draft' });
+        expect(refused.status).toBe(400);
+        await untouched();
+
+        const ok = await create({ customer_email: 'prod@example.com', privacy_consent_version: '2026-v1' });
+        expect(ok.status).toBe(201);
+        expect((await rowOf(ok.body.receipt_id)).privacy_consent_version).toBe('2026-v1');
+      });
+    });
+  });
+
   describe('rate limits of the public API (in process memory, per IP)', () => {
     const HOUR = 60 * 60 * 1000;
     const QUARTER = 15 * 60 * 1000;
@@ -258,7 +398,7 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
         rateLimits: { login: BIG, api: BIG, mutation: BIG, password: BIG, estimateCreate: BIG, estimateRead: BIG, ...overrides }
       });
     const sendTo = (target: Express, email: string) =>
-      request(target).post('/api/estimates').send({ category: 'shoes', specification_json: SHOE_SPEC, customer_email: email });
+      request(target).post('/api/estimates').send({ ...CUSTOMER_PROFILE, category: 'shoes', specification_json: SHOE_SPEC, customer_email: email });
 
     it('the requests over the limit get 429 and consume no receipt number, estimate or e-mail event', async () => {
       const target = limited({ estimateCreate: { windowMs: HOUR, max: 3 } });

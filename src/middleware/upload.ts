@@ -30,7 +30,8 @@ export class InvalidSpecificationJsonError extends Error {
 
 export function extractMultipartData(
   body: any,
-  files: Express.Multer.File[] | undefined
+  files: Express.Multer.File[] | undefined,
+  options: { multipart?: boolean } = {}
 ): {
   category: string;
   specification_json: any;
@@ -38,6 +39,9 @@ export function extractMultipartData(
   customer_name?: string;
   customer_phone?: string;
   company_name?: string;
+  customer_type?: unknown;
+  privacy_consent?: unknown;
+  privacy_consent_version?: unknown;
   uploadedFiles?: Express.Multer.File[];
 } {
   const category = body.category;
@@ -61,6 +65,13 @@ export function extractMultipartData(
     customer_name: body.customer_name,
     customer_phone: body.customer_phone,
     company_name: body.company_name,
+    customer_type: body.customer_type,
+    // Form data has no booleans: in a multipart request the text "true" stands for true.
+    // Nothing else is converted ("True", "1", "on", "yes" stay what they are and are refused),
+    // and a JSON request must send the real boolean.
+    privacy_consent:
+      options.multipart && body.privacy_consent === 'true' ? true : body.privacy_consent,
+    privacy_consent_version: body.privacy_consent_version,
     uploadedFiles: files
   };
 }

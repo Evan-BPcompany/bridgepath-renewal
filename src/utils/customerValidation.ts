@@ -135,3 +135,106 @@ export function validateCustomerContact(input: CustomerContactInput): CustomerVa
     }
   };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Customer type and privacy consent (PRD FR-4.2). Used by POST /api/estimates before anything is
+// written: the receipt number is taken and the estimate stored only for a request that passes.
+
+export const CUSTOMER_TYPES = ['individual_startup', 'business_brand'] as const;
+export type SubmittedCustomerType = (typeof CUSTOMER_TYPES)[number];
+
+export interface CustomerSubmissionInput extends CustomerContactInput {
+  customer_type?: unknown;
+  privacy_consent?: unknown;
+  privacy_consent_version?: unknown;
+}
+
+export interface CustomerSubmission extends CustomerContact {
+  customer_type: SubmittedCustomerType;
+  privacy_consent_version: string;
+}
+
+export type CustomerSubmissionResult =
+  | { valid: true; value: CustomerSubmission }
+  | { valid: false; errors: FieldError[] };
+
+export interface CustomerSubmissionOptions {
+  // The consent versions the server accepts in this environment (config/privacyConsent.ts).
+  acceptedConsentVersions: readonly string[];
+}
+
+function isMissing(raw: unknown): boolean {
+  return raw === undefined || raw === null || (typeof raw === 'string' && raw.trim() === '');
+}
+
+// The contact rules of validateCustomerContact (an e-mail or a phone number is still enough as
+// contact), plus: a customer type, a name for both types, a company or brand name for
+// business_brand, and the privacy consent with an accepted version. The consent time is not an
+// input: the server stamps it with the database time when it stores the request.
+export function validateCustomerSubmission(
+  input: CustomerSubmissionInput,
+  options: CustomerSubmissionOptions
+): CustomerSubmissionResult {
+  const contact = validateCustomerContact(input);
+  const errors: FieldError[] = contact.valid ? [] : [...contact.errors];
+  const hasError = (field: string): boolean => errors.some(error => error.field === field);
+
+  // Customer type.
+  let customerType: SubmittedCustomerType | undefined;
+  if (isMissing(input.customer_type)) {
+    errors.push({ field: 'customer_type', message: 'is required' });
+  } else if (typeof input.customer_type !== 'string') {
+    errors.push({ field: 'customer_type', message: 'must be a string' });
+  } else if (!(CUSTOMER_TYPES as readonly string[]).includes(input.customer_type.trim())) {
+    errors.push({ field: 'customer_type', message: `must be one of: ${CUSTOMER_TYPES.join(', ')}` });
+  } else {
+    customerType = input.customer_type.trim() as SubmittedCustomerType;
+  }
+
+  // The name is required for both types. (Invalid names are already reported by the contact check.)
+  // (Read from the input itself: the contact check returns no values when it failed on something else.)
+  const scratch: FieldError[] = [];
+  const name = normalize(input.customer_name, 'customer_name', scratch);
+  if (name === undefined && !hasError('customer_name')) {
+    errors.push({ field: 'customer_name', message: 'is required' });
+  }
+
+  // A business or brand needs a company or brand name (stored in company_name).
+  const company = normalize(input.company_name, 'company_name', scratch);
+  if (customerType === 'business_brand' && company === undefined && !hasError('company_name')) {
+    errors.push({ field: 'company_name', message: 'is required for customer_type business_brand' });
+  }
+
+  // Consent: exactly the boolean true. (Form data has no booleans: the route turns the text
+  // "true" of a multipart request into true before it gets here.)
+  if (input.privacy_consent === undefined || input.privacy_consent === null) {
+    errors.push({ field: 'privacy_consent', message: 'is required' });
+  } else if (input.privacy_consent !== true) {
+    errors.push({ field: 'privacy_consent', message: 'must be true' });
+  }
+
+  // Version of the consent text the customer saw: must be one the server knows.
+  let consentVersion: string | undefined;
+  if (isMissing(input.privacy_consent_version)) {
+    errors.push({ field: 'privacy_consent_version', message: 'is required' });
+  } else if (typeof input.privacy_consent_version !== 'string') {
+    errors.push({ field: 'privacy_consent_version', message: 'must be a string' });
+  } else if (!options.acceptedConsentVersions.includes(input.privacy_consent_version.trim())) {
+    errors.push({ field: 'privacy_consent_version', message: 'is not an accepted consent version' });
+  } else {
+    consentVersion = input.privacy_consent_version.trim();
+  }
+
+  if (errors.length > 0 || !contact.valid || customerType === undefined || consentVersion === undefined) {
+    return { valid: false, errors };
+  }
+
+  return {
+    valid: true,
+    value: {
+      ...contact.value,
+      customer_type: customerType,
+      privacy_consent_version: consentVersion
+    }
+  };
+}

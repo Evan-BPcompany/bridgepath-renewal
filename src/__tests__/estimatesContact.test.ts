@@ -9,6 +9,7 @@ jest.mock('../utils/specification', () => ({
 
 import request from 'supertest';
 import { createApp } from '../app';
+import { PROFILE, withMultipartProfile } from './helpers/customerFixtures';
 import { createEstimate } from '../services/estimateService';
 
 const createdResult = {
@@ -23,7 +24,7 @@ const createdResult = {
 describe('POST /api/estimates contact policy (email OR phone)', () => {
   // Ten requests from one IP in one app: keep clear of the default creation limit.
   const app = createApp({ rateLimits: { estimateCreate: { windowMs: 60 * 60 * 1000, max: 1000 } } });
-  const base = { category: 'eyewear', specification_json: { quantity: 10 } };
+  const base = { ...PROFILE, category: 'eyewear', specification_json: { quantity: 10 } };
 
   beforeEach(() => {
     (createEstimate as jest.Mock).mockReset();
@@ -125,17 +126,22 @@ describe('POST /api/estimates contact policy (email OR phone)', () => {
   });
 
   it('applies the same rule to multipart form requests', async () => {
-    const missing = await request(app)
-      .post('/api/estimates')
-      .field('category', 'eyewear')
-      .field('specification_json', JSON.stringify({ quantity: 10 }));
+    const missing = await withMultipartProfile(
+      request(app)
+        .post('/api/estimates')
+        .field('category', 'eyewear')
+        .field('specification_json', JSON.stringify({ quantity: 10 }))
+    );
     expect(missing.status).toBe(400);
+    expect(missing.body.error).toBe('Missing required contact: customer_email or customer_phone');
 
-    const ok = await request(app)
-      .post('/api/estimates')
-      .field('category', 'eyewear')
-      .field('specification_json', JSON.stringify({ quantity: 10 }))
-      .field('customer_phone', '010-1234-5678');
+    const ok = await withMultipartProfile(
+      request(app)
+        .post('/api/estimates')
+        .field('category', 'eyewear')
+        .field('specification_json', JSON.stringify({ quantity: 10 }))
+        .field('customer_phone', '010-1234-5678')
+    );
     expect(ok.status).toBe(201);
   });
 });

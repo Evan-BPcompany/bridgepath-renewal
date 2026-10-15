@@ -13,6 +13,15 @@ export const PASSWORD = 'Correct-Horse-9';
 export const NEW_PASSWORD = 'Another-Passw0rd!';
 export const WRONG_PASSWORD = 'Wrong-Horse-0000';
 
+// What every valid estimate request carries besides the specification and a contact:
+// customer type, name and privacy consent (the version is accepted outside production).
+export const CUSTOMER_PROFILE = {
+  customer_type: 'individual_startup',
+  customer_name: 'Kim',
+  privacy_consent: true,
+  privacy_consent_version: 'dev-draft'
+} as const;
+
 export const SHOE_SPEC = {
   schema_version: '1.0',
   shoe_type: 'Running',

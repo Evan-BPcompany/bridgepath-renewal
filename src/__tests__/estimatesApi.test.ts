@@ -9,6 +9,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import logger from '../utils/logger';
 import { createApp } from '../app';
+import { PROFILE, withMultipartProfile } from './helpers/customerFixtures';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { hashEstimateToken } from '../utils/token';
@@ -50,7 +51,7 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
     const post = () => request(app).post('/api/estimates');
 
     it('answers 201 with exactly the public fields and never exposes the internal estimate id', async () => {
-      const res = await post().send({ category: 'shoes', specification_json: SPEC, customer_email: 'buyer@example.com' });
+      const res = await post().send({ ...PROFILE, category: 'shoes', specification_json: SPEC, customer_email: 'buyer@example.com' });
 
       expect(res.status).toBe(201);
       expect(Object.keys(res.body).sort()).toEqual(['access_token', 'created_at', 'receipt_id', 'status', 'success']);
@@ -61,6 +62,7 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
 
     it('passes the category, the specification and the trimmed contact details to the service', async () => {
       await post().send({
+        ...PROFILE,
         category: 'shoes',
         specification_json: SPEC,
         customer_email: ' buyer@example.com ',
@@ -73,15 +75,19 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
         customer_email: 'buyer@example.com',
         customer_name: 'Kim',
         customer_phone: undefined,
-        company_name: undefined
+        company_name: undefined,
+        customer_type: 'individual_startup',
+        privacy_consent_version: 'dev-draft'
       });
     });
 
     it('accepts the specification as a JSON string in a multipart form', async () => {
-      const res = await post()
-        .field('category', 'shoes')
-        .field('specification_json', JSON.stringify(SPEC))
-        .field('customer_phone', '010-1234-5678');
+      const res = await withMultipartProfile(
+        post()
+          .field('category', 'shoes')
+          .field('specification_json', JSON.stringify(SPEC))
+          .field('customer_phone', '010-1234-5678')
+      );
 
       expect(res.status).toBe(201);
       expect(create.mock.calls[0][0].specification_json).toEqual(SPEC);
@@ -160,10 +166,12 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
 
     describe('with files', () => {
       const attach = () =>
-        post()
-          .field('category', 'shoes')
-          .field('specification_json', JSON.stringify(SPEC))
-          .field('customer_email', 'buyer@example.com');
+        withMultipartProfile(
+          post()
+            .field('category', 'shoes')
+            .field('specification_json', JSON.stringify(SPEC))
+            .field('customer_email', 'buyer@example.com')
+        );
 
       it('returns each file with id, filename, size and status only (never the S3 key)', async () => {
         uploadFiles.mockResolvedValue([
@@ -209,7 +217,7 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
     it('answers 500 without internal details when the service fails', async () => {
       create.mockRejectedValue(new Error('relation "estimates" does not exist'));
 
-      const res = await post().send({ category: 'shoes', specification_json: SPEC, customer_email: 'a@b.co' });
+      const res = await post().send({ ...PROFILE, category: 'shoes', specification_json: SPEC, customer_email: 'a@b.co' });
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Internal server error');

@@ -8,6 +8,7 @@ import { getPool } from '../config/database';
 import { config } from '../config/env';
 import { queueEmailInTransaction } from '../services/emailService';
 import { createEstimate } from '../services/estimateService';
+import { SERVICE_PROFILE } from './helpers/customerFixtures';
 
 describe('createEstimate email events with the optional customer email', () => {
   const originalAdminEmail = config.adminNotificationEmail;
@@ -44,6 +45,7 @@ describe('createEstimate email events with the optional customer email', () => {
 
   it('skips the customer receipt but still queues the admin notification when only a phone is given', async () => {
     await createEstimate({
+      ...SERVICE_PROFILE,
       category: 'eyewear',
       specification_json: { quantity: 1 },
       customer_phone: '010-1234-5678'
@@ -57,6 +59,7 @@ describe('createEstimate email events with the optional customer email', () => {
 
   it('queues both emails when an email is given', async () => {
     await createEstimate({
+      ...SERVICE_PROFILE,
       category: 'eyewear',
       specification_json: { quantity: 1 },
       customer_email: 'buyer@example.com'
@@ -71,6 +74,7 @@ describe('createEstimate email events with the optional customer email', () => {
     config.adminNotificationEmail = undefined;
 
     await createEstimate({
+      ...SERVICE_PROFILE,
       category: 'eyewear',
       specification_json: { quantity: 1 },
       customer_email: 'buyer@example.com'
@@ -81,6 +85,7 @@ describe('createEstimate email events with the optional customer email', () => {
 
   it('keeps the admin notification free of category and customer details', async () => {
     await createEstimate({
+      ...SERVICE_PROFILE,
       category: 'eyewear',
       specification_json: { quantity: 1 },
       customer_phone: '010-1234-5678',

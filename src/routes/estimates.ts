@@ -4,7 +4,9 @@ import { hashEstimateToken } from '../utils/token';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
 import { uploadMultipleFilesWithMetadata } from '../services/fileService';
 import { validateReceiptId } from '../utils/receipt-id';
-import { validateCustomerContact } from '../utils/customerValidation';
+import { validateCustomerSubmission } from '../utils/customerValidation';
+import { getAcceptedConsentVersions } from '../config/privacyConsent';
+import { config } from '../config/env';
 import {
   uploadMiddleware,
   extractMultipartData,
@@ -17,10 +19,35 @@ const router = Router();
 
 router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Request, res: Response) => {
   try {
-    const { category, specification_json, customer_name, customer_email, customer_phone, company_name, uploadedFiles } = extractMultipartData(
-      req.body,
-      req.files as Express.Multer.File[] | undefined
-    );
+    // Without an approved privacy consent version no request may be stored (production keeps no
+    // approved version until the text has been reviewed). Nothing has been written or numbered yet.
+    const acceptedConsentVersions = getAcceptedConsentVersions(config.nodeEnv);
+    if (acceptedConsentVersions.length === 0) {
+      logger.warn('Estimate intake refused: no approved privacy consent version is configured', {
+        code: 'PRIVACY_CONSENT_NOT_CONFIGURED'
+      });
+      res.status(503).json({
+        error: 'Estimate intake is not available yet',
+        code: 'PRIVACY_CONSENT_NOT_CONFIGURED',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    const {
+      category,
+      specification_json,
+      customer_name,
+      customer_email,
+      customer_phone,
+      company_name,
+      customer_type,
+      privacy_consent,
+      privacy_consent_version,
+      uploadedFiles
+    } = extractMultipartData(req.body, req.files as Express.Multer.File[] | undefined, {
+      multipart: Boolean(req.is('multipart/form-data'))
+    });
 
     if (!category) {
       res.status(400).json({
@@ -54,12 +81,20 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       return;
     }
 
-    const contactResult = validateCustomerContact({
-      customer_name,
-      customer_email,
-      customer_phone,
-      company_name
-    });
+    // Customer details, customer type and consent are all checked here, before the transaction
+    // and before a receipt number is taken. Values are never written to the log.
+    const contactResult = validateCustomerSubmission(
+      {
+        customer_name,
+        customer_email,
+        customer_phone,
+        company_name,
+        customer_type,
+        privacy_consent,
+        privacy_consent_version
+      },
+      { acceptedConsentVersions }
+    );
 
     if (!contactResult.valid) {
       const contactMissing =
