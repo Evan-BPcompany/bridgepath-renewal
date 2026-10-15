@@ -37,7 +37,7 @@ Bridge Path의 정적 회사소개 + OEM/ODM 제작 견적 문의 사이트(리�
 - **프런트엔드**: 저장소 루트의 기존 정적 HTML/CSS/JS(`index.html`, `*-estimate.html`, `estimate-common.js` 등). 아직 백엔드 API에 연결되어 있지 않습니다(Phase 4 예정).
 - **백엔드**: `src/`의 **Express + TypeScript + PostgreSQL** API (Node 20 이상, 빌드는 `tsc` → `dist/`).
   - 진입점·앱 조립: `src/index.ts`, `src/app.ts` / 라우트 `src/routes/` / 서비스 `src/services/` / 미들웨어 `src/middleware/` / 유틸 `src/utils/`
-  - DB 마이그레이션(knex): `src/db/migrations/` (001~011)
+  - DB 마이그레이션(knex): `src/db/migrations/` (001~012)
   - 고객 API `/api/estimates`(견적 접수·조회), 관리자 API `/admin/*`(JWT HttpOnly 쿠키)
   - 문서: `README.md`, `docs/TESTING.md`, `docs/SECURITY.md`, `docs/OPERATIONS.md`, 기획 산출물 `_bmad-output/planning-artifacts/`(PRD 포함)
 

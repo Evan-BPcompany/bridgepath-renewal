@@ -32,6 +32,15 @@ DATABASE_SSL_REJECT_UNAUTHORIZED=false     # see below
 
 `DATABASE_URL` is provided by the Heroku PostgreSQL add-on. Do not append `?sslmode=...` to it.
 
+## Before opening estimate intake (privacy consent)
+
+`POST /api/estimates` stores a privacy consent with every request, and **production accepts no estimate until a consent version is approved**:
+
+- While `APPROVED_CONSENT_VERSIONS` (`src/config/privacyConsent.ts`) is empty, every `POST /api/estimates` answers `503` with `code: "PRIVACY_CONSENT_NOT_CONFIGURED"` and the server logs a warning at start. Health check, admin API and customer lookup keep working.
+- `dev-draft` is accepted only in development and test, never in production.
+- To open intake: get the consent text reviewed and approved, save it as `docs/privacy-consent/<version>.md`, add the version to `APPROVED_CONSENT_VERSIONS`, deploy, and make the front end send that version. The wording has not been written yet.
+- Also required: `TRUST_PROXY=1` (see above), migration 012 applied (`npm run db:migrate`), one server instance. The IP address and the User-Agent are not stored.
+
 ## Database TLS (Heroku PostgreSQL)
 
 - `DATABASE_SSL` defaults to **on** in production and cannot be turned off there. The app pool (`src/config/database.ts`) and the knex `production` environment both use the same rule (`resolveDatabaseSsl` in `src/db/connectionSafety.ts`).
@@ -65,4 +74,4 @@ npm run db:migrate                            # knex, development environment
 
 ## Not available yet
 
-ClamAV scanning (files stay quarantined, downloads blocked), customer status emails, durable audit logs, a shared rate-limit store for multiple instances (the limits, including the public API limits, are per process: run one instance). See README, "Required before public launch".
+an approved privacy consent text (production answers 503 to estimate requests until then), ClamAV scanning (files stay quarantined, downloads blocked), customer status emails, durable audit logs, a shared rate-limit store for multiple instances (the limits, including the public API limits, are per process: run one instance). See README, "Required before public launch".

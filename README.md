@@ -6,7 +6,7 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. The SQL has been run against a real local PostgreSQL 16.15 (9 integration suites, 176 tests passed); AWS and SendGrid are still unverified (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
+**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. The SQL has been run against a real local PostgreSQL 16.15 (9 integration suites, 228 tests passed); AWS and SendGrid are still unverified (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
 
 ## 🔧 Technology Stack
 
@@ -39,7 +39,8 @@ bridge-path-mvp/
 │   │       ├── 008_customer_contact_policy.ts
 │   │       ├── 009_admin_api_indexes.ts
 │   │       ├── 010_admin_memos_content_check.ts
-│   │       └── 011_admin_must_change_password.ts
+│   │       ├── 011_admin_must_change_password.ts
+│   │       └── 012_customer_type_and_privacy_consent.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -127,10 +128,11 @@ src/db/migrations/
 ├── 008_customer_contact_policy.ts  (estimates.customer_email nullable + email-or-phone CHECK, no new table)
 ├── 009_admin_api_indexes.ts        (3 admin query indexes, no new table)
 ├── 010_admin_memos_content_check.ts  (admin_memos.content length CHECK, no new table)
-└── 011_admin_must_change_password.ts  (admin_users.must_change_password flag, no new table)
+├── 011_admin_must_change_password.ts  (admin_users.must_change_password flag, no new table)
+└── 012_customer_type_and_privacy_consent.ts  (estimates.customer_type, privacy_consent_at, privacy_consent_version + 2 CHECKs, no new table)
 ```
 
-**Migration files: 11 (001-011)** - 008 to 011 were added in Phase 3 and create no tables
+**Migration files: 12 (001-012)** - 008 to 012 were added after the first schema and create no tables
 
 **Application Tables: 10**
 - Core tables: 6 (001)
@@ -269,7 +271,7 @@ Security-relevant details are in [docs/SECURITY.md](docs/SECURITY.md); running a
 
 ### Integration tests (real PostgreSQL)
 
-`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**. Run against a real **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 176 of 176 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
+`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**. Run against a real **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 228 of 228 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
 
 - They use `TEST_DATABASE_URL` only (local host, database name contains `test`, never the same as `DATABASE_URL`) and work in a throw-away schema `it_<8 hex>` that is dropped afterwards; nothing else in the database is touched.
 - Without `TEST_DATABASE_URL`, `npm run test:integration` **skips** everything. With `REQUIRE_INTEGRATION=true` and no database it **fails**.
@@ -344,7 +346,8 @@ Implemented secure customer quote submission and retrieval with:
 
 ```
 POST /api/estimates
-Request: { category, specification_json, customer_email?, customer_phone?, ... }  (at least one of customer_email / customer_phone required)
+Request: { category, specification_json, customer_type, customer_name, company_name?, customer_email?, customer_phone?, privacy_consent, privacy_consent_version }
+         (at least one of customer_email / customer_phone; company_name required for business_brand; see "Customer type and privacy consent")
 Response: { success, receipt_id, status, access_token, created_at }
 
 GET /api/estimates/:receipt_id?token=xxx
@@ -365,7 +368,7 @@ Error: { error: "Unauthorized", timestamp }
 
 **Customer Response Privacy:**
 - Returns: receipt_id, category, status, specification_json, timestamps
-- Excludes: customer_name, customer_email, customer_phone, company_name
+- Excludes: customer_name, customer_email, customer_phone, company_name, customer_type and everything about the privacy consent
 - Rationale: Customer already knows their own information
 
 ---
@@ -487,7 +490,7 @@ Implemented secure customer quote submission and retrieval with one-time access 
 
 ```
 POST /api/estimates
-Request:  { category, specification_json, customer_email?, customer_phone?, customer_name?, company_name? }  (at least one of customer_email / customer_phone required; 400 otherwise)
+Request:  { category, specification_json, customer_type, customer_name, company_name?, customer_email?, customer_phone?, privacy_consent, privacy_consent_version }  (at least one of customer_email / customer_phone; company_name required for business_brand; 400 otherwise, see "Customer type and privacy consent")
 Response: { success: true, receipt_id, status, access_token, created_at }
 
 GET /api/estimates/:receipt_id?token=xxx
@@ -822,6 +825,72 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 
 **Verification status**: covered by unit tests with a mocked database and, for migration 008 and its CHECK constraint (apply, constraint, refused rollback with a NULL e-mail, rollback after cleanup), by the integration suite on PostgreSQL 16.15.
 
+
+---
+
+## Customer type and privacy consent (PRD FR-4.2)
+
+`POST /api/estimates` needs the customer type and the privacy consent in addition to the contact. They are stored in `estimates.customer_type`, `privacy_consent_at` and `privacy_consent_version` (migration `012_customer_type_and_privacy_consent.ts`).
+
+| Field | Required | Rule |
+|---|---|---|
+| `customer_type` | yes | `individual_startup` or `business_brand`, nothing else |
+| `customer_name` | yes, for both types | max 100 characters (same rules as before) |
+| `company_name` | yes for `business_brand` | the company **or brand** name, max 100 characters; optional for `individual_startup` |
+| `customer_email` / `customer_phone` | at least one | unchanged (see the contact policy above) |
+| `privacy_consent` | yes | the boolean `true`. In `multipart/form-data`, which has no booleans, the text `true` stands for `true`; `True`, `1`, `on`, `yes`, an empty value and, in JSON, the text `"true"` are refused |
+| `privacy_consent_version` | yes | one of the versions the server accepts (see below); an unknown version is refused without being echoed back |
+
+Labels (the API only knows the codes; the front end maps them):
+
+| `customer_type` | Label shown to the customer (PRD FR-4.2) |
+|---|---|
+| `individual_startup` | 개인·창업 준비 중 |
+| `business_brand` | 사업자·브랜드 운영 중 |
+
+The screen should make clear that the first option is for people preparing to start a business or asking about making or sourcing a product, not for consumers shopping for a finished product (PRD FR-4.2).
+
+- **Same rules for JSON and multipart.** Everything is validated **before** the transaction and before a receipt number is taken. A refused request writes nothing: no estimate, no change of `receipt_sequence`, no e-mail event. Names, e-mail addresses, company names and consent values are never written to the log.
+- **Errors** keep the existing shape: `400 { "error": "Invalid customer information", "details": [{ "field": "customer_type", "message": "must be one of: individual_startup, business_brand" }, { "field": "privacy_consent", "message": "must be true" }], "timestamp": "..." }`. When the contact is the only thing missing the old message `Missing required contact: customer_email or customer_phone` is kept. Unknown extra fields are ignored, not rejected.
+- **The consent time belongs to the server.** `privacy_consent_at` is set by the insert (`CURRENT_TIMESTAMP`, the database time, in the same transaction as the estimate). A time sent by the client (`privacy_consent_at`, `consent_at`, ...) is ignored. **The IP address and the User-Agent are not stored.**
+- **Who sees it.** The privacy consent is shown **only in the admin detail** (`GET /admin/estimates/:id`: `customer_type`, `privacy_consent_at` as an ISO time, `privacy_consent_version`); the admin list shows only `customer_type`. The customer answers (`201` of the creation and `GET /api/estimates/:receipt_id`) contain neither personal data nor consent. There is no filter or search by customer type yet.
+- **Existing requests** (received before migration 012) keep `NULL` in all three columns: no consent was recorded for them and none is invented. The admin API answers `null` for them and everything else works as before (status changes included).
+- **The database** only checks consistency: `customer_type` is one of the two codes or `NULL` (`estimates_customer_type_check`), and `privacy_consent_at` and a non-blank `privacy_consent_version` come together or are both `NULL` (`estimates_privacy_consent_consistent`). Whether a new request must carry them is decided by the API. Rolling back migration 012 is **refused** while any estimate holds a customer type or a consent, because dropping the columns would destroy those records; the integration test of this refusal logs an error on purpose (see docs/TESTING.md).
+
+### Consent text and versions
+
+The wording of the consent has **not been written**: it needs legal and operational review. Only the structure exists (`src/config/privacyConsent.ts`):
+
+- `dev-draft` is a placeholder accepted **only in `development` and `test`**; production (and any other environment) refuses it with `400`.
+- Production accepts only the versions in `APPROVED_CONSENT_VERSIONS`, which is **empty** until a text is approved. **While it is empty, every `POST /api/estimates` in production answers `503` with `code: "PRIVACY_CONSENT_NOT_CONFIGURED"`**, before any parsing, validation or storage, and the server logs a warning at start. The health check, the admin API and the customer lookup keep working.
+- The text of an approved version lives in `docs/privacy-consent/<version>.md` (a unit test requires the file for every approved version), so the wording and the list are reviewed and committed together. A version is at most 50 characters (letters, digits, `.`, `_`, `-`).
+
+### Request contract for the front end (Phase 4)
+
+The existing estimate pages do not collect these fields yet; the contact step has to be added. JSON example:
+
+```json
+{
+  "category": "shoes",
+  "specification_json": { "...": "..." },
+  "customer_type": "business_brand",
+  "customer_name": "Kim",
+  "company_name": "Acme",
+  "customer_email": "buyer@example.com",
+  "privacy_consent": true,
+  "privacy_consent_version": "<the version of the text that was shown>"
+}
+```
+
+With files, send `multipart/form-data` with the same field names: `customer_type`, `customer_name`, `company_name`, `customer_email`, `customer_phone`, `privacy_consent` (the text `true`) and `privacy_consent_version`, plus `category`, `specification_json` (a JSON string) and `files`. The version sent must be the identifier of the text the customer actually saw.
+
+### Before opening estimate intake in production
+
+1. The consent text is reviewed and approved, saved as `docs/privacy-consent/<version>.md`, and the version is added to `APPROVED_CONSENT_VERSIONS` (without it production answers 503).
+2. `TRUST_PROXY=1` on Heroku (otherwise all customers share one rate-limit budget; see "Rate limiting and TRUST_PROXY").
+3. Migration 012 is applied and one server instance is running (the rate limits are per process).
+4. A retention period and deletion process for personal data is decided; none is implemented yet.
+
 ---
 
 ## Phase 3: Admin API (in progress)
@@ -833,7 +902,7 @@ At least one of `customer_email` or `customer_phone` is required. `customer_emai
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: the unit tests use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 011) and the concurrency behaviour (parallel estimate creation, failed-login counting, login versus password change) are additionally covered by nine local integration suites that passed on PostgreSQL 16.15 (176 tests; see [docs/TESTING.md](docs/TESTING.md)).
+**Verification status**: the unit tests use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 012) and the concurrency behaviour (parallel estimate creation, failed-login counting, login versus password change) are additionally covered by nine local integration suites that passed on PostgreSQL 16.15 (228 tests; see [docs/TESTING.md](docs/TESTING.md)).
 Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have not been run because credentials are not configured: AWS and SendGrid remain unverified. The SendGrid 8.x upgrade was checked only against a local stub server.
 
 ### Admin endpoints (Week 1)
@@ -847,7 +916,7 @@ All routes live under `/admin/estimates`, use the existing HttpOnly cookie authe
 | `PATCH /admin/estimates/:id/status` | Body `{ to_status, reason?, expected_status? }` |
 
 - `q` matches the receipt id (prefix), company name, customer name, customer email (contains) and, when `q` looks like a phone number (4+ digits), the customer phone with formatting ignored. This supports the PRD FR-4.10 recovery path (finding a request from customer details).
-- The list returns minimal personal data: `id`, `receipt_id`, `category`, `status`, `company_name`, `customer_name`, `created_at`, `updated_at`, `file_count`. Customer email, phone and `specification_json` appear only in the detail response.
+- The list returns minimal personal data: `id`, `receipt_id`, `category`, `status`, `company_name`, `customer_name`, `customer_type`, `created_at`, `updated_at`, `file_count`. The detail adds the customer type and the privacy consent (`customer_type`, `privacy_consent_at`, `privacy_consent_version`); the consent is shown **only in the detail**. Customer email, phone and `specification_json` appear only in the detail response.
 - Never returned: customer access tokens or hashes, password hashes, refresh/access token hashes, `s3_key`, `virus_scan_result`.
 - Responses: `{ success: true, data, pagination? }`. Errors: `{ error, code, timestamp }`.
 - An account flagged `must_change_password` gets 403 `PASSWORD_CHANGE_REQUIRED` on every admin route except the password change and logout (see Admin account initialization).
@@ -1157,7 +1226,7 @@ How compatibility was checked (no real SendGrid call):
 
 ### Required before public launch (not implemented in Phase 3)
 
-- Customer type ("개인·창업 준비 중" / "사업자·브랜드 운영 중") and personal-information consent are not stored. PRD FR-4.2, FR-5.2 and FR-5.3 require them (the admin list and detail must show the customer type).
+- **Approve the privacy consent text** and register its version (`APPROVED_CONSENT_VERSIONS` in `src/config/privacyConsent.ts`, text in `docs/privacy-consent/<version>.md`). The customer type and the consent are stored and shown to admins (PRD FR-4.2, FR-5.2, FR-5.3), but production answers every estimate request with 503 until a version is approved. The wording needs legal and operational review and has not been written. The front end still has to collect the customer type, the name and the consent (Phase 4).
 - Formal quotation file attachment (PRD FR-5.7) and a record of whether the quotation was sent to the customer (FR-5.8).
 - ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
 - Customer-facing status emails (`status_update`).

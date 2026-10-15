@@ -39,6 +39,15 @@ Everything passes through `src/utils/logSanitizer.ts` before it is written:
 - Email uses an outbox with idempotency keys. A bug that could send the same event twice (the claim query also picked up events already being sent) was fixed in Week 3; this is verified only at the SQL-text level.
 - An invalid `specification_json` string on the customer API answers 400 (`Invalid specification_json`), not 500; the message never echoes the input.
 
+## Personal data and privacy consent
+
+- Every estimate request stores a **customer type**, the **privacy consent time** (set by the database, never by the client) and the **version of the consent text**. The IP address and the User-Agent are not stored.
+- The consent and the customer details are shown **only to signed-in admins** (consent: the detail only; the list shows the customer type, the name and the company). The customer API answers contain no personal data and no consent.
+- Names, e-mail addresses, company names and consent values are never written to the log; a refused version is not echoed back in the error.
+- Production refuses `dev-draft` and answers 503 to every estimate request while no consent version is approved, so no request is stored without an approved consent. The consent wording itself has not been written (legal review needed).
+- Existing requests from before migration 012 have no consent record (`NULL`); none was invented. Rolling back migration 012 is refused while consent records exist.
+- Not implemented: a retention period and a deletion process for personal data.
+
 ## Dependency audit
 
 | Scope | Command | State |
@@ -54,4 +63,4 @@ Accepted: `sprintf-js` 1.0.3 (denial of service through unbounded precision spec
 
 ## Open items before public launch
 
-See README, "Required before public launch". Security-relevant: ClamAV and download provider, durable audit logs, a shared limiter store for the rate limits (the public API limits are per process, see README, "Rate limiting"), refresh token reuse detection, Sentry/alerting, CA-verified database TLS, a real SendGrid test send (the integration tests have run on PostgreSQL 16.15; AWS and SendGrid are still unverified).
+See README, "Required before public launch". Security-relevant: approval of the privacy consent text, a retention and deletion policy for personal data, ClamAV and download provider, durable audit logs, a shared limiter store for the rate limits (the public API limits are per process, see README, "Rate limiting"), refresh token reuse detection, Sentry/alerting, CA-verified database TLS, a real SendGrid test send (the integration tests have run on PostgreSQL 16.15; AWS and SendGrid are still unverified).
