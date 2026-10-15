@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('선글라스 견적 요청:', formData);
 
             // 성공 메시지 표시
-            const formSection = document.querySelector('.form-section');
-            const formButtons = document.querySelector('.form-buttons');
+            const formSection = document.getElementById('customerStep');
+            const formButtons = document.querySelector('#step3-content .form-buttons');
             formSection.style.display = 'none';
             formButtons.style.display = 'none';
             document.getElementById('successMessage').style.display = 'block';

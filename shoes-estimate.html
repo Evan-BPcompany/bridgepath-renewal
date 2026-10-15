@@ -6,9 +6,10 @@
     <title>신발 AI 가상견적 - Bridge Path</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="estimate-common.css">
+    <link rel="stylesheet" href="estimate-customer.css">
 </head>
 
-<body>
+<body data-estimate-page="shoes">
     <!-- Header -->
     <header class="estimate-header">
         <div class="header-container">
@@ -29,6 +30,11 @@
             <div class="step" id="step2">
                 <span class="step-number">2</span>
                 <span class="step-name">상세 정보</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step" id="step3">
+                <span class="step-number">3</span>
+                <span class="step-name">고객 정보</span>
             </div>
         </div>
 
@@ -85,7 +91,7 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="material">주요 재질</label>
+                        <label for="material">주요 재질 *</label>
                         <select id="material" name="material">
                             <option value="">선택해주세요</option>
                             <option value="leather">가죽</option>
@@ -94,6 +100,7 @@
                             <option value="synthetic">인공가죽</option>
                             <option value="rubber">고무</option>
                             <option value="mixed">혼합</option>
+                            <option value="unknown">잘 모르겠음</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -162,6 +169,21 @@
 
             <div class="form-buttons">
                 <button class="btn-secondary" onclick="goToStep(1)">이전 단계</button>
+                <button class="btn-primary" id="nextBtn2">다음 단계</button>
+            </div>
+        </section>
+
+        <!-- Step 3: Customer Information -->
+        <section class="step-content" id="step3-content">
+            <h2>고객 정보를 입력해주세요</h2>
+            <p class="step-description">견적 안내를 위해 연락받으실 정보를 입력해주세요.</p>
+
+            <div class="form-section">
+                <div id="customerStep"></div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn-secondary" onclick="goToStep(2)">이전 단계</button>
                 <button class="btn-primary" id="submitBtn">견적 요청하기</button>
             </div>
 
@@ -172,7 +194,11 @@
         </section>
     </div>
 
+    <script src="config.js"></script>
+    <script src="estimate-api.js"></script>
     <script src="estimate-common.js"></script>
+    <script src="estimate-customer-step.js"></script>
+    <script src="estimate-flow.js"></script>
     <script src="shoes-estimate.js"></script>
 </body>
 
