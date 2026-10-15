@@ -19,6 +19,9 @@ describe('POST /admin/token/refresh', () => {
   let refreshToken: string;
   // Set to false to simulate another request that rotated the token between our read and our update.
   let updateMatches: boolean;
+  // What the locked read (FOR SHARE) returns when the account changed after the first read.
+  let roleUnderLock: string | undefined;
+  let activeUnderLock: boolean | undefined;
 
   const refresh = (cookie?: string) => {
     const req = request(app).post('/admin/token/refresh');
@@ -46,6 +49,8 @@ describe('POST /admin/token/refresh', () => {
 
     refreshToken = generateRefreshToken();
     updateMatches = true;
+    roleUnderLock = undefined;
+    activeUnderLock = undefined;
     session = {
       id: SESSION_ID,
       admin_user_id: ADMIN_ID,
@@ -59,6 +64,11 @@ describe('POST /admin/token/refresh', () => {
     db.state.handler = (sql, params) => {
       if (sql.includes('s.refresh_token_hash = $1')) {
         return params[0] === session.refresh_token_hash ? { rows: [{ ...session }] } : { rows: [] };
+      }
+      if (sql.includes('FROM admin_users WHERE id = $1 FOR SHARE')) {
+        return {
+          rows: [{ role: roleUnderLock ?? session.role, is_active: activeUnderLock ?? session.is_active }]
+        };
       }
       if (sql.includes('UPDATE admin_sessions') && sql.includes('SET refresh_token_hash')) {
         if (updateMatches && params[3] === session.refresh_token_hash) {
@@ -243,6 +253,123 @@ describe('POST /admin/token/refresh', () => {
       expect(update.sql).toContain('is_revoked = false');
       expect(update.sql).toContain('expires_at >');
       expect(update.params[3]).toBe(hashRefreshToken(refreshToken));
+    });
+  });
+
+  describe('the account is looked at again under a row lock (deactivation race)', () => {
+    const statements = () => db.client.query.mock.calls.map(call => String(call[0]).replace(/\s+/g, ' ').trim());
+
+    it('locks the user row FOR SHARE before rotating, in one transaction', async () => {
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      expect(res.status).toBe(200);
+      const order = statements();
+      expect(order[0]).toBe('BEGIN');
+      expect(order[1]).toBe('SELECT role, is_active FROM admin_users WHERE id = $1 FOR SHARE');
+      expect(order[2]).toContain('UPDATE admin_sessions');
+      expect(order[3]).toBe('COMMIT');
+      expect(order).toHaveLength(4);
+      expect(db.pool.connect).toHaveBeenCalledTimes(1);
+      expect(db.client.release).toHaveBeenCalledTimes(1);
+      // A shared lock: parallel refreshes must not wait for each other.
+      expect(order.join('\n')).not.toContain('FOR UPDATE');
+    });
+
+    it('locks the user of the session that was found', async () => {
+      await refresh(`refresh_token=${refreshToken}`);
+
+      const lock = db.client.query.mock.calls.find(call => String(call[0]).includes('FOR SHARE'))!;
+      expect(lock[1]).toEqual([ADMIN_ID]);
+    });
+
+    it('401 when the account was deactivated after the first read: no rotation, no cookies, rolled back', async () => {
+      // The first read still sees an active account; the locked read sees the deactivation.
+      activeUnderLock = false;
+
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Admin account is inactive');
+      expect(cookiesOf(res)).toHaveLength(0);
+      expect(session.refresh_token_hash).toBe(hashRefreshToken(refreshToken));
+      expect(db.state.queries.some(q => q.sql.includes('UPDATE admin_sessions'))).toBe(false);
+      expect(statements()).toEqual([
+        'BEGIN',
+        'SELECT role, is_active FROM admin_users WHERE id = $1 FOR SHARE',
+        'ROLLBACK'
+      ]);
+      expect(db.client.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('401 when the user row has disappeared', async () => {
+      db.state.handler = sql => {
+        if (sql.includes('s.refresh_token_hash = $1')) {
+          return { rows: [{ ...session }] };
+        }
+        if (sql.includes('FOR SHARE')) {
+          return { rows: [] };
+        }
+        return undefined;
+      };
+
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      expect(res.status).toBe(401);
+      expect(cookiesOf(res)).toHaveLength(0);
+    });
+
+    it('the role in the new access token is the one read under the lock', async () => {
+      session.role = 'admin';
+      roleUnderLock = 'manager';
+
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      const payload = jwt.verify(valueOf(cookiesOf(res), 'access_token'), config.jwtSecret) as jwt.JwtPayload;
+      expect(payload.role).toBe('manager');
+    });
+
+    it('keeps the compare-and-swap: a lost race is rolled back with 401 and no cookies', async () => {
+      updateMatches = false;
+
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Invalid refresh token');
+      expect(cookiesOf(res)).toHaveLength(0);
+      expect(statements()).toContain('ROLLBACK');
+      expect(statements()).not.toContain('COMMIT');
+    });
+
+    it.each([
+      ['a revoked session', { is_revoked: true }],
+      ['an expired session', { expires_at: new Date(Date.now() - 1000) }],
+      ['an account that is already inactive', { is_active: false }]
+    ])('does not open a transaction for %s', async (_name, change) => {
+      Object.assign(session, change);
+
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      expect(res.status).toBe(401);
+      expect(db.pool.connect).not.toHaveBeenCalled();
+    });
+
+    it('rolls back, releases the connection and answers 500 when a query inside the transaction fails', async () => {
+      const original = db.state.handler;
+      db.state.handler = (sql, params) => {
+        if (sql.includes('FOR SHARE')) {
+          throw new Error('deadlock detected on 10.0.0.5');
+        }
+        return original(sql, params);
+      };
+
+      const res = await refresh(`refresh_token=${refreshToken}`);
+
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Internal server error' });
+      expect(JSON.stringify(res.body)).not.toContain('10.0.0.5');
+      expect(statements()).toContain('ROLLBACK');
+      expect(db.client.release).toHaveBeenCalledTimes(1);
+      expect(cookiesOf(res)).toHaveLength(0);
     });
   });
 

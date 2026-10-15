@@ -53,8 +53,8 @@ export function createFakeDb(): {
       };
     }
 
-    // The authentication lookup only; row-locking reads (FOR UPDATE) are left to the test handler.
-    if (sql.includes('FROM admin_users WHERE id') && !sql.includes('FOR UPDATE')) {
+    // The authentication lookup only; row-locking reads (FOR UPDATE / FOR SHARE) are left to the test handler.
+    if (sql.includes('FROM admin_users WHERE id') && !sql.includes('FOR UPDATE') && !sql.includes('FOR SHARE')) {
       const isManager = params[0] === MANAGER_ID;
       return {
         rows: [

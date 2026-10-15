@@ -12,12 +12,14 @@ import { useIsolatedSchema } from './helpers/lifecycle';
 import {
   MASTER_ID,
   MASTER_USERNAME,
+  NEW_PASSWORD,
   PASSWORD,
   WRONG_PASSWORD,
   cookieValueOf,
   createTestApp,
   insertAdmin,
   login,
+  passwordHash,
   resetData
 } from './helpers/fixtures';
 
@@ -329,6 +331,156 @@ describeIntegration('admin authentication on a real PostgreSQL', ({ url }) => {
       const token = cookieValueOf(res, 'access_token')!;
       const payload = jwt.decode(token) as { role: string };
       expect(payload.role).toBe('manager');
+    });
+  });
+
+  describe('refresh at the same time as a change of the account', () => {
+    const refresh = (refreshToken: string) =>
+      request(app).post('/admin/token/refresh').set('Cookie', `refresh_token=${refreshToken}`);
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const refreshHash = async () => (await sessions())[0].refresh_token_hash as string;
+
+    // Starts a request and reports whether it has answered yet.
+    const track = <T>(promise: Promise<T>) => {
+      const state = { done: false };
+      const result = promise.then(value => {
+        state.done = true;
+        return value;
+      });
+      return { state, result };
+    };
+
+    it('a deactivation that is not committed yet holds the refresh back; once committed the refresh is refused', async () => {
+      const session = await login(app, MASTER_USERNAME, PASSWORD);
+      const hashBefore = await refreshHash();
+
+      // The deactivation is in flight: the refresh below still reads an active account
+      // (uncommitted changes are invisible) and so passes the checks made before the lock.
+      const deactivation = await suite().db.transaction();
+      await deactivation('admin_users').where({ id: MASTER_ID }).update({ is_active: false });
+
+      const pending = track(refresh(session.refreshToken).then(res => res));
+      await sleep(400);
+      // Waiting for the lock; without the lock it would have rotated the token by now.
+      expect(pending.state.done).toBe(false);
+
+      await deactivation.commit();
+      const res = await pending.result;
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Admin account is inactive');
+      expect(cookieValueOf(res, 'access_token')).toBeUndefined();
+      expect(cookieValueOf(res, 'refresh_token')).toBeUndefined();
+      expect(await refreshHash()).toBe(hashBefore);
+    });
+
+    it('a deactivation that is rolled back lets the waiting refresh succeed', async () => {
+      const session = await login(app, MASTER_USERNAME, PASSWORD);
+
+      const deactivation = await suite().db.transaction();
+      // A transaction opened without a callback rejects its execution promise when rolled back.
+      deactivation.executionPromise.catch(() => undefined);
+      await deactivation('admin_users').where({ id: MASTER_ID }).update({ is_active: false });
+
+      const pending = track(refresh(session.refreshToken).then(res => res));
+      await sleep(400);
+      expect(pending.state.done).toBe(false);
+
+      await deactivation.rollback();
+      const res = await pending.result;
+
+      expect(res.status).toBe(200);
+      expect((await listEstimates(`access_token=${cookieValueOf(res, 'access_token')}`)).status).toBe(200);
+    });
+
+    it('a role change that is committed while the refresh waits ends up in the new access token', async () => {
+      const session = await login(app, MASTER_USERNAME, PASSWORD);
+
+      const change = await suite().db.transaction();
+      await change('admin_users').where({ id: MASTER_ID }).update({ role: 'manager' });
+
+      const pending = track(refresh(session.refreshToken).then(res => res));
+      await sleep(400);
+      expect(pending.state.done).toBe(false);
+
+      await change.commit();
+      const res = await pending.result;
+
+      expect(res.status).toBe(200);
+      expect((jwt.decode(cookieValueOf(res, 'access_token')!) as { role: string }).role).toBe('manager');
+    });
+
+    it('a session revoked while the refresh waits for the lock is not rotated', async () => {
+      const session = await login(app, MASTER_USERNAME, PASSWORD);
+      const hashBefore = await refreshHash();
+
+      // What a password change does: lock the user row, then revoke the sessions.
+      const passwordChange = await suite().db.transaction();
+      await passwordChange.raw('SELECT id FROM admin_users WHERE id = ? FOR UPDATE', [MASTER_ID]);
+      await passwordChange('admin_sessions').where({ admin_user_id: MASTER_ID }).update({ is_revoked: true });
+
+      const pending = track(refresh(session.refreshToken).then(res => res));
+      await sleep(400);
+      expect(pending.state.done).toBe(false);
+
+      await passwordChange.commit();
+      const res = await pending.result;
+
+      expect(res.status).toBe(401);
+      expect(cookieValueOf(res, 'access_token')).toBeUndefined();
+      expect(await refreshHash()).toBe(hashBefore);
+      expect((await sessions())[0].is_revoked).toBe(true);
+    });
+
+    it('5 parallel refreshes with the same token: exactly one wins and its token is the stored one', async () => {
+      const session = await login(app, MASTER_USERNAME, PASSWORD);
+
+      const results = await Promise.all(Array.from({ length: 5 }, () => refresh(session.refreshToken)));
+
+      const winners = results.filter(r => r.status === 200);
+      expect(winners).toHaveLength(1);
+      expect(results.filter(r => r.status === 401)).toHaveLength(4);
+      expect(await refreshHash()).toBe(hashRefreshToken(cookieValueOf(winners[0], 'refresh_token')!));
+    });
+
+    it('parallel refreshes of different sessions of the same admin do not wait for or fail each other', async () => {
+      const sessionsOfAdmin = await Promise.all(Array.from({ length: 4 }, () => login(app, MASTER_USERNAME, PASSWORD)));
+
+      const results = await Promise.all(sessionsOfAdmin.map(session => refresh(session.refreshToken)));
+
+      expect(results.map(r => r.status)).toEqual([200, 200, 200, 200]);
+    });
+
+    it('refresh, password change and login together: no error, no deadlock, no usable session left (repeated)', async () => {
+      for (let round = 1; round <= 10; round += 1) {
+        await suite().db('admin_sessions').del();
+        await suite().db('admin_users').where({ id: MASTER_ID }).update({ password_hash: passwordHash(PASSWORD) });
+        const mine = await login(app, MASTER_USERNAME, PASSWORD);
+        const other = await login(app, MASTER_USERNAME, PASSWORD);
+
+        const [refreshed, changed, loggedIn] = await Promise.all([
+          refresh(other.refreshToken),
+          request(app)
+            .patch('/admin/me/password')
+            .set('Cookie', mine.cookie)
+            .send({ current_password: PASSWORD, new_password: NEW_PASSWORD }),
+          request(app).post('/admin/login').send({ username: MASTER_USERNAME, password: PASSWORD })
+        ]);
+
+        // Never a 500 (a deadlock would surface as one).
+        expect([refreshed.status, changed.status, loggedIn.status].filter(status => status >= 500)).toEqual([]);
+        expect(changed.status).toBe(200);
+        expect([200, 401]).toContain(refreshed.status);
+        expect([200, 401]).toContain(loggedIn.status);
+
+        // The change revoked everything, whichever request came first.
+        const open = (await sessions()).filter(row => !row.is_revoked);
+        expect(open).toHaveLength(0);
+        if (refreshed.status === 200) {
+          const fresh = `access_token=${cookieValueOf(refreshed, 'access_token')}`;
+          expect((await listEstimates(fresh)).status).toBe(401);
+        }
+      }
     });
   });
 

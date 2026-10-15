@@ -233,19 +233,60 @@ router.post('/token/refresh', async (req: Request, res: Response): Promise<void>
 
     const newRefreshToken = generateRefreshToken();
     const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
-    const newAccessToken = generateAccessToken(session.admin_user_id, session.id, session.role);
 
-    // Rotation in one statement: it only succeeds while the presented token is still the
-    // current one, so two parallel refreshes cannot both win.
-    const rotated = await pool.query(
-      `UPDATE admin_sessions
-       SET refresh_token_hash = $1, last_activity_at = $2
-       WHERE id = $3 AND refresh_token_hash = $4 AND is_revoked = false AND expires_at > $2`,
-      [newRefreshTokenHash, new Date(), session.id, refreshTokenHash]
-    );
+    // The checks above read without a lock, so the account may have been deactivated since.
+    // Look at it again under a shared row lock (FOR SHARE): parallel refreshes do not wait for
+    // each other, but a deactivation or a password change (which hold the row exclusively) is
+    // serialized with this rotation. Lock order is always user row, then session row, as in
+    // the login and the password change, so these cannot deadlock.
+    let newAccessToken: string | undefined;
+    let refusal: string | undefined;
 
-    if (rotated.rowCount === 0) {
-      res.status(401).json({ error: 'Invalid refresh token' });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const locked = await client.query(
+        `SELECT role, is_active FROM admin_users WHERE id = $1 FOR SHARE`,
+        [session.admin_user_id]
+      );
+      const account = locked.rows[0];
+
+      if (!account || !account.is_active) {
+        refusal = 'Admin account is inactive';
+        await client.query('ROLLBACK');
+      } else {
+        // Rotation in one statement: it only succeeds while the presented token is still the
+        // current one, so two parallel refreshes cannot both win.
+        const rotated = await client.query(
+          `UPDATE admin_sessions
+           SET refresh_token_hash = $1, last_activity_at = $2
+           WHERE id = $3 AND refresh_token_hash = $4 AND is_revoked = false AND expires_at > $2`,
+          [newRefreshTokenHash, new Date(), session.id, refreshTokenHash]
+        );
+
+        if (rotated.rowCount === 0) {
+          refusal = 'Invalid refresh token';
+          await client.query('ROLLBACK');
+        } else {
+          await client.query('COMMIT');
+          // The role of the access token is the one read under the lock.
+          newAccessToken = generateAccessToken(session.admin_user_id, session.id, account.role);
+        }
+      }
+    } catch (err) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // The connection may already be unusable; the original error is rethrown below.
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    if (refusal || !newAccessToken) {
+      res.status(401).json({ error: refusal ?? 'Invalid refresh token' });
       return;
     }
 
