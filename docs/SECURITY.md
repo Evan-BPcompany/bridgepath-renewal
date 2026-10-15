@@ -21,6 +21,7 @@ State after Phase 3 Week 3. "Verified" below means covered by automated tests wi
 
 - No default database or credentials anywhere (knexfile, `setup-db.sh`). Tests can only use `TEST_DATABASE_URL` (local, name contains `test`, differs from `DATABASE_URL`).
 - TLS in production is mandatory; see [OPERATIONS.md](OPERATIONS.md#database-tls-heroku-postgresql). Accepted risk on Heroku: `DATABASE_SSL_REJECT_UNAUTHORIZED=false` encrypts but does not authenticate the server.
+- The status history (`status_history`) is an audit trail and is never rewritten: migration 013, which changed the status set, did not touch it in either direction. Entries that name a retired status (`rejected`, `archived`, `negotiating`) are returned as stored and flagged `retired_status` in the admin detail. Rolling back migration 013 is refused while an estimate is in a status the old set lacks, and it restores the changed statuses from a backup instead of guessing.
 - All queries are parameterized. Two values are interpolated into SQL text (the email retry delay and the stale timeout); both are numbers computed in code, never request input.
 
 ## Logging

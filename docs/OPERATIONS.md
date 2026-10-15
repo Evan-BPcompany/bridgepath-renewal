@@ -57,6 +57,12 @@ npm run db:migrate                            # knex, development environment
 
 `scripts/setup-db.sh` refuses to run without `DATABASE_URL` and refuses to run if it equals `TEST_DATABASE_URL`. For production migrations run knex with the `production` environment (`npx knex migrate:latest --env production`) so TLS applies. Always take a backup first; rollback (`npm run db:rollback`) undoes the last batch only.
 
+Migration notes (rolling back is possible, with limits that protect data):
+
+- **012** (customer type and consent): refused while any estimate holds a customer type or a consent, because the columns would be dropped with the records.
+- **013** (estimate statuses of the PRD): applying it waits for status changes that are still open, then changes `estimates.status` only (`rejected` to `cancelled`, `archived` to `completed`, `negotiating` to `customer_review`), keeps the original values in `estimate_status_backup` and does not touch `status_history`. Rolling it back is refused while an estimate is in `info_requested` or `factory_checking` (move it to another status first); otherwise the original statuses are restored from the backup and the backup table is dropped.
+- Both refusals change nothing. Take a database backup before rolling back either of them in a real environment.
+
 ## First admin account
 
 `npm run admin:bootstrap` (interactive, needs a terminal and `DATABASE_URL`) initializes the seeded master account with a one-time password; the account must change it at first login. The seed hash does **not** match any documented password, so the account is unusable until bootstrap is run. Details: README, "Admin account initialization".

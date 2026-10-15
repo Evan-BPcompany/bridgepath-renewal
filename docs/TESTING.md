@@ -20,11 +20,13 @@
 
 ## Integration tests (run on a real PostgreSQL)
 
-Nine suites in `src/__integration__/` run the real SQL against a real PostgreSQL. Result on **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 228 of 228 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites).
+Nine suites in `src/__integration__/` run the real SQL against a real PostgreSQL. Result on **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 253 of 253 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites).
 
-The first run found real concurrency defects (parallel estimate creation, failed-login counting, a session surviving a password change), which were fixed in the application, and tests that depended on the server's message language, which now check the SQLSTATE (`23505`, `23503`, `23514`, `23502`) instead. After the fixes the complete run passed on PostgreSQL 16.15 (9 suites, 228 tests), including: parallel estimate creation with every request succeeding and numbers 1..N without a gap; the name `receipt_sequence_receipt_date_key` of the unique constraint that the receipt retry rule (`utils/transactionRetry.ts`) relies on; exactly counted parallel login failures (4 parallel failures count 4, 6 lock the account); and no open session after a login races a password change.
+The first run found real concurrency defects (parallel estimate creation, failed-login counting, a session surviving a password change), which were fixed in the application, and tests that depended on the server's message language, which now check the SQLSTATE (`23505`, `23503`, `23514`, `23502`) instead. After the fixes the complete run passed on PostgreSQL 16.15, and it still does (9 suites, 253 tests), including: parallel estimate creation with every request succeeding and numbers 1..N without a gap; the name `receipt_sequence_receipt_date_key` of the unique constraint that the receipt retry rule (`utils/transactionRetry.ts`) relies on; exactly counted parallel login failures (4 parallel failures count 4, 6 lock the account); and no open session after a login races a password change.
 
 The migration 008 rollback test **logs an error about a NULL `customer_email` on purpose**: it inserts an estimate without e-mail, rolls back 012 to 009, and expects the 008 rollback to be refused with `23502` on `estimates.customer_email`. It then checks that nothing changed (migration still recorded, contact CHECK still present, column still nullable, `knex_migrations_lock.is_locked = 0`) and that the rollback works once the row is gone. That log line is not a failure.
+
+The migration 013 rollback tests **log errors on purpose** too: `Refusing to roll back migration 013: N estimate(s) are in info_requested or factory_checking ...` (an estimate in one of the new statuses blocks the rollback; the test checks that nothing changed, not even the CHECK, and that the rollback works once the estimate is moved) and `Rolling back migration 013 would leave N estimate(s) with a status ...` (a deliberately widened CHECK lets a stray status in; the test checks that the whole rollback was undone, the dropped CHECK included). They are not failures.
 
 The migration 012 rollback tests also **log an error on purpose**: `Refusing to roll back migration 012: N estimate(s) hold a customer type or a privacy consent record ...`. They insert an estimate with a customer type (and a consent), expect the rollback to be refused, check that nothing changed (migration still recorded, columns and CHECKs still there, data intact, `knex_migrations_lock.is_locked = 0`), and that the rollback works once those values are cleared on purpose. That log line is not a failure.
 
@@ -32,7 +34,7 @@ The migration 012 rollback tests also **log an error on purpose**: `Refusing to 
 |---|---|
 | `harness` | The first smoke test: all migrations apply in an own schema and roll back. |
 | `isolation` | Every pool connection uses the test schema, a changed `search_path` does not leak to the next user of a connection, nothing lands in `public`. |
-| `migrations` | 001-012 apply in order, are idempotent, create exactly the 11 application tables and the 007/009 indexes; seed data; every constraint (contact policy, CHECKs, memo length, unique keys, foreign keys and cascades); step-by-step rollback; up-down-up gives the identical schema; the 008 rollback refuses while an estimate has no e-mail; the 012 columns and their two CHECKs (SQLSTATE and constraint name), and the 012 rollback that refuses while an estimate holds a customer type or a consent. |
+| `migrations` | 001-013 apply in order, are idempotent, create exactly the 12 application tables (the 11 of before plus `estimate_status_backup`) and the 007/009 indexes; seed data; every constraint (contact policy, CHECKs, memo length, unique keys, foreign keys and cascades); step-by-step rollback; up-down-up gives the identical schema; the 008 rollback refuses while an estimate has no e-mail; the 012 columns and their two CHECKs (SQLSTATE and constraint name), and the 012 rollback that refuses while an estimate holds a customer type or a consent; the 013 status migration (every old status migrated or kept, `status_history` byte for byte unchanged by up, down and up again, the backup, the rollback with its exact restore, its refusal and its atomicity, the new CHECK, and the wait for a status change that is still open). |
 | `receiptSequence` | Numbering 001, 002, ...; new day at Korean midnight; rollback gives the number back; overflow at 999; parallel generation without duplicates or gaps. |
 | `adminAuth` | Login, session rows (hash only), lockout counters stored in the database, revoked/expired/inactive sessions, the forced-change flag, refresh (rotation, expired access token, parallel refresh), logout. |
 | `estimates` | Creating an estimate in one transaction (estimate, hashed access token, e-mail events); the contact policy (e-mail only, phone only, both, neither); all-or-nothing rollback; reading with the one-time token (used, expired, wrong, parallel); parallel creation. |
@@ -80,7 +82,7 @@ CI: the `integration` job runs only when started manually with `run_integration`
 
 ## Not verified
 
-PostgreSQL is verified (see above: PostgreSQL 16.15, 9 suites, 228 tests). The following have **never** been run against the real thing and must not be described as verified:
+PostgreSQL is verified (see above: PostgreSQL 16.15, 9 suites, 253 tests). The following have **never** been run against the real thing and must not be described as verified:
 
 | Area | Status |
 |---|---|

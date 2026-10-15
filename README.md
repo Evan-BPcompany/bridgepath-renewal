@@ -6,7 +6,7 @@
 
 Bridge Path is a platform that streamlines the quote request process for manufacturers and their customers. The MVP supports multiple product categories (eyewear, shoes, golf products, and other) with structured estimation workflows.
 
-**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. The SQL has been run against a real local PostgreSQL 16.15 (9 integration suites, 228 tests passed); AWS and SendGrid are still unverified (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
+**Status**: Phase 3 Admin API Weeks 1-3 implemented (Week 3 = test hardening, security review and documentation), awaiting review. Phase 1 and Phase 2 Days 1-3 are complete; Phase 2 Days 4-7 are pending. The SQL has been run against a real local PostgreSQL 16.15 (9 integration suites, 253 tests passed); AWS and SendGrid are still unverified (see "Not verified" in [docs/TESTING.md](docs/TESTING.md)).
 
 ## 🔧 Technology Stack
 
@@ -40,7 +40,8 @@ bridge-path-mvp/
 │   │       ├── 009_admin_api_indexes.ts
 │   │       ├── 010_admin_memos_content_check.ts
 │   │       ├── 011_admin_must_change_password.ts
-│   │       └── 012_customer_type_and_privacy_consent.ts
+│   │       ├── 012_customer_type_and_privacy_consent.ts
+│   │       └── 013_align_estimate_statuses.ts
 │   ├── utils/
 │   │   └── logger.ts        # Winston logger setup
 │   ├── types/
@@ -129,10 +130,11 @@ src/db/migrations/
 ├── 009_admin_api_indexes.ts        (3 admin query indexes, no new table)
 ├── 010_admin_memos_content_check.ts  (admin_memos.content length CHECK, no new table)
 ├── 011_admin_must_change_password.ts  (admin_users.must_change_password flag, no new table)
-└── 012_customer_type_and_privacy_consent.ts  (estimates.customer_type, privacy_consent_at, privacy_consent_version + 2 CHECKs, no new table)
+├── 012_customer_type_and_privacy_consent.ts  (estimates.customer_type, privacy_consent_at, privacy_consent_version + 2 CHECKs, no new table)
+└── 013_align_estimate_statuses.ts  (estimates.status = the 10 statuses of the PRD; backup table estimate_status_backup)
 ```
 
-**Migration files: 12 (001-012)** - 008 to 012 were added after the first schema and create no tables
+**Migration files: 13 (001-013)** - 008 to 012 were added after the first schema and create no tables; 013 creates the helper table `estimate_status_backup` (see "Statuses of the PRD and migration 013")
 
 **Application Tables: 10**
 - Core tables: 6 (001)
@@ -147,7 +149,10 @@ src/db/migrations/
 **Knex Management Tables: 1 (auto-created)**
 - knex_migrations: tracks migration state (Knex also creates a `knex_migrations_lock` helper table)
 
-**Total: 10 application + 1 infrastructure tables (+ Knex-managed tables)**
+**Migration helper table: 1**
+- estimate_status_backup: 1 (013) - the original status of the estimates that migration 013 changed; dropped when 013 is rolled back
+
+**Total: 10 application + 1 infrastructure + 1 migration helper table = 12 tables (+ Knex-managed tables)**
 
 **Run migrations** (requires DATABASE_URL):
 ```bash
@@ -271,7 +276,7 @@ Security-relevant details are in [docs/SECURITY.md](docs/SECURITY.md); running a
 
 ### Integration tests (real PostgreSQL)
 
-`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**. Run against a real **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 228 of 228 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
+`npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**. Run against a real **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 253 of 253 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).
 
 - They use `TEST_DATABASE_URL` only (local host, database name contains `test`, never the same as `DATABASE_URL`) and work in a throw-away schema `it_<8 hex>` that is dropped afterwards; nothing else in the database is touched.
 - Without `TEST_DATABASE_URL`, `npm run test:integration` **skips** everything. With `REQUIRE_INTEGRATION=true` and no database it **fails**.
@@ -578,9 +583,9 @@ Response (success with files):
 {
   success: true,
   receipt_id: "BP20260930001",
-  status: "new_receipt",
   access_token: "...",
   created_at: "2026-09-30T...",
+  message: "<CUSTOMER_GUIDANCE_MESSAGE>",
   files: [
     { id: "file-uuid-1", filename: "photo.jpg", size: 102400, status: "quarantine" },
     { id: "file-uuid-2", filename: "spec.pdf", size: 204800, status: "quarantine" }
@@ -934,7 +939,7 @@ The PRD allows the final wording to be polished in the UX and content step as lo
 
 Actual ClamAV integration and enabling file downloads are **follow-up work** (see "Required before public launch").
 
-**Verification status**: the unit tests use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 012) and the concurrency behaviour (parallel estimate creation, failed-login counting, login versus password change) are additionally covered by nine local integration suites that passed on PostgreSQL 16.15 (228 tests; see [docs/TESTING.md](docs/TESTING.md)).
+**Verification status**: the unit tests use a mocked database (supertest + jest mocks). The SQL (row locking, filters, search, memo and password queries, migrations 008 to 013) and the concurrency behaviour (parallel estimate creation, failed-login counting, login versus password change) are additionally covered by nine local integration suites that passed on PostgreSQL 16.15 (253 tests; see [docs/TESTING.md](docs/TESTING.md)).
 Phase 3 does not call AWS or SendGrid, and the real AWS/SendGrid integration tests from Phase 2 have not been run because credentials are not configured: AWS and SendGrid remain unverified. The SendGrid 8.x upgrade was checked only against a local stub server.
 
 ### Admin endpoints (Week 1)
@@ -1013,7 +1018,7 @@ File **downloads are intentionally blocked** in this phase. Only metadata is ava
 
 ### Status transitions
 
-Only the 10 values allowed by the `estimates.status` CHECK constraint are used. The table below is mirrored in `src/utils/statusTransitions.ts`; `statusTransitions.test.ts` fails if the two differ. `admin` may perform every listed transition; `manager` only those marked allowed.
+The 10 statuses of PRD FR-5.5 are the only values the `estimates.status` CHECK constraint allows (since migration 013). The table below (28 transitions) is mirrored in `src/utils/statusTransitions.ts`; `statusTransitions.test.ts` fails if the two differ. `admin` may perform every listed transition; `manager` only those marked allowed.
 
 <!-- STATUS_TRANSITIONS:START -->
 | Current status | Next status | manager | admin | reason required |
@@ -1048,7 +1053,7 @@ Only the 10 values allowed by the `estimates.status` CHECK constraint are used. 
 | on_hold | cancelled | denied | allowed | yes |
 <!-- STATUS_TRANSITIONS:END -->
 
-`archived` is terminal (no outgoing transitions). Any pair not listed above is invalid.
+`completed` and `cancelled` are end points: nothing leaves them. `quoted → accepted` is possible directly, and also through `quoted → customer_review → accepted`. A reason is required for `on_hold`, `cancelled` and `accepted → completed`; only an `admin` may cancel. Any pair not listed above is invalid.
 
 **Status change errors** (checked in this order after the estimate row is locked):
 
@@ -1066,22 +1071,56 @@ Only the 10 values allowed by the `estimates.status` CHECK constraint are used. 
 
 The estimate row is locked with `SELECT ... FOR UPDATE` in a READ COMMITTED transaction, and the `estimates` update and the `status_history` insert are committed together. `updated_at` is set explicitly (there is no trigger).
 
-**Database status values and PRD labels** (the PRD lists 10 statuses with different names):
+### Statuses of the PRD and migration 013
 
-| Database value | PRD label |
+These are the ten statuses of PRD FR-5.5 (an internal **processing status** of an estimate request). The API uses the code; the label is what staff and the admin screens show. Customers never see either (see "What customers see after an estimate request").
+
+| Code | Label (PRD) | Meaning (PRD) |
+|---|---|---|
+| `new_receipt` | 신규 접수 | stored, not yet looked at by staff |
+| `under_review` | 정보 확인 중 | staff review the request and the attached files |
+| `info_requested` | 추가정보 요청 | information is missing; the customer was asked for more |
+| `factory_checking` | 공장 견적 확인 중 | price and terms are being checked with factories and partners |
+| `quoted` | 정식견적 발송 | the formal quotation was sent to the customer |
+| `customer_review` | 고객 검토 중 | waiting for the customer's answer after the quotation |
+| `accepted` | 진행 확정 | the customer accepted the formal quotation (contract and payment follow outside the service) |
+| `on_hold` | 보류 | paused for the customer's or staff's reasons |
+| `completed` | 종결 | the inquiry is finished (not a production or delivery state) |
+| `cancelled` | 취소 | cancelled at the customer's request or because it cannot be done |
+
+**Retired statuses.** Migration 013 removed three statuses that the PRD does not have. No estimate has them any more:
+
+| Retired code | Today's equivalent |
 |---|---|
-| new_receipt | 신규 접수 |
-| under_review | 정보 확인 중 |
-| quoted | 정식견적 발송 |
-| negotiating | 고객 검토 중 |
-| accepted | 진행 확정 |
-| on_hold | 보류 |
-| completed | 종결 |
-| cancelled | 취소 |
-| rejected | (not in PRD) |
-| archived | (not in PRD) |
+| `rejected` | `cancelled` |
+| `archived` | `completed` |
+| `negotiating` | `customer_review` |
 
-The PRD statuses `추가정보 요청` and `공장 견적 확인 중` have no database value yet. Until the status set is aligned with a new migration, use `under_review` together with an internal memo.
+**`status_history` keeps the statuses of its time.** It is an audit trail, so migration 013 does **not** change it, neither when it is applied nor when it is rolled back: an old entry can still read `completed → archived`, `quoted → negotiating` or `under_review → rejected`, and such an entry is not turned into a self-transition. `GET /admin/estimates/:id` returns `old_status` and `new_status` exactly as stored and adds `retired_status` to each entry of `status_history`: `true` when `old_status` or `new_status` is one of the retired codes, otherwise `false` (an entry without an old status, the first one, is `false`). A client can use it to mark a name as "former status" and show the equivalent from the table above. `retired_status` is an admin field only; it never appears in a customer answer.
+
+**Admin API.**
+- The list filter `status=` takes any of the ten codes (comma separated). The retired codes are refused with `400 INVALID_STATUS`, like `to_status` and `expected_status` in a status change.
+- `info_requested` and `factory_checking` can be set (`under_review → info_requested`, `under_review → factory_checking`, ...) as the transition table says. `negotiating` is now `customer_review`: `quoted → customer_review` replaces `quoted → negotiating`. `rejected` and `archived` are gone: cancel with a reason instead; `completed` and `cancelled` are end points.
+- The error table above is unchanged. The roles are unchanged: `manager` for the working flow, `admin` to cancel.
+
+**Migration `013_align_estimate_statuses.ts`** (one transaction):
+1. Lock `estimates` (`ACCESS EXCLUSIVE`): a status change that is still open is waited for and its result is migrated.
+2. Create `estimate_status_backup` (`estimate_id`, `original_status`, `migrated_status`) and save, for the estimates it will change, the status they have (`rejected`, `archived`, `negotiating`) and the one they get.
+3. Find the old CHECK on `estimates.status` in the catalog (it was created without a name in migration 001) and drop it.
+4. Change `estimates.status` only: `rejected → cancelled`, `archived → completed`, `negotiating → customer_review`. `updated_at` is not changed (it is not a change made by a user).
+5. Add `estimates_status_check` with exactly the ten statuses above.
+
+**Rolling back 013**, in this order, in one transaction (a failure anywhere undoes everything, the dropped CHECK included):
+1. Lock `estimates`.
+2. **Refuse, changing nothing, while an estimate is in `info_requested` or `factory_checking`**: the previous status set has no equivalent. Move those estimates to another status first.
+3. Drop the new CHECK (it forbids the old statuses, so it must go before they are restored).
+4. Restore `rejected`, `archived` and `negotiating` from `estimate_status_backup`, but only for an estimate that still has the status the migration gave it: a row that was changed since is not overwritten.
+5. Rename the remaining `customer_review` estimates (also those created after the migration) back to `negotiating`.
+6. Check that every status is one of the old ten, otherwise fail.
+7. Create the original CHECK again (the ten statuses of migration 001).
+8. Drop `estimate_status_backup`.
+
+`status_history` is not read or written by either direction. The integration test of the refusal (and the one of migration 012) **logs an error on purpose**; see docs/TESTING.md.
 
 ### Admin password change (Week 2)
 
@@ -1173,6 +1212,8 @@ In tests every `createApp()` creates its own limiters and counters, and `createA
 
 - `008_customer_contact_policy.ts`: contact policy (above).
 - `009_admin_api_indexes.ts`: `idx_estimates_status_created_at`, `idx_status_history_estimate_created`, `idx_admin_memos_estimate_created` (all `IF NOT EXISTS`, dropped with `IF EXISTS`). No existing index duplicates these column combinations. They make `idx_estimates_status`, `idx_status_history_estimate_id` and `idx_admin_memos_estimate_id` largely redundant; those are left in place.
+- `012_customer_type_and_privacy_consent.ts`: customer type and privacy consent columns (see "Customer type and privacy consent"). Rolling back is refused while a customer type or a consent exists.
+- `013_align_estimate_statuses.ts`: the ten statuses of the PRD (see "Statuses of the PRD and migration 013"). Rolling back is refused while an estimate is in `info_requested` or `factory_checking`.
 - `010_admin_memos_content_check.ts`: `CHECK (char_length(content) BETWEEN 1 AND 5000)` on `admin_memos.content` (see Admin memos).
 - `011_admin_must_change_password.ts`: adds `admin_users.must_change_password` (`BOOLEAN NOT NULL DEFAULT false`) and flags the untouched seeded `master` account (see Admin account initialization). Rolling back drops the column, so the forced change is lost.
 
@@ -1265,7 +1306,6 @@ How compatibility was checked (no real SendGrid call):
 - Formal quotation file attachment (PRD FR-5.7) and a record of whether the quotation was sent to the customer (FR-5.8).
 - ClamAV scanning and enabling admin file downloads (FR-5.4). Downloads are **intentionally blocked** in Phase 3 until scanning exists.
 - Customer-facing status emails (`status_update`).
-- Align the status set with the PRD (`추가정보 요청`, `공장 견적 확인 중`).
 - Send a real test email through SendGrid 8.x (only verified against a local stub so far), and review the accepted development-dependency findings when the jest toolchain is updated.
 - Creating new admin accounts: `admin:bootstrap` only initializes an existing account that is still flagged `must_change_password`; there is no command or API that creates an account.
 - A shared (for example Redis) store for the admin and public limiters before running more than one instance (the public customer API now has per-IP limits, but only in process memory).
