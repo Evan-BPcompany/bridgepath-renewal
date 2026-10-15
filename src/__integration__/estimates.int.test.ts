@@ -306,7 +306,7 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
     });
 
     it('ignores a consent time sent by the client', async () => {
-      const res = await create({ privacy_consent_at: '1999-01-01T00:00:00Z', consent_at: '1999-01-01T00:00:00Z', created_at: '1999-01-01T00:00:00Z' });
+      const res = await create({ customer_email: 'ignore@example.com', privacy_consent_at: '1999-01-01T00:00:00Z', consent_at: '1999-01-01T00:00:00Z', created_at: '1999-01-01T00:00:00Z' });
 
       expect(res.status).toBe(201);
       const row = await rowOf(res.body.receipt_id);
