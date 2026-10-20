@@ -896,7 +896,7 @@ With files, send `multipart/form-data` with the same field names: `customer_type
 
 ### Before opening estimate intake in production
 
-1. The consent text is reviewed and approved, saved as `docs/privacy-consent/<version>.md`, and the version is added to `APPROVED_CONSENT_VERSIONS` (without it production answers 503).
+1. The consent text is reviewed and approved, saved as `docs/privacy-consent/<version>.md`, and the version is added to `APPROVED_CONSENT_VERSIONS` (without it production answers 503). A draft to start from, with the items that Bridge Path must decide (retention, the transfer of the photo to the AI service abroad, the processors): `docs/privacy-consent/DRAFT-2026-10-20.md`. It is not an approved version.
 2. `TRUST_PROXY=1` on Heroku (otherwise all customers share one rate-limit budget; see "Rate limiting and TRUST_PROXY").
 3. Migration 012 is applied and one server instance is running (the rate limits are per process).
 4. A retention period and deletion process for personal data is decided; none is implemented yet.
