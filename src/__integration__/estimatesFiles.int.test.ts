@@ -196,7 +196,10 @@ describeIntegration('estimate requests with files on a real PostgreSQL', ({ url 
     const res = await send().attach('files', PNG, { filename: 'logo.png', contentType: 'image/png' });
     expect(await count('files')).toBe(1);
 
-    await suite().db('estimates').where({ receipt_id: res.body.receipt_id }).del();
+    // The e-mail rows keep their estimate (no cascade there); the files must go with it.
+    const estimate = await suite().db('estimates').where({ receipt_id: res.body.receipt_id }).first();
+    await suite().db('email_events').where({ estimate_id: estimate.id }).del();
+    await suite().db('estimates').where({ id: estimate.id }).del();
 
     expect(await count('files')).toBe(0);
   });

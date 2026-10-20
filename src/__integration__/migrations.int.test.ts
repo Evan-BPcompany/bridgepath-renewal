@@ -2,9 +2,11 @@ jest.mock('../config/database', () => ({ getPool: jest.fn() }));
 
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
+import type { Knex } from 'knex';
 import {
+  MIGRATIONS_DIRECTORY,
   migrateDownOne,
-  migrateLatest,
+  migrateLatest as migrateEverything,
   rollbackAll,
   snapshotSchema
 } from './helpers/database';
@@ -16,7 +18,8 @@ const FOREIGN_KEY = '23503'; // foreign_key_violation
 const CHECK = '23514'; // check_violation
 const NOT_NULL = '23502'; // not_null_violation
 
-const MIGRATIONS = [
+// All the migrations; the schema tests below use the first thirteen (see migrateLatest).
+const ALL_MIGRATIONS = [
   '001_init_schema.ts',
   '002_admin_sessions.ts',
   '003_estimate_access_tokens.ts',
@@ -32,6 +35,22 @@ const MIGRATIONS = [
   '013_align_estimate_statuses.ts',
   '014_sunglasses_base_prices.ts'
 ];
+
+// The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
+// of this file), so everything that counts migrations or rolls them back one by one works on these.
+const MIGRATIONS = ALL_MIGRATIONS.slice(0, 13);
+
+// "Latest" for the schema tests: applies the migrations up to 013 and no further.
+async function migrateLatest(db: Knex): Promise<void> {
+  const options = { directory: MIGRATIONS_DIRECTORY, loadExtensions: ['.ts'] };
+  for (;;) {
+    const [completed] = await db.migrate.list(options);
+    if (completed.length >= MIGRATIONS.length) {
+      return;
+    }
+    await db.migrate.up(options);
+  }
+}
 
 // Compared after a plain (not locale-dependent) sort on both sides.
 const APPLICATION_TABLES = [
@@ -946,6 +965,83 @@ describeIntegration('migrations 001-013', ({ url }) => {
 
       await migrateLatest(db);
       expect(await appliedNames()).toEqual(MIGRATIONS);
+    });
+  });
+
+  // Migration 014 writes the first real sunglasses prices (not the structure of the schema).
+  describe('014 (the first real sunglasses base prices)', () => {
+    const eyewear = async () =>
+      suite().db('base_prices').where({ category: 'eyewear' }).orderBy('product_variant').select('product_variant', 'base_price', 'is_active', 'description');
+
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      // Back to 001-013 for whatever runs next.
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    it('is applied after 013 by the real "latest"', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+    });
+
+    it('writes the five prices, replaces the samples of Plastic and Metal, and switches the Premium sample off', async () => {
+      const rows = await eyewear();
+
+      expect(rows.filter(row => row.is_active).map(row => [row.product_variant, Number(row.base_price)])).toEqual([
+        ['Acetate Frame', 9810],
+        ['Metal Frame', 5190],
+        ['Mixed Frame', 8620],
+        ['Plastic Frame', 2600],
+        ['Wood Frame', 6750]
+      ]);
+      for (const row of rows.filter(row => row.is_active)) {
+        expect(row.description).toMatch(/^Made-in-China\.com 2026-10-20: median of \d+ factory listings, USD [\d.]+ at 1 USD = 1330\.79 KRW/);
+      }
+      const premium = rows.find(row => row.product_variant === 'Premium Frame');
+      expect(premium.is_active).toBe(false);
+      expect(premium.description).toMatch(/^\[SAMPLE\]/);
+    });
+
+    it('leaves the samples of the other categories alone', async () => {
+      const others = await suite().db('base_prices').whereNot({ category: 'eyewear' }).select('description', 'is_active');
+
+      expect(others.length).toBeGreaterThan(0);
+      for (const row of others) {
+        expect(row.description).toMatch(/^\[SAMPLE\]/);
+        expect(row.is_active).toBe(true);
+      }
+    });
+
+    it('rolls back: its prices are gone and the samples that were not replaced are on again', async () => {
+      await migrateDownOne(suite().db);
+
+      expect(await appliedNames()).toEqual(MIGRATIONS);
+      const rows = await eyewear();
+      expect(rows.some(row => /^Made-in-China/.test(row.description))).toBe(false);
+      const premium = rows.find(row => row.product_variant === 'Premium Frame');
+      expect(premium.is_active).toBe(true);
+    });
+
+    it('applies again after a rollback with the same prices, and does not change the schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+      const prices = (await eyewear()).filter(row => row.is_active).map(row => [row.product_variant, Number(row.base_price)]);
+
+      await migrateDownOne(suite().db);
+      await migrateEverything(suite().db);
+
+      expect((await eyewear()).filter(row => row.is_active).map(row => [row.product_variant, Number(row.base_price)])).toEqual(prices);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+    });
+
+    it('can be run twice over its own rows: the prices are replaced, not doubled', async () => {
+      await migrateDownOne(suite().db);
+      await migrateEverything(suite().db);
+
+      expect(await suite().db('base_prices').where({ category: 'eyewear', is_active: true }).count({ n: '*' }).first()).toMatchObject({ n: '5' });
     });
   });
 });
