@@ -58,6 +58,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   password: BIG,
   estimateCreate: BIG,
   estimateRead: BIG,
+  estimatePreview: BIG,
   ...overrides
 });
 

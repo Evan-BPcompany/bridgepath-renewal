@@ -67,6 +67,8 @@ export interface RateLimiters {
   // Multer so a refused request costs almost nothing.
   estimateCreate: RequestHandler;
   estimateRead: RequestHandler;
+  // POST /api/estimate-preview: a database read per request, so it is limited per client IP too.
+  estimatePreview: RequestHandler;
 }
 
 export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
@@ -82,6 +84,7 @@ export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
     }),
     password: build(settings.password, { keyGenerator: adminKey }),
     estimateCreate: build(settings.estimateCreate, { keyGenerator: clientKey }),
-    estimateRead: build(settings.estimateRead, { keyGenerator: clientKey })
+    estimateRead: build(settings.estimateRead, { keyGenerator: clientKey }),
+    estimatePreview: build(settings.estimatePreview, { keyGenerator: clientKey })
   };
 }

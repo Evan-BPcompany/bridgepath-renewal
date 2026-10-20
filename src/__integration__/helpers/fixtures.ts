@@ -43,7 +43,8 @@ export function createTestApp(): Express {
       mutation: unlimited,
       password: unlimited,
       estimateCreate: unlimited,
-      estimateRead: unlimited
+      estimateRead: unlimited,
+      estimatePreview: unlimited
     }
   });
 }

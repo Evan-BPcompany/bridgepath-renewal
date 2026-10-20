@@ -37,6 +37,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   password: BIG,
   estimateCreate: BIG,
   estimateRead: BIG,
+  estimatePreview: BIG,
   ...overrides
 });
 
@@ -48,7 +49,8 @@ describe('Rate limit configuration', () => {
       mutation: { windowMs: 60 * 1000, max: 30 },
       password: { windowMs: 15 * 60 * 1000, max: 5 },
       estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
-      estimateRead: { windowMs: 15 * 60 * 1000, max: 30 }
+      estimateRead: { windowMs: 15 * 60 * 1000, max: 30 },
+      estimatePreview: { windowMs: 15 * 60 * 1000, max: 60 }
     });
     expect(parseRateLimits({})).toEqual(RATE_LIMIT_DEFAULTS);
     expect(parseTrustProxy(undefined)).toBe(0);
@@ -111,6 +113,7 @@ describe('Rate limit configuration', () => {
     expect(Object.keys(config.rateLimits).sort()).toEqual([
       'api',
       'estimateCreate',
+      'estimatePreview',
       'estimateRead',
       'login',
       'mutation',

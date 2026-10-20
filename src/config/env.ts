@@ -16,6 +16,7 @@ export interface RateLimitSettings {
   // Public customer API (no login): per client IP.
   estimateCreate: RateLimitSetting;
   estimateRead: RateLimitSetting;
+  estimatePreview: RateLimitSetting;
 }
 
 export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
@@ -24,7 +25,8 @@ export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
   mutation: { windowMs: 60 * 1000, max: 30 },
   password: { windowMs: 15 * 60 * 1000, max: 5 },
   estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
-  estimateRead: { windowMs: 15 * 60 * 1000, max: 30 }
+  estimateRead: { windowMs: 15 * 60 * 1000, max: 30 },
+  estimatePreview: { windowMs: 15 * 60 * 1000, max: 60 }
 };
 
 const RATE_LIMIT_WINDOW_MS_RANGE = { min: 1000, max: 24 * 60 * 60 * 1000 };
@@ -158,6 +160,11 @@ export function parseRateLimits(env: NodeJS.ProcessEnv): RateLimitSettings {
       'CUSTOMER_ESTIMATE_READ_RATE_LIMIT',
       env,
       RATE_LIMIT_DEFAULTS.estimateRead
+    ),
+    estimatePreview: parseRateLimitSetting(
+      'CUSTOMER_ESTIMATE_PREVIEW_RATE_LIMIT',
+      env,
+      RATE_LIMIT_DEFAULTS.estimatePreview
     )
   };
 }

@@ -262,6 +262,7 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 | `ADMIN_PASSWORD_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 5 | Password change attempts per admin. |
 | `CUSTOMER_ESTIMATE_CREATE_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 3600000 / 10 | `POST /api/estimates` per client IP (public). |
 | `CUSTOMER_ESTIMATE_READ_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 30 | `GET /api/estimates/:receipt_id` per client IP (public). |
+| `CUSTOMER_ESTIMATE_PREVIEW_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 60 | `POST /api/estimate-preview` per client IP (public). |
 | `FILE_DOWNLOAD_ENABLED` | no | `false` | `true` without a download provider stops the server at startup. |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | for file upload | - | S3 storage for estimate files. |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | for email | - | Without a key the worker keeps events pending and retries. |
@@ -1311,3 +1312,20 @@ How compatibility was checked (no real SendGrid call):
 - A shared (for example Redis) store for the admin and public limiters before running more than one instance (the public customer API now has per-IP limits, but only in process memory).
 - Durable audit logs: detail views, memo access and blocked file attempts exist only in the application log, which Heroku does not keep.
 - Resetting another admin's password (admin-initiated reset); today an admin can only change their own.
+
+## Price guidance: POST /api/estimate-preview (sunglasses)
+
+A rule-based price range for a sunglasses request (PRD FR-3, option A). It stores nothing, takes no personal data and needs no consent or token. The answer is guidance, never a quote: every response carries a `notice` that says so, and the 8% service fee is not part of it.
+
+Request (JSON): `{ "category": "sunglasses", "material": "plastic", "lens_type": "normal", "quantity": 500 }`
+
+- `category`: any eyewear category (`sunglasses`, `optical`, `sports`, `kids`, `safety`, `eyewear`). Other categories get `200 { available: false, reason: "CATEGORY_NOT_SUPPORTED" }` so the front end can fall back to the plain request form.
+- `material`: `plastic`, `metal`, `acetate`, `wood`, `mixed` or `unknown`. `lens_type`: `normal`, `polarized`, `mirror`, `gradient`, `photochromic` or `unknown`. `quantity`: integer, 1 to 1,000,000. Anything else is `400`.
+
+Answer: `{ available: true, currency: "KRW", quantity, unit_price: { min, max }, total_price: { min, max }, notice }`, rounded to 100 won. `available: false` with `reason: "NO_BASE_PRICE"` means no active `eyewear` row exists in `base_prices`.
+
+How the range is computed (`src/services/estimatePreviewService.ts`, rules in `src/config/sunglassesPricingRules.ts`):
+
+1. Unit price = the active `base_prices` row for the material (`Plastic Frame`, `Metal Frame`, `Acetate Frame`, `Wood Frame`, `Premium Frame` for `mixed`) x the lens multiplier x the quantity tier multiplier.
+2. The range is the unit price -/+ 15%. Every unknown answer widens it by 10 points. A material that is `unknown`, or has no active row, is priced between the cheapest and the dearest active eyewear row.
+3. Staff change the base prices in `base_prices`; the multipliers and tiers live in the rules file. **The multipliers are placeholders and the development base prices are `[SAMPLE]` data: replace both with real quote figures before showing the range to customers.**
