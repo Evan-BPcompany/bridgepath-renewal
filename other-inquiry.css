@@ -203,3 +203,39 @@
         padding: 1rem;
     }
 }
+
+/* ==================== Customer Information and the request ==================== */
+.inquiry-form .customer-block-title {
+    font-size: 1.1rem;
+    color: #1e3c72;
+    margin: 1rem 0 0.8rem;
+}
+
+.inquiry-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.image-upload-box.is-disabled,
+.image-upload-box.is-disabled:hover {
+    border-color: #b8bfd8;
+    background: rgba(0, 0, 0, 0.03);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn-submit:disabled,
+.btn-submit:disabled:hover {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    .inquiry-form .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+}

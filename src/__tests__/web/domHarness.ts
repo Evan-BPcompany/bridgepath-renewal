@@ -61,6 +61,7 @@ export const PAGE_SCRIPTS = (page: string): string[] => [
   'estimate-api.js',
   'estimate-common.js',
   'estimate-customer-step.js',
+  'estimate-submit.js',
   'estimate-flow.js',
   `${page}-estimate.js`
 ];

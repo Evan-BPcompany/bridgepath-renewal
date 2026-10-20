@@ -6,6 +6,7 @@
     <title>기타 맞춤형 제품 AI 문의 - Bridge Path</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="other-inquiry.css">
+    <link rel="stylesheet" href="estimate-customer.css">
 </head>
 
 <body>
@@ -26,15 +27,15 @@
                 저희 팀이 최적의 솔루션을 제안해드리겠습니다.
             </p>
 
-            <form id="inquiryForm" class="inquiry-form">
+            <form id="inquiryForm" class="inquiry-form" novalidate>
                 <!-- Image Upload Section -->
                 <div class="form-group full-width">
                     <label for="productImage">제품 이미지 업로드</label>
-                    <p class="form-hint">제품 샘플, 설계도, 참고 이미지 등을 업로드해주세요. (선택)</p>
-                    <div class="image-upload-box" id="imageUploadBox">
+                    <p class="form-hint" id="imageDisabledNote">지금은 이미지를 첨부할 수 없어요. 제품 설명에 참고할 내용을 적어 주세요.</p>
+                    <div class="image-upload-box is-disabled" id="imageUploadBox" aria-disabled="true">
                         <div class="upload-icon">📷</div>
-                        <p>이미지를 클릭하거나 드래그해서 업로드</p>
-                        <input type="file" id="productImage" name="productImage" accept="image/*" style="display: none;">
+                        <p>이미지 첨부는 지금 사용할 수 없어요</p>
+                        <input type="file" id="productImage" name="productImage" accept="image/*" style="display: none;" disabled aria-describedby="imageDisabledNote">
                     </div>
                 </div>
 
@@ -43,6 +44,13 @@
                     <label for="productDescription">제품 설명 *</label>
                     <p class="form-hint">만들고 싶은 제품에 대해 자세히 설명해주세요.</p>
                     <textarea id="productDescription" name="productDescription" placeholder="예: 어떤 제품인지, 용도, 특별한 요구사항 등을 설명해주세요." rows="4" required></textarea>
+                </div>
+
+                <!-- Special requirements -->
+                <div class="form-group full-width">
+                    <label for="additionalInfo">추가 요청사항 (선택)</label>
+                    <p class="form-hint">특별히 요청하실 내용이 있으면 적어주세요. (최대 2,000자)</p>
+                    <textarea id="additionalInfo" name="additionalInfo" rows="3" maxlength="2000"></textarea>
                 </div>
 
                 <!-- Quantity -->
@@ -57,17 +65,31 @@
                     <input type="date" id="deliveryDate" name="deliveryDate">
                 </div>
 
+                <!-- Customer Information -->
+                <div class="form-group full-width customer-block">
+                    <h3 class="customer-block-title">연락 받으실 정보</h3>
+                    <div id="customerStep"></div>
+                </div>
+
                 <!-- Submit Button -->
-                <button type="submit" class="btn-submit">문의하기</button>
+                <button type="submit" class="btn-submit" id="submitBtn">문의하기</button>
             </form>
 
-            <div id="successMessage" class="success-message" style="display: none;">
-                <p>✓ 문의가 접수되었습니다!</p>
-                <p>빠른 시간 내에 담당자가 연락드리겠습니다.</p>
+            <div id="successMessage" class="success-message" role="status" tabindex="-1" style="display: none;">
+                <h3 id="successTitle">문의가 접수되었어요</h3>
+                <p>접수번호: <strong id="receiptId"></strong></p>
+                <p id="receiptTimeRow" hidden>접수 시각: <span id="receiptTime"></span></p>
+                <p id="receiptMessage" hidden></p>
+                <p>접수번호를 메모해 주세요.</p>
+                <p><a href="index.html">홈으로 돌아가기</a></p>
             </div>
         </div>
     </div>
 
+    <script src="config.js"></script>
+    <script src="estimate-api.js"></script>
+    <script src="estimate-customer-step.js"></script>
+    <script src="estimate-submit.js"></script>
     <script src="other-inquiry.js"></script>
 </body>
 

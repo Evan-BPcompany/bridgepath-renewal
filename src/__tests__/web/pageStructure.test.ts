@@ -61,6 +61,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
       'estimate-api.js',
       'estimate-common.js',
       'estimate-customer-step.js',
+      'estimate-submit.js',
       'estimate-flow.js',
       // Only the sunglasses form has the photo analysis and the result screen (estimatePhoto and
       // estimateResult .dom.test.ts).
@@ -100,7 +101,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 });
 
 describe('the new scripts', () => {
-  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-preview.js', 'estimate-result.js'])('%s never writes markup', file => {
+  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-submit.js', 'estimate-preview.js', 'estimate-result.js', 'other-inquiry.js'])('%s never writes markup', file => {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });
@@ -110,13 +111,22 @@ describe('the new scripts', () => {
     expect(code).not.toMatch(/fetch|XMLHttpRequest|sendBeacon|FormData|submitEstimate|localStorage|sessionStorage|console\./);
   });
 
-  it('estimate-flow.js sends only through submitEstimate, and stores and logs nothing', () => {
-    const code = read('estimate-flow.js').replace(/^\s*\/\/.*$/gm, '');
-    expect(code).not.toMatch(/XMLHttpRequest|sendBeacon|FormData|localStorage|sessionStorage|indexedDB|document\.cookie|console\.|alert\(|setTimeout|location/);
+  it('estimate-flow.js and other-inquiry.js send nothing themselves and keep nothing', () => {
+    ['estimate-flow.js', 'other-inquiry.js'].forEach(file => {
+      const code = read(file).replace(/^\s*\/\/.*$/gm, '');
+      expect(code).not.toMatch(/fetch|XMLHttpRequest|sendBeacon|FormData|submitEstimate|localStorage|sessionStorage|indexedDB|document\.cookie|console\.|alert\(|setTimeout|location|access_token|accessToken|\.status/);
+    });
+  });
+
+  it('estimate-submit.js sends only through submitEstimate, and stores and logs nothing', () => {
+    const code = read('estimate-submit.js').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/XMLHttpRequest|sendBeacon|FormData|localStorage|sessionStorage|indexedDB|document\.cookie|console\.|alert\(|setTimeout|location|new Function/);
     expect((code.match(/(?<![.\w])fetch\(/g) || []).length).toBe(0);
     expect((code.match(/globalThis\.fetch\(/g) || []).length).toBe(1);
     expect((code.match(/submitEstimate\(/g) || []).length).toBe(1);
-    expect(code).not.toMatch(/access_token|accessToken|\.status/);
+    expect((code.match(/buildRequest\(/g) || []).length).toBe(1);
+    expect(code).toContain('files: []');
+    expect(code).not.toMatch(/access_token|accessToken|\.status/);
   });
 });
 
@@ -154,13 +164,14 @@ describe('estimate-customer.css', () => {
 });
 
 describe('what this change leaves alone', () => {
-  it('does not put the new scripts on other-inquiry or the home page', () => {
-    ['other-inquiry.html', 'index.html'].forEach(file => {
-      const html = read(file);
-      expect(html).not.toContain('estimate-customer-step.js');
-      expect(html).not.toContain('estimate-flow.js');
-      expect(html).not.toContain('estimate-customer.css');
+  it('does not put the new scripts on the home page, nor the scripts of the steps on other-inquiry', () => {
+    const home = read('index.html');
+    ['estimate-customer-step.js', 'estimate-flow.js', 'estimate-submit.js', 'estimate-customer.css'].forEach(file => {
+      expect(home).not.toContain(file);
     });
+    const other = read('other-inquiry.html');
+    expect(other).not.toContain('estimate-flow.js');
+    expect(other).not.toContain('estimate-common');
   });
 
   it('adds jest-environment-jsdom in the version of jest', () => {
@@ -168,5 +179,60 @@ describe('what this change leaves alone', () => {
     expect(pkg.devDependencies['jest-environment-jsdom']).toBe('^30.5.2');
     const major = (version: string): string => version.replace(/^[^\d]*/, '').split('.')[0];
     expect(major(pkg.devDependencies['jest-environment-jsdom'])).toBe(major(pkg.devDependencies.jest));
+  });
+});
+
+describe('other-inquiry.html', () => {
+  const html = read('other-inquiry.html');
+  const script = read('other-inquiry.js');
+
+  it('loads the shared scripts in the order they need, without the steps of the other pages', () => {
+    const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(match => match[1]);
+    expect(scripts).toEqual(['config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-submit.js', 'other-inquiry.js']);
+    scripts.forEach(file => expect(fs.existsSync(path.join(ROOT, file))).toBe(true));
+    const styles = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)].map(match => match[1]);
+    expect(styles).toEqual(['style.css', 'other-inquiry.css', 'estimate-customer.css']);
+  });
+
+  it('keeps the form single-step, checked by the script and not by the browser', () => {
+    expect(html).toContain('<form id="inquiryForm" class="inquiry-form" novalidate>');
+    expect(html).toContain('id="submitBtn"');
+    expect(html).not.toContain('id="step');
+  });
+
+  it('has the special requirements (optional, 2,000 characters) under the description of the product', () => {
+    expect(html).toMatch(/id="productDescription"[\s\S]*id="additionalInfo"[\s\S]*id="quantity"/);
+    expect(html).toMatch(/<textarea id="additionalInfo"[^>]*maxlength="2000"/);
+    expect(html).toContain('추가 요청사항 (선택)');
+    expect(html).not.toMatch(/id="additionalInfo"[^>]*required/);
+  });
+
+  it('puts the customer information before the submit button', () => {
+    expect(html.indexOf('id="customerStep"')).toBeGreaterThan(html.indexOf('id="deliveryDate"'));
+    expect(html.indexOf('id="customerStep"')).toBeLessThan(html.indexOf('id="submitBtn"'));
+  });
+
+  it('keeps the upload box but disabled, with the note', () => {
+    expect(html).toContain('지금은 이미지를 첨부할 수 없어요. 제품 설명에 참고할 내용을 적어 주세요.');
+    expect(html).toMatch(/<input type="file" id="productImage"[^>]* disabled/);
+    expect(html).toContain('aria-disabled="true"');
+  });
+
+  it('has the success screen with the places of the answer, the note and the link home, and no promise of a time', () => {
+    ['receiptId', 'receiptTime', 'receiptMessage'].forEach(id => expect(html).toContain(`id="${id}"`));
+    expect(html).toContain('id="successMessage" class="success-message" role="status"');
+    expect(html).toContain('접수번호를 메모해 주세요.');
+    expect(html).toContain('<a href="index.html">홈으로 돌아가기</a>');
+    expect(html).not.toMatch(/빠른 시간|곧 |이내|영업일|연락드리겠/);
+  });
+
+  it('keeps every id once', () => {
+    const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has no fake submit, no file handling and no markup written by the script any more', () => {
+    const code = script.replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/alert\(|console\.|setTimeout|location|innerHTML|localStorage|sessionStorage|dragover|drop|FileReader|dataTransfer|\.files/);
   });
 });

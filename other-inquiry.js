@@ -1,90 +1,74 @@
-// ==================== Image Upload ====================
-document.addEventListener('DOMContentLoaded', function() {
-    const imageUploadBox = document.getElementById('imageUploadBox');
-    const imageInput = document.getElementById('productImage');
+// The inquiry of the other products (a single page, no steps): the product input and the customer
+// information are checked together and sent as JSON with the category "other". The checks, the
+// request and the result are those of estimate-api.js and estimate-submit.js; this file only knows
+// the controls of the page. Files are not sent yet, so the upload box is disabled in the HTML.
+(function () {
+    'use strict';
 
-    // 클릭해서 파일 선택
-    imageUploadBox.addEventListener('click', function() {
-        imageInput.click();
-    });
+    // The id of the control of each value of the product input.
+    var CONTROLS = {
+        productDescription: 'productDescription',
+        quantity: 'quantity',
+        deliveryDate: 'deliveryDate',
+        additionalInfo: 'additionalInfo'
+    };
 
-    // 파일 선택 후 처리
-    imageInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            imageUploadBox.innerHTML = `
-                <div class="upload-icon">✓</div>
-                <p>${file.name}</p>
-                <p style="font-size: 0.8rem; color: #999;">선택됨</p>
-            `;
-        }
-    });
+    function collectValues() {
+        var values = {};
+        Object.keys(CONTROLS).forEach(function (key) {
+            var element = document.getElementById(CONTROLS[key]);
+            values[key] = element ? element.value : '';
+        });
+        return values;
+    }
 
-    // 드래그 앤 드롭
-    imageUploadBox.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        imageUploadBox.style.background = 'rgba(102, 126, 234, 0.15)';
-    });
+    function controlsFor(field) {
+        var id = CONTROLS[field];
+        var element = id ? document.getElementById(id) : null;
+        return element ? [element] : [];
+    }
 
-    imageUploadBox.addEventListener('dragleave', function() {
-        imageUploadBox.style.background = 'rgba(102, 126, 234, 0.05)';
-    });
-
-    imageUploadBox.addEventListener('drop', function(e) {
-        e.preventDefault();
-        imageUploadBox.style.background = 'rgba(102, 126, 234, 0.05)';
-
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            imageInput.files = files;
-            const event = new Event('change', { bubbles: true });
-            imageInput.dispatchEvent(event);
-        }
-    });
-
-    // ==================== Form Submission ====================
-    const inquiryForm = document.getElementById('inquiryForm');
-
-    inquiryForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        // 필수 입력 검증
-        const productDescription = document.getElementById('productDescription').value;
-        const quantity = document.getElementById('quantity').value;
-
-        if (!productDescription.trim()) {
-            alert('제품 설명을 입력해주세요.');
+    function init() {
+        var form = document.getElementById('inquiryForm');
+        var submitButton = document.getElementById('submitBtn');
+        var host = document.getElementById('customerStep');
+        if (!form || !submitButton || !host || !globalThis.BridgePathEstimate || !globalThis.BridgePathCustomerStep || !globalThis.BridgePathSubmit) {
             return;
         }
 
-        if (!quantity) {
-            alert('수량을 입력해주세요.');
-            return;
-        }
+        var customerStep = globalThis.BridgePathCustomerStep.mount(host, {});
+        var productErrors = globalThis.BridgePathSubmit.createProductErrors({
+            controlsFor: controlsFor,
+            summaryParent: form,
+            summaryBefore: form.firstChild,
+            listenOn: form
+        });
+        var submitter = globalThis.BridgePathSubmit.createSubmitter({
+            page: 'other',
+            getSubtype: function () { return null; },
+            collectValues: collectValues,
+            customerStep: customerStep,
+            productErrors: productErrors,
+            submitButton: submitButton,
+            successBox: document.getElementById('successMessage'),
+            errorParent: form,
+            errorBefore: submitButton,
+            lockElements: function () {
+                return Array.prototype.slice.call(form.querySelectorAll('input, textarea, select, button'));
+            },
+            hideOnSuccess: [form]
+        });
 
-        if (quantity < 1) {
-            alert('수량은 1개 이상이어야 합니다.');
-            return;
-        }
+        // The form is not sent by the browser: Enter in a field and the button both end up here.
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submitter.submit();
+        });
+    }
 
-        // 폼 데이터 수집
-        const formData = {
-            productDescription: productDescription,
-            quantity: quantity,
-            deliveryDate: document.getElementById('deliveryDate').value,
-            hasImage: imageInput.files.length > 0
-        };
-
-        // 콘솔에 로그 (나중에 서버로 전송)
-        console.log('기타 맞춤형 제품 문의:', formData);
-
-        // 성공 메시지 표시
-        inquiryForm.style.display = 'none';
-        document.getElementById('successMessage').style.display = 'block';
-
-        // 3초 후 메인 페이지로 이동
-        setTimeout(function() {
-            window.location.href = 'index.html';
-        }, 3000);
-    });
-});
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
