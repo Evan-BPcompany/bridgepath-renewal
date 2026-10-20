@@ -20,9 +20,9 @@
 
 ## Integration tests (run on a real PostgreSQL)
 
-Nine suites in `src/__integration__/` run the real SQL against a real PostgreSQL. Result on **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 253 of 253 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites).
+Ten suites in `src/__integration__/` run the real SQL against a real PostgreSQL. Latest result on **PostgreSQL 16 on this machine** (2026-10-20): **10 of 10 suites and 268 of 268 tests passed** (`npm run test:integration`). Before the tenth suite and migration 014 were added: 9 suites, 253 tests on PostgreSQL 16.15. Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites).
 
-A tenth suite, **`estimatesFiles`** (a request with files on the local file storage), was written later. First run on this machine (PostgreSQL 16): **9 of its 10 tests passed** (files saved with the estimate, a Korean name, nothing left behind when the database or the storage fails, no gap in the receipt numbers, refusals before anything is stored, the AI screen record); the tenth, the foreign key cascade, had a mistake in the test itself (the e-mail rows of the estimate are not cascaded) and was fixed. The same run showed that the `migrations` suite counted migrations as if 013 were the last: migration 014 (prices only) is now kept out of its schema tests, which work on 001-013, and has tests of its own at the end of that suite. **Both fixes still have to be run once more on a real PostgreSQL.**
+The tenth suite, **`estimatesFiles`** (a request with files on the local file storage, never S3), was written later. Its first run on this machine found two mistakes in the tests themselves (a cascade test that left the e-mail rows of the estimate in place, and the `migrations` suite counting migrations as if 013 were the last: migration 014, prices only, is now kept out of its schema tests, which work on 001-013, and has tests of its own at its end). After the fixes the complete run passed: **10 suites, 268 tests**. It verifies on the real database: the estimate and one row per file saved together, a Korean file name kept, nothing saved or left behind (rows, outbox, stored files) when the database fails after the files were stored or when the files cannot be stored, no gap in the receipt numbers, refusals before anything is stored, the AI screen record stored or dropped, and the cascade of the file rows.
 
 The first run found real concurrency defects (parallel estimate creation, failed-login counting, a session surviving a password change), which were fixed in the application, and tests that depended on the server's message language, which now check the SQLSTATE (`23505`, `23503`, `23514`, `23502`) instead. After the fixes the complete run passed on PostgreSQL 16.15, and it still does (9 suites, 253 tests), including: parallel estimate creation with every request succeeding and numbers 1..N without a gap; the name `receipt_sequence_receipt_date_key` of the unique constraint that the receipt retry rule (`utils/transactionRetry.ts`) relies on; exactly counted parallel login failures (4 parallel failures count 4, 6 lock the account); and no open session after a login races a password change.
 
@@ -85,7 +85,7 @@ CI: the `integration` job runs only when started manually with `run_integration`
 
 ## Not verified
 
-PostgreSQL is verified (see above: PostgreSQL 16.15, 9 suites, 253 tests). The following have **never** been run against the real thing and must not be described as verified:
+PostgreSQL is verified (see above: PostgreSQL 16, 10 suites, 268 tests). The following have **never** been run against the real thing and must not be described as verified:
 
 | Area | Status |
 |---|---|
