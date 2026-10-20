@@ -21,6 +21,56 @@
         }
     };
 
+    // What the receipt says about the product, per page: [value key, label, kind]. A select shows
+    // the text of the chosen option, a list of boxes the chosen values, a number its count.
+    var SUMMARY = {
+        sunglasses: [
+            ['frameMaterial', '프레임 재질', 'select'], ['lensType', '렌즈 타입', 'select'], ['frameColor', '프레임 색상'],
+            ['lensColor', '렌즈 색상'], ['quantity', '수량', 'count'], ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
+        ],
+        shoes: [
+            ['material', '주요 재질', 'select'], ['sizes', '사이즈', 'list'], ['color', '색상'], ['quantity', '수량', 'count'],
+            ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
+        ],
+        golf: [
+            ['material', '재질', 'select'], ['color', '색상'], ['size', '크기'], ['design', '디자인'], ['quantity', '수량', 'count'],
+            ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
+        ]
+    };
+
+    function clipText(text) {
+        return text.length > 100 ? text.slice(0, 100) + '…' : text;
+    }
+
+    function summaryRows(page) {
+        var values = collectValues(page);
+        var rows = [];
+        var card = document.querySelector('.category-card.selected');
+        var kind = card && card.querySelector('p') ? card.querySelector('p').textContent.trim() : '';
+        if (kind) {
+            rows.push({ label: '제품 종류', value: kind });
+        }
+        SUMMARY[page].forEach(function (entry) {
+            var value = values[entry[0]];
+            if (Array.isArray(value)) {
+                value = value.join(', ');
+            }
+            value = typeof value === 'string' ? value.trim() : '';
+            if (value === '') {
+                return;
+            }
+            if (entry[2] === 'select') {
+                var select = document.getElementById(CONTROLS[page][entry[0]]);
+                var chosen = select && select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null;
+                value = chosen ? chosen.textContent.trim() : value;
+            } else if (entry[2] === 'count') {
+                value = Number(value).toLocaleString('ko-KR') + '개';
+            }
+            rows.push({ label: entry[1], value: clipText(value) });
+        });
+        return rows;
+    }
+
     function pageKey() {
         var key = document.body.getAttribute('data-estimate-page');
         return Object.prototype.hasOwnProperty.call(CONTROLS, key) ? key : '';
@@ -140,6 +190,7 @@
                 },
                 hideOnSuccess: [document.getElementById('customerStep'), buttons],
                 getFiles: function () { return attachments ? attachments.getFiles() : []; },
+                getSummary: function () { return summaryRows(page); },
                 // The sunglasses page records what its screen showed (estimate-result.js).
                 getExtraSpec: function () {
                     var result = globalThis.BridgePathResult;

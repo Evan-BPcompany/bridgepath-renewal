@@ -79,7 +79,7 @@
 
     var MB = 1024 * 1024;
 
-    // PRD FR-2.6. WEBP and GIF are not accepted for now (the API does not take WEBP either).
+    // PRD FR-2.6: JPG, PNG, WEBP and PDF. The API takes the same types, sizes and counts.
     var FILE_POLICY = Object.freeze({
         maxFiles: 5,
         maxFileBytes: 10 * MB,

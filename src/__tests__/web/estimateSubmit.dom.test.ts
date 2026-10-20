@@ -389,7 +389,9 @@ describe('estimate submit: text from the answer is only text', () => {
     expect($('#receiptTime').textContent).toBe(attack); // a time that cannot be read is shown as it is, as text
     expect($('#successMessage img')).toBeNull();
     expect($('#successMessage script')).toBeNull();
-    expect($$('#successMessage *').length).toBe(9);
+    // Only the elements of the receipt itself: the text of the answer made none.
+    const allowed = ['H3', 'H4', 'P', 'STRONG', 'SPAN', 'A', 'BUTTON', 'DIV', 'DL', 'DT', 'DD'];
+    expect($$('#successMessage *').filter(element => !allowed.includes(element.tagName))).toHaveLength(0);
   });
 
   it('leaves out the time and the message when the answer has none', async () => {

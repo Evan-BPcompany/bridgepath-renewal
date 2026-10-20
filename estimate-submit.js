@@ -148,7 +148,8 @@
     //          onProductInvalid() -> called when the product input is wrong at the moment of sending,
     //          getFiles() -> the files to send with the request (optional),
     //          getExtraSpec() -> values added to the specification, e.g. { ai_preview } (optional),
-    //          afterSuccess() -> called once the request has been accepted (optional).
+    //          afterSuccess() -> called once the request has been accepted (optional),
+    //          getSummary() -> the rows of the product for the receipt, [{ label, value }] (optional).
     // Returns { submit }; the caller connects it to the click or the submit event.
     function createSubmitter(options) {
         var estimate = api();
@@ -160,6 +161,81 @@
 
         var errorBox = alertBox('submitError');
         options.errorParent.insertBefore(errorBox, options.errorBefore || null);
+
+        // The receipt: the number can be copied, and what was sent is listed (PRD FR-4.5).
+        var copyButton = document.getElementById('copyReceipt');
+        var copyNote = document.getElementById('copyReceiptNote');
+        if (copyButton) {
+            copyButton.addEventListener('click', function () {
+                var number = document.getElementById('receiptId').textContent;
+                var clipboard = globalThis.navigator && globalThis.navigator.clipboard;
+                var say = function (text) {
+                    if (copyNote) {
+                        copyNote.textContent = text;
+                    }
+                };
+                if (!clipboard || typeof clipboard.writeText !== 'function') {
+                    say('직접 선택해서 복사해 주세요.');
+                    return;
+                }
+                clipboard.writeText(number).then(
+                    function () { say('복사했어요.'); },
+                    function () { say('복사하지 못했어요. 직접 선택해서 복사해 주세요.'); }
+                );
+            });
+        }
+
+        function won(amount) {
+            return Number(amount).toLocaleString('ko-KR') + '원';
+        }
+
+        // The rows of the receipt: the product (from the page), the price range the customer was
+        // shown, the contact details and the files. Built before the form is emptied.
+        function buildSummary(spec, customer, files) {
+            var rows = options.getSummary ? options.getSummary().slice() : [];
+            var price = spec.ai_preview && spec.ai_preview.price;
+            if (price && price.unit_price && price.total_price) {
+                rows.push({
+                    label: '화면에 보인 예상 범위 (참고)',
+                    value: '개당 약 ' + won(price.unit_price.min) + ' ~ ' + won(price.unit_price.max) +
+                        ', 총 약 ' + won(price.total_price.min) + ' ~ ' + won(price.total_price.max) + ' · 확정 견적이 아니에요'
+                });
+            }
+            var types = estimate.CUSTOMER_TYPES || {};
+            [
+                ['고객 유형', types[customer.customer_type]],
+                ['이름', customer.customer_name],
+                ['회사·브랜드', customer.company_name],
+                ['이메일', customer.customer_email],
+                ['전화', customer.customer_phone]
+            ].forEach(function (pair) {
+                if (pair[1]) {
+                    rows.push({ label: pair[0], value: pair[1] });
+                }
+            });
+            if (files.length > 0) {
+                rows.push({ label: '첨부 파일', value: files.map(function (file) { return file.name; }).join(', ') });
+            }
+            return rows;
+        }
+
+        function showSummary(rows) {
+            var box = document.getElementById('receiptSummary');
+            var list = document.getElementById('receiptSummaryList');
+            if (!box || !list) {
+                return;
+            }
+            list.textContent = '';
+            rows.forEach(function (row) {
+                var term = document.createElement('dt');
+                term.textContent = row.label;
+                var value = document.createElement('dd');
+                value.textContent = row.value;
+                list.appendChild(term);
+                list.appendChild(value);
+            });
+            box.hidden = rows.length === 0;
+        }
 
         function showError(text) {
             errorBox.textContent = text;
@@ -185,8 +261,9 @@
         }
 
         // Only the three things the answer is meant to give are shown, and only as text.
-        function showSuccess(result) {
+        function showSuccess(result, summary) {
             document.getElementById('receiptId').textContent = result.receiptId;
+            showSummary(summary || []);
             if (result.createdAt) {
                 document.getElementById('receiptTime').textContent = formatTime(result.createdAt);
                 document.getElementById('receiptTimeRow').hidden = false;
@@ -246,6 +323,7 @@
                 });
             }
             var files = options.getFiles ? options.getFiles() : [];
+            var summary = buildSummary(spec, customer.value, files);
 
             submitting = true;
             errorBox.hidden = true;
@@ -273,7 +351,7 @@
 
             if (result.kind === 'success') {
                 submitButton.removeAttribute('aria-busy');
-                showSuccess(result);
+                showSuccess(result, summary);
                 return; // `submitting` stays true: one request per page
             }
             // The form is given back first, so that the focus can go to a field.

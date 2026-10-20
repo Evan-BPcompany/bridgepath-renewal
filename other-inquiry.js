@@ -22,6 +22,28 @@
         return values;
     }
 
+    // What the receipt says about the product.
+    function summaryRows() {
+        var values = collectValues();
+        var rows = [];
+        [
+            ['productDescription', '제품 설명'],
+            ['quantity', '수량'],
+            ['deliveryDate', '희망 납기일'],
+            ['additionalInfo', '추가 요청사항']
+        ].forEach(function (entry) {
+            var value = typeof values[entry[0]] === 'string' ? values[entry[0]].trim() : '';
+            if (value === '') {
+                return;
+            }
+            if (entry[0] === 'quantity') {
+                value = Number(value).toLocaleString('ko-KR') + '개';
+            }
+            rows.push({ label: entry[1], value: value.length > 100 ? value.slice(0, 100) + '…' : value });
+        });
+        return rows;
+    }
+
     function controlsFor(field) {
         var id = CONTROLS[field];
         var element = id ? document.getElementById(id) : null;
@@ -61,6 +83,7 @@
                 return Array.prototype.slice.call(form.querySelectorAll('input, textarea, select, button'));
             },
             getFiles: function () { return attachments ? attachments.getFiles() : []; },
+            getSummary: summaryRows,
             afterSuccess: function () {
                 if (attachments) {
                     attachments.reset();

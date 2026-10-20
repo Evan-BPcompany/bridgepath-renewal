@@ -459,3 +459,56 @@
 .attachments-problems p {
     margin: 0.3rem 0 0;
 }
+
+/* Receipt after an accepted request: copy button and what was sent (estimate-submit.js). */
+.receipt-copy {
+    margin-left: 0.5rem;
+    padding: 0.2rem 0.8rem;
+    border: 1px solid #667eea;
+    border-radius: 6px;
+    background: #fff;
+    color: #667eea;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+#copyReceiptNote {
+    margin-left: 0.4rem;
+    font-size: 0.82rem;
+    color: #555;
+}
+
+.receipt-summary-box {
+    margin: 1rem 0;
+    padding: 0.8rem 1rem;
+    border: 1px solid #e3e5f0;
+    border-radius: 8px;
+    background: #fff;
+    text-align: left;
+}
+
+.receipt-summary-box[hidden] {
+    display: none;
+}
+
+.receipt-summary-box h4 {
+    margin: 0 0 0.5rem;
+}
+
+.receipt-summary {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.3rem 1rem;
+    margin: 0;
+}
+
+.receipt-summary dt {
+    color: #777;
+    font-size: 0.88rem;
+}
+
+.receipt-summary dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.92rem;
+}

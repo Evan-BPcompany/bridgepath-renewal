@@ -426,3 +426,140 @@ describe('the other-products inquiry with files', () => {
     expect(form.getAll('files').map((f: any) => f.name)).toEqual(['sketch.png']);
   });
 });
+
+describe('the receipt after an accepted request (PRD FR-4.5)', () => {
+  const rows = (): Array<[string, string]> => {
+    const terms = $$('#receiptSummaryList dt').map(element => element.textContent);
+    const values = $$('#receiptSummaryList dd').map(element => element.textContent);
+    return terms.map((term, index) => [term, values[index]]);
+  };
+  const row = (label: string): string | undefined => rows().find(entry => entry[0] === label)?.[1];
+
+  it('lists what was sent for a sunglasses request: product, contact, file and the range that was shown', async () => {
+    await openSunglassesAtStep3();
+    fillCustomer();
+
+    click($('#submitBtn'));
+    await settle();
+
+    expect($('#receiptSummary').hidden).toBe(false);
+    expect(row('제품 종류')).toBe('Sunglasses');
+    expect(row('프레임 재질')).toBe('아세테이트');
+    expect(row('렌즈 타입')).toBe('그래디언트 렌즈');
+    expect(row('수량')).toBe('500개');
+    expect(row('고객 유형')).toBe('사업자·브랜드 운영 중');
+    expect(row('이름')).toBe('Kim Minsu');
+    expect(row('회사·브랜드')).toBe('Bridge Co');
+    expect(row('이메일')).toBe('buyer@example.com');
+    expect(row('첨부 파일')).toBe('frame.png');
+    expect(row('화면에 보인 예상 범위 (참고)')).toBe(
+      '개당 약 8,300원 ~ 11,300원, 총 약 4,150,000원 ~ 5,650,000원 · 확정 견적이 아니에요'
+    );
+    // What was not filled in is not listed.
+    expect(row('전화')).toBeUndefined();
+    expect(row('프레임 색상')).toBeUndefined();
+  });
+
+  it('has the receipt number and a button that copies it', async () => {
+    await openSunglassesAtStep3();
+    fillCustomer();
+    click($('#submitBtn'));
+    await settle();
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(g.navigator, 'clipboard', { value: { writeText }, configurable: true });
+
+    click($('#copyReceipt'));
+    await settle();
+
+    expect(writeText).toHaveBeenCalledWith('BP20261013001');
+    expect($('#copyReceiptNote').textContent).toBe('복사했어요.');
+  });
+
+  it('asks the customer to copy by hand when the browser cannot, or refuses', async () => {
+    await openSunglassesAtStep3();
+    fillCustomer();
+    click($('#submitBtn'));
+    await settle();
+
+    Object.defineProperty(g.navigator, 'clipboard', { value: undefined, configurable: true });
+    click($('#copyReceipt'));
+    expect($('#copyReceiptNote').textContent).toBe('직접 선택해서 복사해 주세요.');
+
+    Object.defineProperty(g.navigator, 'clipboard', { value: { writeText: jest.fn().mockRejectedValue(new Error('denied')) }, configurable: true });
+    click($('#copyReceipt'));
+    await settle();
+    expect($('#copyReceiptNote').textContent).toContain('복사하지 못했어요');
+  });
+
+  it('shows what the customer wrote as text, never as markup', async () => {
+    loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
+    click($('.category-card[data-category="sneakers"]'));
+    click($('#nextBtn1'));
+    choose($('#material'), 'leather');
+    check($('#size250'));
+    type($('#quantity'), '100');
+    type($('#additionalInfo'), '<img src=x onerror=alert(1)>');
+    click($('#nextBtn2'));
+    check($('#customerTypeBusiness'));
+    type($('#customerName'), '<b>Kim</b>');
+    type($('#customerCompany'), 'Bridge Co');
+    type($('#customerEmail'), 'buyer@example.com');
+    check($('#privacyConsent'));
+
+    click($('#submitBtn'));
+    await settle();
+
+    expect(row('추가 요청사항')).toBe('<img src=x onerror=alert(1)>');
+    expect(row('이름')).toBe('<b>Kim</b>');
+    expect($('#receiptSummary img')).toBeNull();
+    expect($('#receiptSummary b')).toBeNull();
+  });
+
+  it('lists the product of the shoes page, with the sizes and the kind', async () => {
+    loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
+    click($('.category-card[data-category="sneakers"]'));
+    click($('#nextBtn1'));
+    choose($('#material'), 'leather');
+    check($('#size250'));
+    check($('#size270'));
+    type($('#quantity'), '1200');
+    click($('#nextBtn2'));
+    check($('#customerTypeBusiness'));
+    type($('#customerName'), 'Kim');
+    type($('#customerCompany'), 'Bridge Co');
+    type($('#customerPhone'), '010-1234-5678');
+    check($('#privacyConsent'));
+
+    click($('#submitBtn'));
+    await settle();
+
+    expect(row('제품 종류')).toBe('운동화');
+    expect(row('주요 재질')).toBe('가죽');
+    expect(row('사이즈')).toBe('250, 270');
+    expect(row('수량')).toBe('1,200개');
+    expect(row('전화')).toBe('010-1234-5678');
+    expect(row('이메일')).toBeUndefined();
+  });
+
+  it('lists the other-products inquiry, with a long description cut', async () => {
+    loaded = loadPage('other-inquiry.html', [
+      'config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-attachments.js', 'estimate-submit.js', 'other-inquiry.js'
+    ]);
+    type($('#productDescription'), 'x'.repeat(300));
+    type($('#quantity'), '200');
+    fillCustomer();
+
+    $('#inquiryForm').dispatchEvent(new g.Event('submit', { bubbles: true, cancelable: true }));
+    await settle();
+
+    expect(row('제품 설명')).toBe('x'.repeat(100) + '…');
+    expect(row('수량')).toBe('200개');
+    expect(row('제품 종류')).toBeUndefined();
+  });
+
+  it('shows no summary box when nothing could be listed', async () => {
+    loaded = loadPage('other-inquiry.html', ['config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-submit.js', 'other-inquiry.js']);
+
+    expect($('#receiptSummary').hidden).toBe(true);
+  });
+});

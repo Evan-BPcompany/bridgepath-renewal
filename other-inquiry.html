@@ -71,9 +71,15 @@
 
             <div id="successMessage" class="success-message" role="status" tabindex="-1" style="display: none;">
                 <h3 id="successTitle">문의가 접수되었어요</h3>
-                <p>접수번호: <strong id="receiptId"></strong></p>
+                <p>접수번호: <strong id="receiptId"></strong>
+                    <button type="button" id="copyReceipt" class="receipt-copy">접수번호 복사</button>
+                    <span id="copyReceiptNote" role="status"></span></p>
                 <p id="receiptTimeRow" hidden>접수 시각: <span id="receiptTime"></span></p>
                 <p id="receiptMessage" hidden></p>
+                <div id="receiptSummary" class="receipt-summary-box" hidden>
+                    <h4>접수 내용</h4>
+                    <dl id="receiptSummaryList" class="receipt-summary"></dl>
+                </div>
                 <p>접수번호를 메모해 주세요.</p>
                 <p><a href="index.html">홈으로 돌아가기</a></p>
             </div>
