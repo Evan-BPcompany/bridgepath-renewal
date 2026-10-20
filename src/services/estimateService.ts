@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 import { generateEstimateAccessToken } from '../utils/token';
 import { queueEmailInTransaction } from './emailService';
+import { insertFileRows, StoredFile } from './fileService';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { runInTransaction } from '../utils/transactionRetry';
 import logger from '../utils/logger';
@@ -19,6 +20,11 @@ export interface CreateEstimateRequest {
   // The version of the consent text the customer saw. The time of the consent is not a field:
   // it is the database time of the insert (privacy_consent_at = CURRENT_TIMESTAMP).
   privacy_consent_version: string;
+  // Files that are already in the storage under this estimate id (see fileService.ts). They are
+  // written in the same transaction as the estimate, so the request is saved with all of them or
+  // not at all.
+  estimate_id?: string;
+  files?: StoredFile[];
 }
 
 // What the customer is told after a request: no internal status (PRD FR-4.9.3). The status of a
@@ -128,11 +134,11 @@ export async function createEstimate(
 
         const estimateQuery = `
           INSERT INTO estimates (
-            receipt_id, category, customer_name, customer_email,
+            id, receipt_id, category, customer_name, customer_email,
             customer_phone, company_name, specification_json, status,
             customer_type, privacy_consent_at, privacy_consent_version
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, 'new_receipt', $8, CURRENT_TIMESTAMP, $9)
+          VALUES (COALESCE($10::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, $6, $7, 'new_receipt', $8, CURRENT_TIMESTAMP, $9)
           RETURNING id, receipt_id, status, created_at
         `;
 
@@ -145,7 +151,8 @@ export async function createEstimate(
           request.company_name || null,
           JSON.stringify(request.specification_json),
           request.customer_type,
-          request.privacy_consent_version
+          request.privacy_consent_version,
+          request.estimate_id || null
         ]);
 
         if (estimateResult.rows.length === 0) {
@@ -163,6 +170,10 @@ export async function createEstimate(
         `;
 
         await client.query(tokenQuery, [estimate.id, receipt_id, hash]);
+
+        if (request.files && request.files.length > 0) {
+          await insertFileRows(client, request.files);
+        }
 
         // Queue email events (outbox pattern - same transaction)
         // Customer receipt email

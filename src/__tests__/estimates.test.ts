@@ -160,10 +160,28 @@ describe('Estimate API', () => {
         expect(result.valid).toBe(true);
       });
 
-      it('should validate GIF file with correct magic bytes', () => {
+      // PRD FR-2.6 allows JPG, PNG, WEBP and PDF: GIF is not one of them.
+      it('should reject GIF files', () => {
         const gifMagic = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
         const result = validateFileBuffer(gifMagic, 'image/gif', 'animation.gif');
-        expect(result.valid).toBe(true);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('MIME type image/gif is not allowed');
+      });
+
+      it('should validate WEBP file with correct magic bytes (RIFF....WEBP)', () => {
+        const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBP'), Buffer.alloc(4)]);
+        expect(validateFileBuffer(webp, 'image/webp', 'photo.webp').valid).toBe(true);
+      });
+
+      it('should not take another RIFF file (WAVE, AVI) for WEBP', () => {
+        const wave = Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WAVE'), Buffer.alloc(4)]);
+        const result = validateFileBuffer(wave, 'image/webp', 'photo.webp');
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('File magic bytes do not match MIME type');
+      });
+
+      it('should reject a WEBP that is cut off before the type marker', () => {
+        expect(validateFileBuffer(Buffer.from('RIFF'), 'image/webp', 'photo.webp').valid).toBe(false);
       });
 
       it('should validate PDF file with correct magic bytes', () => {
@@ -205,18 +223,18 @@ describe('Estimate API', () => {
         expect(result.errors).toContain('File is empty');
       });
 
-      it('should reject file exceeding size limit (50MB)', () => {
-        const oversizeBuffer = Buffer.alloc(51 * 1024 * 1024);
+      it('should reject file exceeding size limit (10MB)', () => {
+        const oversizeBuffer = Buffer.alloc(10 * 1024 * 1024 + 1);
         oversizeBuffer[0] = 0xff;
         oversizeBuffer[1] = 0xd8;
         oversizeBuffer[2] = 0xff;
         const result = validateFileBuffer(oversizeBuffer, 'image/jpeg', 'photo.jpg');
         expect(result.valid).toBe(false);
-        expect(result.errors[0]).toContain('File size exceeds 50MB limit');
+        expect(result.errors[0]).toContain('File size exceeds 10MB limit');
       });
 
-      it('should accept file at maximum size (50MB)', () => {
-        const maxBuffer = Buffer.alloc(50 * 1024 * 1024);
+      it('should accept file at maximum size (10MB)', () => {
+        const maxBuffer = Buffer.alloc(10 * 1024 * 1024);
         maxBuffer[0] = 0xff;
         maxBuffer[1] = 0xd8;
         maxBuffer[2] = 0xff;

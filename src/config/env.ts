@@ -3,6 +3,8 @@ import { DatabaseSsl, resolveDatabaseSsl } from '../db/connectionSafety';
 
 dotenv.config();
 
+export type FileStorageKind = 's3' | 'local';
+
 export interface RateLimitSetting {
   windowMs: number;
   max: number;
@@ -50,6 +52,9 @@ export interface AppConfig {
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
   s3Bucket?: string;
+  // Where the files of an estimate request are kept: S3, or (not in production) a local folder.
+  fileStorage: FileStorageKind;
+  localUploadDir: string;
   fileDownloadEnabled: boolean;
   trustProxy: number;
   rateLimits: RateLimitSettings;
@@ -116,6 +121,19 @@ export function parseIntegerEnv(
     throw new Error(`${name} must be an integer between ${min} and ${max}`);
   }
 
+  return value;
+}
+
+// FILE_STORAGE: "s3" (the default) or "local", a folder on this machine for development and tests
+// without AWS. Local storage is refused in production: files there would be lost with the server.
+export function parseFileStorage(raw: string | undefined, nodeEnv: string): FileStorageKind {
+  const value = raw === undefined || raw.trim() === '' ? 's3' : raw.trim();
+  if (value !== 's3' && value !== 'local') {
+    throw new Error('FILE_STORAGE must be "s3" or "local"');
+  }
+  if (value === 'local' && nodeEnv === 'production') {
+    throw new Error('FILE_STORAGE=local is not allowed when NODE_ENV=production: use s3.');
+  }
   return value;
 }
 
@@ -255,6 +273,8 @@ export function loadConfig(): AppConfig {
     awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
     awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     s3Bucket: process.env.S3_BUCKET,
+    fileStorage: parseFileStorage(process.env.FILE_STORAGE, nodeEnv),
+    localUploadDir: process.env.LOCAL_UPLOAD_DIR || 'uploads-dev',
     fileDownloadEnabled: parseBooleanEnv('FILE_DOWNLOAD_ENABLED', process.env.FILE_DOWNLOAD_ENABLED, false),
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
     rateLimits: parseRateLimits(process.env),

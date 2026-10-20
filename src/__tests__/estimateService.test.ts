@@ -96,7 +96,9 @@ describe('estimate service (fake database)', () => {
         'Acme',
         JSON.stringify({ quantity: 500 }),
         'individual_startup',
-        'dev-draft'
+        'dev-draft',
+        // No estimate id of its own: the database makes one.
+        null
       ]);
     });
 
@@ -114,9 +116,58 @@ describe('estimate service (fake database)', () => {
         'customer_type, privacy_consent_at, privacy_consent_version'
       );
       expect(insert.sql.replace(/\s+/g, ' ')).toContain("'new_receipt', $8, CURRENT_TIMESTAMP, $9)");
-      expect(insert.params).toHaveLength(9);
-      expect(insert.params.slice(7)).toEqual(['business_brand', '2026-v1']);
+      expect(insert.params).toHaveLength(10);
+      expect(insert.params.slice(7, 9)).toEqual(['business_brand', '2026-v1']);
       expect(JSON.stringify(insert.params)).not.toContain('1999');
+    });
+
+    describe('with files that are already in the storage', () => {
+      const stored = ['a', 'b'].map(name => ({
+        id: name.repeat(32),
+        estimateId: '8a1b7c1e-5f0e-4c36-9d57-0d8f3f1a2b3c',
+        s3Key: `estimates/8a1b7c1e-5f0e-4c36-9d57-0d8f3f1a2b3c/${name.repeat(32)}.png`,
+        filename: `${name}.png`,
+        mimeType: 'image/png',
+        fileSize: 12,
+        status: 'quarantine'
+      }));
+
+      it('creates the estimate with the id the files were stored under, and the file rows in the same transaction', async () => {
+        await createEstimate({ ...request, estimate_id: stored[0].estimateId, files: stored });
+
+        expect(find('INSERT INTO estimates')!.params[9]).toBe(stored[0].estimateId);
+        const order = statements();
+        const tokenAt = order.findIndex(sql => sql.includes('INSERT INTO estimate_access_tokens'));
+        const fileRows = order.map((sql, index) => (sql.includes('INSERT INTO files') ? index : -1)).filter(index => index >= 0);
+        expect(order[0]).toBe('BEGIN');
+        expect(fileRows).toHaveLength(2);
+        expect(fileRows[0]).toBeGreaterThan(tokenAt);
+        expect(order[order.length - 1]).toBe('COMMIT');
+        expect(order.filter(sql => sql === 'BEGIN')).toHaveLength(1);
+      });
+
+      it('writes no file row for a request without files', async () => {
+        await createEstimate({ ...request, files: [] });
+
+        expect(statements().some(sql => sql.includes('INSERT INTO files'))).toBe(false);
+      });
+
+      it('rolls the whole request back when a file row cannot be written: no estimate, no receipt', async () => {
+        const original = db.state.handler;
+        db.state.handler = (sql, params) => {
+          if (sql.includes('INSERT INTO files')) {
+            throw new Error('insert or update on table "files" violates foreign key');
+          }
+          return original(sql, params);
+        };
+
+        await expect(createEstimate({ ...request, estimate_id: stored[0].estimateId, files: stored })).rejects.toThrow('violates');
+
+        const order = statements();
+        expect(order).toContain('ROLLBACK');
+        expect(order).not.toContain('COMMIT');
+        expect(db.client.release).toHaveBeenCalled();
+      });
     });
 
     it('stores NULL for contact details that were not given', async () => {

@@ -3,7 +3,7 @@ jest.mock('../services/estimateService', () => ({
   createEstimate: jest.fn(),
   getEstimateByReceiptId: jest.fn()
 }));
-jest.mock('../services/fileService', () => ({ uploadMultipleFilesWithMetadata: jest.fn() }));
+jest.mock('../services/fileService', () => ({ storeFiles: jest.fn(), discardStoredFiles: jest.fn() }));
 
 import request from 'supertest';
 import type { Express } from 'express';
@@ -12,12 +12,13 @@ import { createApp } from '../app';
 import { PROFILE, withMultipartProfile } from './helpers/customerFixtures';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../services/fileService';
+import { discardStoredFiles, storeFiles } from '../services/fileService';
 import { hashEstimateToken } from '../utils/token';
 
 const create = createEstimate as jest.Mock;
 const lookup = getEstimateByReceiptId as jest.Mock;
-const uploadFiles = uploadMultipleFilesWithMetadata as jest.Mock;
+const uploadFiles = storeFiles as jest.Mock;
+const discard = discardStoredFiles as jest.Mock;
 
 const SPEC = { schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity: 500 };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -39,6 +40,7 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
     create.mockReset().mockResolvedValue(CREATED);
     lookup.mockReset();
     uploadFiles.mockReset();
+    discard.mockReset();
     jest.spyOn(logger, 'info').mockImplementation(() => logger);
     jest.spyOn(logger, 'warn').mockImplementation(() => logger);
     jest.spyOn(logger, 'error').mockImplementation(() => logger);
@@ -80,7 +82,9 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
         customer_phone: undefined,
         company_name: undefined,
         customer_type: 'individual_startup',
-        privacy_consent_version: 'dev-draft'
+        privacy_consent_version: 'dev-draft',
+        estimate_id: undefined,
+        files: []
       });
     });
 
@@ -186,9 +190,24 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
         expect(res.status).toBe(201);
         expect(res.body.files).toEqual([{ id: 'f1', filename: 'logo.png', size: 12, status: 'quarantine' }]);
         expect(JSON.stringify(res.body)).not.toContain('estimates/x/f1.png');
-        expect(uploadFiles).toHaveBeenCalledWith('internal-estimate-uuid', [
+        // The files are stored first, under the id the estimate is then created with.
+        const estimateId = uploadFiles.mock.calls[0][0];
+        expect(estimateId).toMatch(/^[0-9a-f-]{36}$/);
+        expect(uploadFiles).toHaveBeenCalledWith(estimateId, [
           expect.objectContaining({ mimeType: 'image/png', originalFilename: 'logo.png' })
         ]);
+        expect(create).toHaveBeenCalledWith(
+          expect.objectContaining({ estimate_id: estimateId, files: [expect.objectContaining({ id: 'f1' })] })
+        );
+        expect(uploadFiles.mock.invocationCallOrder[0]).toBeLessThan(create.mock.invocationCallOrder[0]);
+        expect(discard).not.toHaveBeenCalled();
+      });
+
+      it('creates a request without files with no estimate id of its own and no files', async () => {
+        await post().send({ ...PROFILE, category: 'shoes', specification_json: SPEC, customer_email: 'buyer@example.com' });
+
+        expect(uploadFiles).not.toHaveBeenCalled();
+        expect(create).toHaveBeenCalledWith(expect.objectContaining({ estimate_id: undefined, files: [] }));
       });
 
       it('rejects a file whose content does not match its type, before anything is created', async () => {
@@ -205,15 +224,99 @@ describe('customer API contract (POST/GET /api/estimates)', () => {
         expect(uploadFiles).not.toHaveBeenCalled();
       });
 
-      it('keeps the estimate and answers 500 when the files cannot be stored (partial success policy)', async () => {
+      // PRD FR-4.7: a request whose attachment failed is not accepted: no estimate, no receipt
+      // number, so that trying again cannot make a second request.
+      it('saves nothing and gives no receipt number when the files cannot be stored', async () => {
         uploadFiles.mockRejectedValue(new Error('S3 down'));
 
         const res = await attach().attach('files', PNG, { filename: 'logo.png', contentType: 'image/png' });
 
         expect(res.status).toBe(500);
         expect(res.body.error).toBe('File upload failed');
+        expect(res.body.code).toBe('FILE_UPLOAD_FAILED');
+        expect(res.body.receipt_id).toBeUndefined();
         expect(JSON.stringify(res.body)).not.toContain('S3 down');
-        expect(create).toHaveBeenCalledTimes(1);
+        expect(create).not.toHaveBeenCalled();
+      });
+
+      it('removes the stored files when the estimate cannot be saved', async () => {
+        const stored = [{ id: 'f1', estimateId: 'x', s3Key: 'estimates/x/f1.png', filename: 'logo.png', mimeType: 'image/png', fileSize: 12, status: 'quarantine' }];
+        uploadFiles.mockResolvedValue(stored);
+        create.mockRejectedValue(new Error('deadlock detected'));
+
+        const res = await attach().attach('files', PNG, { filename: 'logo.png', contentType: 'image/png' });
+
+        expect(res.status).toBe(500);
+        expect(res.body.receipt_id).toBeUndefined();
+        expect(JSON.stringify(res.body)).not.toContain('deadlock');
+        expect(discard).toHaveBeenCalledWith(stored);
+      });
+
+      describe('what is refused before anything is stored (400, never 500)', () => {
+        const expectRefused = (res: request.Response, message: RegExp) => {
+          expect(res.status).toBe(400);
+          expect(res.body.error).toBe('File validation failed');
+          expect(JSON.stringify(res.body.details)).toMatch(message);
+          expect(uploadFiles).not.toHaveBeenCalled();
+          expect(create).not.toHaveBeenCalled();
+        };
+
+        it('a type that is not allowed (GIF), named with its file', async () => {
+          const res = await attach().attach('files', Buffer.from('GIF89a'), { filename: 'a.gif', contentType: 'image/gif' });
+
+          expectRefused(res, /MIME type image\/gif is not allowed/);
+          expect(res.body.details[0].filename).toBe('a.gif');
+        });
+
+        it('more than 5 files', async () => {
+          let req = attach();
+          for (let i = 0; i < 6; i += 1) {
+            req = req.attach('files', PNG, { filename: `f${i}.png`, contentType: 'image/png' });
+          }
+
+          expectRefused(await req, /Too many files: at most 5/);
+        });
+
+        it('a file over 10 MB', async () => {
+          const big = Buffer.concat([PNG, Buffer.alloc(10 * 1024 * 1024)]);
+
+          expectRefused(await attach().attach('files', big, { filename: 'big.png', contentType: 'image/png' }), /File size exceeds 10MB/);
+        });
+
+        it('files that are more than 30 MB together', async () => {
+          const nearLimit = Buffer.concat([PNG, Buffer.alloc(9 * 1024 * 1024)]);
+          let req = attach();
+          for (let i = 0; i < 4; i += 1) {
+            req = req.attach('files', nearLimit, { filename: `f${i}.png`, contentType: 'image/png' });
+          }
+
+          expectRefused(await req, /Total file size exceeds 30MB/);
+        });
+
+        it('a Korean file name reaches the storage as it was written, not as mojibake', async () => {
+          uploadFiles.mockResolvedValue([]);
+
+          await attach().attach('files', PNG, { filename: '내 로고 (최종).png', contentType: 'image/png' });
+
+          expect(uploadFiles.mock.calls[0][1].map((file: { originalFilename: string }) => file.originalFilename)).toEqual([
+            '내 로고 (최종).png'
+          ]);
+        });
+
+        it('a WEBP file is accepted (PRD FR-2.6)', async () => {
+          uploadFiles.mockResolvedValue([]);
+          const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBP'), Buffer.alloc(8)]);
+
+          const res = await attach().attach('files', webp, { filename: 'photo.webp', contentType: 'image/webp' });
+
+          expect(res.status).toBe(201);
+        });
+
+        it('a WEBP-named file that is really a RIFF audio file', async () => {
+          const wave = Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WAVE'), Buffer.alloc(8)]);
+
+          expectRefused(await attach().attach('files', wave, { filename: 'photo.webp', contentType: 'image/webp' }), /magic bytes/);
+        });
       });
     });
 

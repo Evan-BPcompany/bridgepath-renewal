@@ -3,7 +3,7 @@ jest.mock('../../services/estimateService', () => ({
   createEstimate: jest.fn(),
   getEstimateByReceiptId: jest.fn()
 }));
-jest.mock('../../services/fileService', () => ({ uploadMultipleFilesWithMetadata: jest.fn() }));
+jest.mock('../../services/fileService', () => ({ storeFiles: jest.fn(), discardStoredFiles: jest.fn() }));
 
 import request from 'supertest';
 import type { Express } from 'express';
@@ -12,7 +12,7 @@ import { config } from '../../config/env';
 import { createApp } from '../../app';
 import { CATEGORY_MAPPING } from '../../utils/specification';
 import { createEstimate } from '../../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../../services/fileService';
+import { storeFiles } from '../../services/fileService';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../../utils/customerMessages';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -51,7 +51,7 @@ const BUSINESS = {
 describe('the front end against the real API', () => {
   let app: Express;
   const create = createEstimate as jest.Mock;
-  const upload = uploadMultipleFilesWithMetadata as jest.Mock;
+  const upload = storeFiles as jest.Mock;
   const originalNodeEnv = config.nodeEnv;
 
   const build = (page: string, subtype: string | null, customer: Record<string, unknown> = INDIVIDUAL, files: unknown[] = []) => {
@@ -214,7 +214,7 @@ describe('the front end against the real API', () => {
       const response = await send(app, built);
 
       expect(response.status).toBe(201);
-      expect(Array.isArray(sentToService().files)).toBe(false);
+      expect(sentToService().files).toEqual([]);
       expect(upload).not.toHaveBeenCalled();
     });
 
@@ -407,24 +407,37 @@ describe('the front end against the real API', () => {
     });
   });
 
-  describe('known limits of the API today (they must be revisited when the API is changed)', () => {
-    // B2: a violation of the upload limits is answered with 500, not 400, so the front end checks
-    // the files itself before it sends anything.
-    it('a file type the upload does not accept is answered with 500 (backend follow-up B2)', async () => {
-      const webp = new g.File([Buffer.from('RIFFxxxxWEBP')], 'photo.webp', { type: 'image/webp' });
+  // What the API refuses is answered with 400 and the shape of the other file errors, so the page
+  // can say which file was wrong and why, even for a file its own checks let through.
+  describe('what the API refuses about files', () => {
+    it('a file type it does not accept is a validation result naming the file', async () => {
+      const gif = new g.File([Buffer.from('GIF89a')], 'photo.gif', { type: 'image/gif' });
+
+      const response = await send(app, build('golf', 'bags', INDIVIDUAL, [gif]));
+      const result = read(response, true);
+
+      expect(response.status).toBe(400);
+      expect(result.kind).toBe('validation');
+      expect(result.fileErrors).toEqual([{ name: 'photo.gif', codes: ['type_not_allowed'] }]);
+      expect(upload).not.toHaveBeenCalled();
+    });
+
+    it('a WEBP file is accepted', async () => {
+      const webp = new g.File([Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBP'), Buffer.alloc(8)])], 'photo.webp', { type: 'image/webp' });
 
       const response = await send(app, build('golf', 'bags', INDIVIDUAL, [webp]));
 
-      expect(response.status).toBe(500);
-      expect(read(response, true)).toEqual({ kind: 'serverError', mayHaveBeenSaved: true });
+      expect(response.status).toBe(201);
     });
 
-    it('more than 10 files are answered with 500 (backend follow-up B2)', async () => {
-      const files = Array.from({ length: 11 }, (_, i) => new g.File([PNG], `f${i}.png`, { type: 'image/png' }));
+    it('more than 5 files are a validation result, not a server error', async () => {
+      const files = Array.from({ length: 6 }, (_, i) => new g.File([PNG], `f${i}.png`, { type: 'image/png' }));
 
       const response = await send(app, build('golf', 'bags', INDIVIDUAL, files));
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(400);
+      expect(read(response, true).kind).toBe('validation');
+      expect(upload).not.toHaveBeenCalled();
     });
   });
 });

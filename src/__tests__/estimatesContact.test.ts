@@ -4,7 +4,9 @@ jest.mock('../services/estimateService', () => ({
   getEstimateByReceiptId: jest.fn()
 }));
 jest.mock('../utils/specification', () => ({
-  validateSpecification: jest.fn(() => ({ valid: true, errors: [] }))
+  validateSpecification: jest.fn(() => ({ valid: true, errors: [] })),
+  // Not under test here: the specification goes through as it is.
+  stripInvalidAiPreview: jest.fn((specification: unknown) => ({ specification, dropped: false }))
 }));
 
 import request from 'supertest';

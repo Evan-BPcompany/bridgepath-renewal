@@ -175,3 +175,72 @@ export function validateSpecification(
 
   return { valid: true };
 }
+
+// What the customer's screen showed when the AI quote was started (sunglasses form): the analysis
+// of the photo and the price range. It is advisory and written by the browser, so it is a record of
+// what the customer saw, never a quote and never trusted: the staff work from the real
+// specification and the rules. Because it must never stop a request, an ai_preview that does not fit
+// this shape is dropped (stripInvalidAiPreview) instead of refusing the request.
+const text = (maxLength: number) => ({ type: 'string', maxLength });
+const range = {
+  type: 'object',
+  properties: { min: { type: 'integer', minimum: 0, maximum: 100000000000 }, max: { type: 'integer', minimum: 0, maximum: 100000000000 } },
+  required: ['min', 'max'],
+  additionalProperties: false
+};
+const textList = { type: 'array', items: text(200), maxItems: 4 };
+
+const aiPreviewSchema = {
+  type: 'object',
+  properties: {
+    source: { type: 'string', const: 'customer_screen' },
+    analysis: {
+      type: 'object',
+      properties: {
+        frame_material: { type: 'string', enum: ['plastic', 'metal', 'acetate', 'wood', 'mixed', 'unknown'] },
+        lens_type: { type: 'string', enum: ['normal', 'polarized', 'mirror', 'gradient', 'photochromic', 'unknown'] },
+        confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+        complexity: { type: 'string', enum: ['low', 'medium', 'high'] },
+        frame_shape: text(100),
+        frame_color: text(100),
+        overview: text(1000),
+        details: {
+          type: 'object',
+          properties: { frame: text(300), lens: text(300), decoration: text(300) },
+          additionalProperties: false
+        },
+        cost_factors: textList,
+        recommendations: textList
+      },
+      additionalProperties: false
+    },
+    price: {
+      type: 'object',
+      properties: {
+        currency: { type: 'string', const: 'KRW' },
+        quantity: { type: 'integer', minimum: 1, maximum: 1000000 },
+        unit_price: range,
+        total_price: range
+      },
+      required: ['currency', 'quantity', 'unit_price', 'total_price'],
+      additionalProperties: false
+    }
+  },
+  required: ['source'],
+  additionalProperties: false
+};
+
+const aiPreviewValidator = ajv.compile(aiPreviewSchema);
+
+export function stripInvalidAiPreview(specification: unknown): { specification: unknown; dropped: boolean } {
+  if (!specification || typeof specification !== 'object' || Array.isArray(specification) || !('ai_preview' in specification)) {
+    return { specification, dropped: false };
+  }
+
+  if (aiPreviewValidator((specification as Record<string, unknown>).ai_preview)) {
+    return { specification, dropped: false };
+  }
+
+  const { ai_preview: _dropped, ...rest } = specification as Record<string, unknown>;
+  return { specification: rest, dropped: true };
+}

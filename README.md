@@ -520,15 +520,15 @@ Implemented multipart/form-data file upload with private S3 storage, magic-byte 
 **File Upload Features:**
 
 1. **Multipart/Form-Data Handling**
-   - Accept multiple files (max 10 files per estimate)
+   - Accept up to 5 files per estimate (PRD FR-2.6)
    - Accept JSON specification_json as form field
    - Backward compatible with existing application/json API
 
 2. **File Validation**
-   - MIME type whitelist: JPEG, PNG, GIF, PDF
+   - MIME type whitelist: JPEG, PNG, WEBP, PDF (PRD FR-2.6; GIF is not allowed)
    - Magic bytes validation (prevent MIME type spoofing)
    - Extension validation (must match MIME type)
-   - File size limit: 50MB per file
+   - File size limits: 10MB per file, 30MB for all files of one request
    - Empty file rejection
    - Supports both .jpg and .jpeg extensions
 
@@ -601,14 +601,15 @@ Response (validation error):
   error: "File validation failed",
   details: [
     { filename: "doc.docx", errors: ["MIME type application/vnd... is not allowed"] },
-    { filename: "large.jpg", errors: ["File size exceeds 50MB limit"] }
+    { filename: "large.jpg", errors: ["File size exceeds 10MB limit"] },
+    { filename: "", errors: ["Too many files: at most 5 files per request"] }
   ],
   timestamp: "2026-09-30T..."
 }
 
 Response (file upload error):
-HTTP 500: { error: "File upload failed", timestamp: "..." }
-// Estimate created, but files may not have been stored
+HTTP 500: { error: "File upload failed", code: "FILE_UPLOAD_FAILED", timestamp: "..." }
+// Nothing was saved: no estimate, no receipt number (see "All or nothing" below)
 ```
 
 **Implementation Details:**
@@ -1364,3 +1365,20 @@ Step 2 of `sunglasses-estimate.html` ends with **AI 견적 시작** (no longer a
 - The data and the sources are in `docs/pricing/sunglasses-factory-prices-2026-10-20.json`; `node scripts/sunglasses-base-prices.js` prints the table again (`--rate=` for another rate, `--json` for machine output). `migration014.test.ts` fails when the migration and the script disagree.
 - A price is a factory price per piece as listed, at the middle of the listed range (FOB-style). It does **not** include shipping, duty, mold, logo, packaging or the service fee, and listings are mostly stock designs, not custom OEM development. It is an opening estimate: replace each row with the figures of real quotes as they come in, and keep the lens multipliers and quantity tiers (placeholders) in mind.
 - The migration also switches off the other `[SAMPLE]` eyewear rows (`Premium Frame`), so an unknown material is priced between the cheapest and the dearest of these five. Nothing is applied by the tests: run `npm run db:migrate` yourself on a database you chose.
+
+### All or nothing: files, storage and the receipt number (PRD FR-4.7)
+
+A request with files is saved with all of them or not at all, so a failed attachment never leaves an estimate behind and trying again cannot make a second request:
+
+1. The route checks the files (type by content, size, count, total) and answers **400** `File validation failed` with `details: [{ filename, errors }]` for anything wrong. What Multer refuses (a type that is not allowed, a file over 10 MB, a sixth file) is answered the same way; it used to reach the error handler as a 500.
+2. `storeFiles()` (`services/fileService.ts`) puts every file in the storage under `estimates/<estimate id>/<file id>.<ext>`, with the estimate id chosen in advance. If one fails, the ones already stored are removed and the route answers **500** `FILE_UPLOAD_FAILED`: no estimate was created.
+3. `createEstimate()` writes the estimate, its access token, the e-mail outbox rows **and the file rows** in one transaction. If it fails, the route removes the stored files (`discardStoredFiles`).
+4. Only then the customer gets **201** with the receipt number and the files (`id`, `filename`, `size`, `status`; never the key).
+
+- **Storage** (`services/fileStorage.ts`): `FILE_STORAGE=s3` (default) or `FILE_STORAGE=local`, a folder (`LOCAL_UPLOAD_DIR`, default `uploads-dev`, in `.gitignore`) for development and tests without AWS. `local` is refused when `NODE_ENV=production`. The local storage accepts only keys of the exact server-made form and never writes a key twice. **S3 itself has still not been tried against real AWS.**
+- **File names**: Multer reads a name as Latin-1, so a Korean name arrived as mojibake; `decodeFilename` gives it back. The original name is kept for display only (`displayFilename`: no folders, control characters or `<>"'`` ), never in a key or path. A client that shows it must still escape it.
+- Files are stored as `quarantine` / virus scan `pending`; nothing approves them yet, so **admin downloads stay blocked** (unchanged).
+
+### The AI screen record (`ai_preview`)
+
+A sunglasses request may carry `specification_json.ai_preview`: what the customer's screen showed when the AI quote was started: `{ source: "customer_screen", analysis: { frame_material, lens_type, confidence, complexity, frame_shape, frame_color, overview, details: { frame, lens, decoration }, cost_factors[], recommendations[] }, price: { currency: "KRW", quantity, unit_price: { min, max }, total_price: { min, max } } }` (`utils/specification.ts`). It is written by the browser, so it is **a record of what the customer saw, never a quote and never trusted**: staff work from the real specification and the pricing rules. It is advisory, so a record that does not fit this shape is dropped (a warning is logged) and the request goes on.

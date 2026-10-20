@@ -6,6 +6,7 @@ logs/
 .env.*.local
 *.log
 uploads/
+uploads-dev/
 .DS_Store
 *.swp
 *.swo

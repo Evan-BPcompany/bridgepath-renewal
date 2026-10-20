@@ -3,7 +3,7 @@ jest.mock('../services/estimateService', () => ({
   createEstimate: jest.fn(),
   getEstimateByReceiptId: jest.fn()
 }));
-jest.mock('../services/fileService', () => ({ uploadMultipleFilesWithMetadata: jest.fn() }));
+jest.mock('../services/fileService', () => ({ storeFiles: jest.fn(), discardStoredFiles: jest.fn() }));
 
 import request from 'supertest';
 import type { Express } from 'express';
@@ -13,13 +13,13 @@ import { createApp } from '../app';
 import * as privacyConsent from '../config/privacyConsent';
 import { PROFILE, SERVICE_PROFILE, withMultipartProfile } from './helpers/customerFixtures';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../services/fileService';
+import { storeFiles } from '../services/fileService';
 import { getPool } from '../config/database';
 import { createFakeDb } from './helpers/adminTestUtils';
 
 const create = createEstimate as jest.Mock;
 const lookup = getEstimateByReceiptId as jest.Mock;
-const upload = uploadMultipleFilesWithMetadata as jest.Mock;
+const upload = storeFiles as jest.Mock;
 
 const SPEC = { schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity: 500 };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);

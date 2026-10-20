@@ -3,7 +3,7 @@ jest.mock('../services/estimateService', () => ({
   createEstimate: jest.fn(),
   getEstimateByReceiptId: jest.fn()
 }));
-jest.mock('../services/fileService', () => ({ uploadMultipleFilesWithMetadata: jest.fn() }));
+jest.mock('../services/fileService', () => ({ storeFiles: jest.fn(), discardStoredFiles: jest.fn() }));
 
 import request from 'supertest';
 import type { Express } from 'express';
@@ -12,7 +12,7 @@ import { createApp } from '../app';
 import { PROFILE, withMultipartProfile } from './helpers/customerFixtures';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../services/fileService';
+import { storeFiles } from '../services/fileService';
 
 // PRD FR-4.9.3: customers never get the internal status. Whatever the services return, the
 // customer answers are built field by field and carry the fixed guidance instead.
@@ -25,7 +25,7 @@ describe('the customer never sees the internal status', () => {
   let app: Express;
   const create = createEstimate as jest.Mock;
   const lookup = getEstimateByReceiptId as jest.Mock;
-  const upload = uploadMultipleFilesWithMetadata as jest.Mock;
+  const upload = storeFiles as jest.Mock;
 
   beforeEach(() => {
     app = createApp({ rateLimits: { estimateCreate: { windowMs: 3600000, max: 100000 } } });

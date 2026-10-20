@@ -3,7 +3,7 @@ jest.mock('../../services/estimateService', () => ({
   createEstimate: jest.fn(),
   getEstimateByReceiptId: jest.fn()
 }));
-jest.mock('../../services/fileService', () => ({ uploadMultipleFilesWithMetadata: jest.fn() }));
+jest.mock('../../services/fileService', () => ({ storeFiles: jest.fn(), discardStoredFiles: jest.fn() }));
 
 import request from 'supertest';
 import type { Express } from 'express';

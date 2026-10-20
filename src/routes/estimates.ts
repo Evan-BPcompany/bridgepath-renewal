@@ -1,24 +1,25 @@
+import { randomUUID } from 'crypto';
 import { Router, Request, Response } from 'express';
-import { validateSpecification } from '../utils/specification';
+import { stripInvalidAiPreview, validateSpecification } from '../utils/specification';
 import { hashEstimateToken } from '../utils/token';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../services/fileService';
+import { discardStoredFiles, storeFiles, StoredFile } from '../services/fileService';
 import { validateReceiptId } from '../utils/receipt-id';
 import { validateCustomerSubmission } from '../utils/customerValidation';
 import { getAcceptedConsentVersions } from '../config/privacyConsent';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { config } from '../config/env';
 import {
-  uploadMiddleware,
+  receiveFiles,
   extractMultipartData,
   InvalidSpecificationJsonError
 } from '../middleware/upload';
-import { validateFileBuffer } from '../utils/fileValidation';
+import { validateFileBuffer, validateFileSet } from '../utils/fileValidation';
 import logger from '../utils/logger';
 
 const router = Router();
 
-router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Request, res: Response) => {
+router.post('/estimates', receiveFiles, async (req: Request, res: Response) => {
   try {
     // Without an approved privacy consent version no request may be stored (production keeps no
     // approved version until the text has been reviewed). Nothing has been written or numbered yet.
@@ -111,10 +112,24 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       return;
     }
 
-    if (uploadedFiles && uploadedFiles.length > 0) {
+    // The AI screen record is advisory: a malformed one is dropped, the request goes on.
+    const { specification: cleanSpecification, dropped: aiPreviewDropped } = stripInvalidAiPreview(specification_json);
+    if (aiPreviewDropped) {
+      logger.warn('Dropped an ai_preview that did not fit its shape', { category });
+    }
+
+    const files = uploadedFiles ?? [];
+
+    if (files.length > 0) {
       const fileValidationErrors: Array<{ filename: string; errors: string[] }> = [];
 
-      for (const file of uploadedFiles) {
+      // How many and how large together (PRD FR-2.6), then each file by its content (FR-2.7).
+      const setValidation = validateFileSet(files.map(file => file.size));
+      if (!setValidation.valid) {
+        fileValidationErrors.push({ filename: '', errors: setValidation.errors });
+      }
+
+      for (const file of files) {
         const fileValidation = validateFileBuffer(file.buffer, file.mimetype, file.originalname);
         if (!fileValidation.valid) {
           fileValidationErrors.push({
@@ -140,52 +155,48 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       }
     }
 
-    const result = await createEstimate({
-      category,
-      specification_json,
-      ...contactResult.value
-    });
+    // A request with files is saved with all of them or not at all (PRD FR-4.7): the files go to
+    // the storage first, under the id the estimate will have, and the estimate and its file rows are
+    // written in one transaction. If either step fails nothing is left behind, the customer gets no
+    // receipt number, and trying again cannot make a second request.
+    const estimateId = files.length > 0 ? randomUUID() : undefined;
+    let storedFiles: StoredFile[] = [];
 
-    if (uploadedFiles && uploadedFiles.length > 0) {
+    if (estimateId) {
       try {
-        const fileData = uploadedFiles.map(file => ({
-          buffer: file.buffer,
-          mimeType: file.mimetype,
-          originalFilename: file.originalname
-        }));
-
-        const uploadedFilesList = await uploadMultipleFilesWithMetadata(
-          result.estimate_id,
-          fileData
+        storedFiles = await storeFiles(
+          estimateId,
+          files.map(file => ({
+            buffer: file.buffer,
+            mimeType: file.mimetype,
+            originalFilename: file.originalname
+          }))
         );
-
-        const fileResults = uploadedFilesList.map(file => ({
-          id: file.id,
-          filename: file.filename,
-          size: file.fileSize,
-          status: file.status
-        }));
-
-        res.status(201).json({
-          success: result.success,
-          receipt_id: result.receipt_id,
-          access_token: result.access_token,
-          created_at: result.created_at,
-          message: CUSTOMER_GUIDANCE_MESSAGE,
-          files: fileResults
-        });
-        return;
       } catch (fileErr) {
-        logger.error('File upload failed', {
-          receipt_id: result.receipt_id,
+        logger.error('File upload failed, nothing was saved', {
           error: fileErr instanceof Error ? fileErr.message : String(fileErr)
         });
         res.status(500).json({
           error: 'File upload failed',
+          code: 'FILE_UPLOAD_FAILED',
           timestamp: new Date().toISOString()
         });
         return;
       }
+    }
+
+    let result;
+    try {
+      result = await createEstimate({
+        category,
+        specification_json: cleanSpecification,
+        ...contactResult.value,
+        estimate_id: estimateId,
+        files: storedFiles
+      });
+    } catch (createErr) {
+      await discardStoredFiles(storedFiles);
+      throw createErr;
     }
 
     res.status(201).json({
@@ -193,7 +204,17 @@ router.post('/estimates', uploadMiddleware.array('files', 10), async (req: Reque
       receipt_id: result.receipt_id,
       access_token: result.access_token,
       created_at: result.created_at,
-      message: CUSTOMER_GUIDANCE_MESSAGE
+      message: CUSTOMER_GUIDANCE_MESSAGE,
+      ...(storedFiles.length > 0
+        ? {
+            files: storedFiles.map(file => ({
+              id: file.id,
+              filename: file.filename,
+              size: file.fileSize,
+              status: file.status
+            }))
+          }
+        : {})
     });
   } catch (err) {
     if (err instanceof InvalidSpecificationJsonError) {

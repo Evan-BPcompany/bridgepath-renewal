@@ -4,7 +4,8 @@ jest.mock('../services/estimateService', () => ({
   getEstimateByReceiptId: jest.fn()
 }));
 jest.mock('../services/fileService', () => ({
-  uploadMultipleFilesWithMetadata: jest.fn()
+  storeFiles: jest.fn(),
+  discardStoredFiles: jest.fn()
 }));
 
 import request from 'supertest';
@@ -18,7 +19,7 @@ import {
 import { getPool } from '../config/database';
 import { createApp } from '../app';
 import { createEstimate, getEstimateByReceiptId } from '../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../services/fileService';
+import { storeFiles } from '../services/fileService';
 import { createFakeDb } from './helpers/adminTestUtils';
 import { PROFILE } from './helpers/customerFixtures';
 
@@ -67,7 +68,7 @@ describe('public customer API rate limits', () => {
   let db: ReturnType<typeof createFakeDb>;
   const create = jest.mocked(createEstimate);
   const lookup = jest.mocked(getEstimateByReceiptId);
-  const upload = jest.mocked(uploadMultipleFilesWithMetadata);
+  const upload = jest.mocked(storeFiles);
 
   const makeApp = (overrides: Partial<RateLimitSettings>, trustProxy = 0): Express =>
     createApp({ rateLimits: limits(overrides), trustProxy });

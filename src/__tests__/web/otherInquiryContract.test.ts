@@ -3,7 +3,7 @@ jest.mock('../../services/estimateService', () => ({
   createEstimate: jest.fn(),
   getEstimateByReceiptId: jest.fn()
 }));
-jest.mock('../../services/fileService', () => ({ uploadMultipleFilesWithMetadata: jest.fn() }));
+jest.mock('../../services/fileService', () => ({ storeFiles: jest.fn(), discardStoredFiles: jest.fn() }));
 
 import fs from 'fs';
 import path from 'path';
@@ -13,7 +13,7 @@ import logger from '../../utils/logger';
 import { config } from '../../config/env';
 import { createApp } from '../../app';
 import { createEstimate } from '../../services/estimateService';
-import { uploadMultipleFilesWithMetadata } from '../../services/fileService';
+import { storeFiles } from '../../services/fileService';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../../utils/customerMessages';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { JSDOM } = require('jsdom');
@@ -47,7 +47,7 @@ function check(element: any, checked = true): void {
 describe('the inquiry page of the other products against the real API', () => {
   let app: Express;
   const create = createEstimate as jest.Mock;
-  const upload = uploadMultipleFilesWithMetadata as jest.Mock;
+  const upload = storeFiles as jest.Mock;
   const originalNodeEnv = config.nodeEnv;
 
   beforeEach(() => {
