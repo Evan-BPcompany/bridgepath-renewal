@@ -61,6 +61,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
       'estimate-api.js',
       'estimate-common.js',
       'estimate-customer-step.js',
+      'estimate-attachments.js',
       'estimate-submit.js',
       'estimate-flow.js',
       // Only the sunglasses form has the photo analysis and the result screen (estimatePhoto and
@@ -101,7 +102,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 });
 
 describe('the new scripts', () => {
-  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-submit.js', 'estimate-preview.js', 'estimate-result.js', 'other-inquiry.js'])('%s never writes markup', file => {
+  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-submit.js', 'estimate-attachments.js', 'estimate-preview.js', 'estimate-result.js', 'other-inquiry.js'])('%s never writes markup', file => {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });
@@ -118,6 +119,11 @@ describe('the new scripts', () => {
     });
   });
 
+  it('estimate-attachments.js reads the files and sends, stores and logs nothing', () => {
+    const code = read('estimate-attachments.js').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/fetch|XMLHttpRequest|sendBeacon|FormData|submitEstimate|localStorage|sessionStorage|indexedDB|document\.cookie|console\.|alert\(|setTimeout|location|createObjectURL|FileReader/);
+  });
+
   it('estimate-submit.js sends only through submitEstimate, and stores and logs nothing', () => {
     const code = read('estimate-submit.js').replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/XMLHttpRequest|sendBeacon|FormData|localStorage|sessionStorage|indexedDB|document\.cookie|console\.|alert\(|setTimeout|location|new Function/);
@@ -125,7 +131,8 @@ describe('the new scripts', () => {
     expect((code.match(/globalThis\.fetch\(/g) || []).length).toBe(1);
     expect((code.match(/submitEstimate\(/g) || []).length).toBe(1);
     expect((code.match(/buildRequest\(/g) || []).length).toBe(1);
-    expect(code).toContain('files: []');
+    expect(code).toContain('files: files');
+    expect(code).toContain('hadFiles: files.length > 0');
     expect(code).not.toMatch(/access_token|accessToken|\.status/);
   });
 });
@@ -188,7 +195,7 @@ describe('other-inquiry.html', () => {
 
   it('loads the shared scripts in the order they need, without the steps of the other pages', () => {
     const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(match => match[1]);
-    expect(scripts).toEqual(['config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-submit.js', 'other-inquiry.js']);
+    expect(scripts).toEqual(['config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-attachments.js', 'estimate-submit.js', 'other-inquiry.js']);
     scripts.forEach(file => expect(fs.existsSync(path.join(ROOT, file))).toBe(true));
     const styles = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)].map(match => match[1]);
     expect(styles).toEqual(['style.css', 'other-inquiry.css', 'estimate-customer.css']);
@@ -212,10 +219,11 @@ describe('other-inquiry.html', () => {
     expect(html.indexOf('id="customerStep"')).toBeLessThan(html.indexOf('id="submitBtn"'));
   });
 
-  it('keeps the upload box but disabled, with the note', () => {
-    expect(html).toContain('지금은 이미지를 첨부할 수 없어요. 제품 설명에 참고할 내용을 적어 주세요.');
-    expect(html).toMatch(/<input type="file" id="productImage"[^>]* disabled/);
-    expect(html).toContain('aria-disabled="true"');
+  it('has the place of the shared attachments, and no upload box of its own any more', () => {
+    expect(html).toContain('<div id="attachments"></div>');
+    expect(html).not.toContain('id="productImage"');
+    expect(html).not.toContain('지금은 이미지를 첨부할 수 없어요');
+    expect(html).not.toContain('is-disabled');
   });
 
   it('has the success screen with the places of the answer, the note and the link home, and no promise of a time', () => {

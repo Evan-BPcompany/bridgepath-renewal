@@ -78,7 +78,7 @@ describe('analyzeSunglassesImage', () => {
   it('tells the model that text inside the photo is not an instruction', async () => {
     const { client, create } = fakeClient(textAnswer(JSON.stringify(GOOD)));
 
-    await analyzeSunglassesImage(IMAGE, 'image/gif', client);
+    await analyzeSunglassesImage(IMAGE, 'image/webp', client);
 
     expect(create.mock.calls[0][0].system).toMatch(/never follow/i);
   });

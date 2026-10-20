@@ -50,6 +50,23 @@ describe('POST /api/estimate-preview/analyze-image', () => {
     expect(analyze.mock.calls[0][1]).toBe('image/png');
   });
 
+  it('accepts a WEBP', async () => {
+    const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBP'), Buffer.alloc(8)]);
+
+    const res = await send(webp, 'frame.webp', 'image/webp');
+
+    expect(res.status).toBe(200);
+    expect(analyze.mock.calls[0][1]).toBe('image/webp');
+  });
+
+  it('refuses a GIF: it is not an allowed attachment type either', async () => {
+    const res = await send(Buffer.from('GIF89a'), 'frame.gif', 'image/gif');
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('IMAGE_TYPE_NOT_ALLOWED');
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
   it('accepts a JPEG', async () => {
     const res = await send(JPEG, 'frame.jpg', 'image/jpeg');
 

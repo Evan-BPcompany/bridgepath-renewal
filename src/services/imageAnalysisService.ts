@@ -5,7 +5,9 @@ import logger from '../utils/logger';
 // Reads a sunglasses photo and answers the two things the price guidance needs: what the frame is
 // made of and which lens it has. It sends the image to the Claude API and keeps nothing.
 
-export const ANALYSIS_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'] as const;
+// The same types as the attachments of a request (PRD FR-2.6), so the photo that was analysed can
+// also be attached to it.
+export const ANALYSIS_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type AnalysisImageType = (typeof ANALYSIS_IMAGE_TYPES)[number];
 
 // The API takes images up to 5 MB.

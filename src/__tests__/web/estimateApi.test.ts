@@ -453,7 +453,7 @@ describe('customer details', () => {
 });
 
 describe('files', () => {
-  it('uses the policy of the PRD: 5 files, 10 MB each, 30 MB together, JPG/PNG/PDF', () => {
+  it('uses the policy of the PRD: 5 files, 10 MB each, 30 MB together, JPG/PNG/WEBP/PDF', () => {
     expect(api.FILE_POLICY.maxFiles).toBe(5);
     expect(api.FILE_POLICY.maxFileBytes).toBe(10 * MB);
     expect(api.FILE_POLICY.maxTotalBytes).toBe(30 * MB);
@@ -461,6 +461,7 @@ describe('files', () => {
       jpg: 'image/jpeg',
       jpeg: 'image/jpeg',
       png: 'image/png',
+      webp: 'image/webp',
       pdf: 'application/pdf'
     });
   });
@@ -479,7 +480,7 @@ describe('files', () => {
   });
 
   it.each([
-    ['photo.webp', 'image/webp', 'type_not_allowed'],
+    ['photo.gif', 'image/gif', 'type_not_allowed'],
     ['anim.gif', 'image/gif', 'type_not_allowed'],
     ['run.exe', 'application/octet-stream', 'type_not_allowed'],
     ['archive.zip', 'application/zip', 'type_not_allowed'],
@@ -790,14 +791,23 @@ describe('the answer', () => {
     expect(api.interpretResponse({ status: 503, headers: {}, body: {} }).kind).toBe('serverError');
   });
 
-  it('5xx: a server error; with files the request may have been saved', () => {
+  // The API saves a request with its files or not at all: an answer of the 500s means not saved.
+  it('5xx: a server error, and nothing was saved, with or without files', () => {
     expect(api.interpretResponse({ status: 500, headers: {}, body: { error: 'Internal server error' } })).toEqual({
       kind: 'serverError',
       mayHaveBeenSaved: false
     });
     expect(api.interpretResponse({ status: 500, headers: {}, body: {} }, { hadFiles: true })).toEqual({
       kind: 'serverError',
-      mayHaveBeenSaved: true
+      mayHaveBeenSaved: false
+    });
+    expect(
+      api.interpretResponse({ status: 500, headers: {}, body: { code: 'FILE_UPLOAD_FAILED' } }, { hadFiles: true })
+    ).toEqual({ kind: 'serverError', mayHaveBeenSaved: false, filesFailed: true });
+    // The code only means something for a request that had files.
+    expect(api.interpretResponse({ status: 500, headers: {}, body: { code: 'FILE_UPLOAD_FAILED' } })).toEqual({
+      kind: 'serverError',
+      mayHaveBeenSaved: false
     });
     expect(api.interpretResponse({ status: 502, headers: {}, body: undefined }).kind).toBe('serverError');
   });
@@ -852,7 +862,7 @@ describe('submitEstimate', () => {
     expect((await run(answer(400, { error: 'x', details: [{ field: 'contact', message: 'm' }] }))).kind).toBe('validation');
     expect(await run(answer(429, {}, { 'Retry-After': '75' }))).toEqual({ kind: 'rateLimited', retryAfterSeconds: 75 });
     expect(await run(answer(503, { code: 'PRIVACY_CONSENT_NOT_CONFIGURED' }))).toEqual({ kind: 'notReady' });
-    expect(await run(answer(500, { error: 'x' }), { hadFiles: true })).toEqual({ kind: 'serverError', mayHaveBeenSaved: true });
+    expect(await run(answer(500, { error: 'x' }), { hadFiles: true })).toEqual({ kind: 'serverError', mayHaveBeenSaved: false });
     expect((await run(answer(502, undefined))).kind).toBe('serverError'); // an answer that is not JSON
   });
 
@@ -949,7 +959,7 @@ describe('the texts for the visitor', () => {
   });
 
   it('say what the limits are', () => {
-    expect(api.messageForFile('type_not_allowed', 'a.gif')).toContain('JPG, PNG, PDF');
+    expect(api.messageForFile('type_not_allowed', 'a.gif')).toContain('JPG, PNG, WEBP, PDF');
     expect(api.messageForFile('too_large', 'a.png')).toContain('10MB');
     expect(api.messageFor('file_too_many')).toContain('5개');
     expect(api.messageFor('file_total_too_large')).toContain('30MB');
@@ -965,6 +975,9 @@ describe('the texts for the visitor', () => {
     expect(api.messageForResult({ kind: 'notReady' })).toBe(api.messageFor('not_ready'));
     expect(api.messageForResult({ kind: 'serverError', mayHaveBeenSaved: false })).toBe(api.messageFor('server_error'));
     expect(api.messageForResult({ kind: 'serverError', mayHaveBeenSaved: true })).toBe(api.messageFor('server_error_files'));
+    // Files that could not be stored: not saved, the visitor can try again or leave the files out.
+    expect(api.messageForResult({ kind: 'serverError', mayHaveBeenSaved: false, filesFailed: true })).toBe(api.messageFor('files_not_saved'));
+    expect(api.messageFor('files_not_saved')).toContain('접수되지 않았어요');
     expect(api.messageForResult({ kind: 'network' })).toBe(api.messageFor('network'));
     expect(api.messageForResult({ kind: 'timeout' })).toBe(api.messageFor('network'));
     expect(api.messageForResult({ kind: 'validation', general: 'specification' })).toBe(api.messageFor('specification'));

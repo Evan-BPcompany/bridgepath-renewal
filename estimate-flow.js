@@ -74,6 +74,12 @@
             ? globalThis.BridgePathCustomerStep.mount(host, {})
             : null;
 
+        // The attachments of step 2 (reference photos, design files).
+        var attachmentsHost = document.getElementById('attachments');
+        var attachments = attachmentsHost && globalThis.BridgePathAttachments
+            ? globalThis.BridgePathAttachments.mount(attachmentsHost, {})
+            : null;
+
         // ---- errors of step 2
         var formSection = stepTwo ? stepTwo.querySelector('.form-section') : null;
         var productErrors = null;
@@ -133,6 +139,17 @@
                     return Array.prototype.slice.call(stepThree.querySelectorAll('#customerStep input, .btn-secondary'));
                 },
                 hideOnSuccess: [document.getElementById('customerStep'), buttons],
+                getFiles: function () { return attachments ? attachments.getFiles() : []; },
+                // The sunglasses page records what its screen showed (estimate-result.js).
+                getExtraSpec: function () {
+                    var result = globalThis.BridgePathResult;
+                    return result && typeof result.getAiPreview === 'function' ? { ai_preview: result.getAiPreview() } : null;
+                },
+                afterSuccess: function () {
+                    if (attachments) {
+                        attachments.reset();
+                    }
+                },
                 onProductInvalid: function () {
                     if (typeof globalThis.goToStep === 'function') {
                         globalThis.goToStep(2);

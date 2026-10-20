@@ -6,6 +6,10 @@
 // the analysis texts of the photo. "수정하기" goes back to step 2; "정식 견적 요청하기" goes on to step 3,
 // where the request itself is sent. The range is guidance only: the server's notice says so.
 //
+// What the screen showed is kept for the request (getAiPreview): the analysis of the photo and the
+// price range, as a record of what the customer saw. The server checks its shape and never takes it
+// for a quote.
+//
 // Nothing here stores anything. Every text is put in with textContent and every list item is a
 // new element; no value of the form or of an answer goes into markup.
 (function () {
@@ -76,6 +80,89 @@
     }
 
     var photoUrl = null;
+
+    // ------------------------------------------------------------------------------------------
+    // The record of the screen (specification_json.ai_preview, checked by utils/specification.ts)
+
+    var ENUMS = {
+        frame_material: ['plastic', 'metal', 'acetate', 'wood', 'mixed', 'unknown'],
+        lens_type: ['normal', 'polarized', 'mirror', 'gradient', 'photochromic', 'unknown'],
+        confidence: ['low', 'medium', 'high'],
+        complexity: ['low', 'medium', 'high']
+    };
+
+    function clip(value, max) {
+        return typeof value === 'string' ? value.trim().slice(0, max) : '';
+    }
+
+    function clipList(items) {
+        return Array.isArray(items)
+            ? items.filter(nonEmpty).slice(0, 4).map(function (item) { return clip(item, 200); })
+            : [];
+    }
+
+    // Only what the server's shape allows, cut to its limits; nothing else of the answer is passed on.
+    function recordAnalysis(analysis) {
+        if (!analysis || typeof analysis !== 'object') {
+            return null;
+        }
+        var record = {};
+        Object.keys(ENUMS).forEach(function (key) {
+            if (ENUMS[key].indexOf(analysis[key]) !== -1) {
+                record[key] = analysis[key];
+            }
+        });
+        [['frame_shape', 100], ['frame_color', 100], ['overview', 1000]].forEach(function (pair) {
+            var text = clip(analysis[pair[0]], pair[1]);
+            if (text) {
+                record[pair[0]] = text;
+            }
+        });
+        if (analysis.details && typeof analysis.details === 'object') {
+            record.details = {
+                frame: clip(analysis.details.frame, 300),
+                lens: clip(analysis.details.lens, 300),
+                decoration: clip(analysis.details.decoration, 300)
+            };
+        }
+        record.cost_factors = clipList(analysis.cost_factors);
+        record.recommendations = clipList(analysis.recommendations);
+        return record;
+    }
+
+    function recordPrice(result) {
+        if (!result || result.kind !== 'range') {
+            return null;
+        }
+        return {
+            currency: 'KRW',
+            quantity: result.quantity,
+            unit_price: { min: result.unit.min, max: result.unit.max },
+            total_price: { min: result.total.min, max: result.total.max }
+        };
+    }
+
+    // The last screen that was shown: { analysis, price }, or null before the first one.
+    var shown = null;
+
+    function getAiPreview() {
+        if (!shown) {
+            return null;
+        }
+        var analysis = recordAnalysis(shown.analysis);
+        var price = shown.price;
+        if (!analysis && !price) {
+            return null;
+        }
+        var record = { source: 'customer_screen' };
+        if (analysis) {
+            record.analysis = analysis;
+        }
+        if (price) {
+            record.price = price;
+        }
+        return record;
+    }
 
     function showPhoto(file) {
         var image = byId('resultPhoto');
@@ -188,6 +275,8 @@
             var photo = preview.getPhoto();
             sequence += 1;
             var mine = sequence;
+            // What this screen will show; the price is added when it comes.
+            shown = { analysis: photo.analysis, price: null };
 
             setText('resultMaterial', labelOf(materialSelect, values.frameMaterial));
             setText('resultLens', labelOf(lensSelect, values.lensType));
@@ -216,6 +305,7 @@
             // An answer for a screen that was left and shown again meanwhile is dropped.
             if (mine === sequence) {
                 showCost(result);
+                shown.price = recordPrice(result);
             }
         }
 
@@ -247,7 +337,7 @@
         api.show = show;
     }
 
-    var api = { init: init, show: null };
+    var api = { init: init, show: null, getAiPreview: getAiPreview };
     globalThis.BridgePathResult = api;
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;

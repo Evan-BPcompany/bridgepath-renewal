@@ -8,7 +8,7 @@ const g = globalThis as any;
 const $ = (selector: string): any => g.document.querySelector(selector);
 const $$ = (selector: string): any[] => Array.from(g.document.querySelectorAll(selector));
 
-const SCRIPTS = ['config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-submit.js', 'other-inquiry.js'];
+const SCRIPTS = ['config.js', 'estimate-api.js', 'estimate-customer-step.js', 'estimate-attachments.js', 'estimate-submit.js', 'other-inquiry.js'];
 const SERVER_MESSAGE = '접수 내용을 확인한 뒤 안내드립니다. (서버가 보낸 고정 문구)';
 
 function type(element: any, value: string): void {
@@ -89,14 +89,10 @@ describe('other-inquiry page: the form', () => {
     expect($('#inquiryForm').hasAttribute('novalidate')).toBe(true);
   });
 
-  it('shows the upload box but disabled, with the note, and takes no file', () => {
-    expect($('#productImage').disabled).toBe(true);
-    expect($('#imageUploadBox').getAttribute('aria-disabled')).toBe('true');
-    expect($('#imageDisabledNote').textContent).toBe('지금은 이미지를 첨부할 수 없어요. 제품 설명에 참고할 내용을 적어 주세요.');
-    $('#imageUploadBox').dispatchEvent(new g.Event('click', { bubbles: true }));
-    $('#imageUploadBox').dispatchEvent(new g.Event('drop', { bubbles: true, cancelable: true }));
-    expect($('#imageUploadBox').querySelector('input').disabled).toBe(true);
-    expect($('#imageUploadBox').children.length).toBe(3);
+  it('mounts the shared attachments, empty and usable', () => {
+    expect($('#attachments .attachments-add').disabled).toBe(false);
+    expect($('#attachments .attachments-summary').textContent).toBe('첨부한 파일이 없어요.');
+    expect($('#productImage')).toBeNull();
   });
 
   it('has the optional special requirements field under the description', () => {
@@ -424,7 +420,7 @@ describe('other-inquiry page: one request at a time', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('gives the form back after a failure, keeps the disabled upload disabled, and sends again', async () => {
+  it('gives the form back after a failure, with the attachments usable, and sends again', async () => {
     fillProduct();
     fillCustomer();
     fetchMock.mockResolvedValueOnce(reply(500, {}));
@@ -435,7 +431,7 @@ describe('other-inquiry page: one request at a time', () => {
     expect($('#submitBtn').textContent).toBe('문의하기');
     expect($('#productDescription').disabled).toBe(false);
     expect($('#customerName').disabled).toBe(false);
-    expect($('#productImage').disabled).toBe(true);
+    expect($('#attachments .attachments-add').disabled).toBe(false);
     fetchMock.mockResolvedValueOnce(reply(201, CREATED));
     submitForm();
     await flush();

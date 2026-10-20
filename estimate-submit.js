@@ -2,9 +2,10 @@
 // of the other products): the errors of the product input, and the controller that checks the
 // input, builds the JSON request with BridgePathEstimate, sends it and shows the result.
 //
-// Only JSON without files is sent from here. Everything that is shown (a message, the receipt
-// number, the text of the server) is put in with textContent; there is no innerHTML in this file,
-// nothing is stored, nothing is logged, and the page is never left by itself.
+// The request is JSON, or a multipart form when the customer attached files (estimate-api.js builds
+// both). Everything that is shown (a message, the receipt number, the text of the server) is put in
+// with textContent; there is no innerHTML in this file, nothing is stored, nothing is logged, and
+// the page is never left by itself.
 (function () {
     'use strict';
 
@@ -144,7 +145,10 @@
     //          errorParent / errorBefore -> where the error of the request goes,
     //          lockElements() -> the controls that are locked while the request is on the way,
     //          hideOnSuccess -> elements that are hidden after a success,
-    //          onProductInvalid() -> called when the product input is wrong at the moment of sending.
+    //          onProductInvalid() -> called when the product input is wrong at the moment of sending,
+    //          getFiles() -> the files to send with the request (optional),
+    //          getExtraSpec() -> values added to the specification, e.g. { ai_preview } (optional),
+    //          afterSuccess() -> called once the request has been accepted (optional).
     // Returns { submit }; the caller connects it to the click or the submit event.
     function createSubmitter(options) {
         var estimate = api();
@@ -194,6 +198,9 @@
             }
             errorBox.hidden = true;
             options.customerStep.reset();
+            if (options.afterSuccess) {
+                options.afterSuccess();
+            }
             options.hideOnSuccess.forEach(function (element) { element.style.display = 'none'; });
             options.successBox.style.display = 'block';
             options.successBox.focus();
@@ -228,6 +235,18 @@
                 return;
             }
 
+            // What the page adds to the specification (the record of the AI quote): only what is there.
+            var extra = options.getExtraSpec ? options.getExtraSpec() : null;
+            var spec = built.spec;
+            if (extra) {
+                Object.keys(extra).forEach(function (key) {
+                    if (extra[key]) {
+                        spec[key] = extra[key];
+                    }
+                });
+            }
+            var files = options.getFiles ? options.getFiles() : [];
+
             submitting = true;
             errorBox.hidden = true;
             setBusy(true);
@@ -237,16 +256,16 @@
                     apiBase: config.API_BASE,
                     page: options.page,
                     subtype: subtype,
-                    spec: built.spec,
+                    spec: spec,
                     customer: customer.value,
                     consentVersion: config.PRIVACY_CONSENT_VERSION,
-                    files: []
+                    files: files
                 });
                 result = await estimate.submitEstimate({
                     request: request,
                     fetch: function (url, init) { return globalThis.fetch(url, init); },
                     timeoutMs: config.REQUEST_TIMEOUT_MS,
-                    hadFiles: false
+                    hadFiles: files.length > 0
                 });
             } catch (error) {
                 result = { kind: 'unexpected' };

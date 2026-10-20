@@ -88,8 +88,12 @@
                         <p>이미지를 클릭하거나 드래그해서 업로드</p>
                         <input type="file" id="sunglassImage" name="sunglassImage" accept="image/*" style="display: none;">
                     </div>
-                    <p class="form-hint">사진을 올리면 AI가 재질과 렌즈를 추정해 아래 항목을 채워 줘요. 분석을 위해 사진이 AI 서비스로 전송되며 이 사이트에는 저장되지 않아요.</p>
+                    <p class="form-hint">사진을 올리면 AI가 재질과 렌즈를 추정해 아래 항목을 채워 줘요. 분석을 위해 사진이 AI 서비스로 전송돼요. 견적을 요청하면 이 사진이 첨부 파일로 함께 접수되고, 아래 첨부 목록에서 뺄 수 있어요.</p>
                     <p class="image-analysis-status" id="imageAnalysisStatus" role="status" aria-live="polite" hidden></p>
+                </div>
+
+                <div class="form-group full-width">
+                    <div id="attachments"></div>
                 </div>
 
                 <div class="form-row">
@@ -251,6 +255,7 @@
     <script src="estimate-api.js"></script>
     <script src="estimate-common.js"></script>
     <script src="estimate-customer-step.js"></script>
+    <script src="estimate-attachments.js"></script>
     <script src="estimate-submit.js"></script>
     <script src="estimate-flow.js"></script>
     <script src="estimate-preview.js"></script>

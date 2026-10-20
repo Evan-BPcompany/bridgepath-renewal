@@ -29,13 +29,13 @@
         analyzing: '사진을 분석하고 있어요…',
         not_sunglasses: '선글라스 사진으로 보이지 않아요. 다른 사진을 올리거나 재질과 렌즈를 직접 선택해 주세요.',
         nothing_certain: '사진만으로는 재질과 렌즈를 알 수 없었어요. 직접 선택해 주세요.',
-        type: 'JPG, PNG, GIF 사진만 분석할 수 있어요. 재질과 렌즈는 직접 선택해도 돼요.',
+        type: 'JPG, PNG, WEBP 사진만 분석할 수 있어요. 재질과 렌즈는 직접 선택해도 돼요.',
         too_large: '사진은 5MB까지 분석할 수 있어요. 재질과 렌즈는 직접 선택해도 돼요.',
         unavailable: '사진 분석은 아직 사용할 수 없어요. 재질과 렌즈를 직접 선택해 주세요.',
         busy: '요청이 많아 잠시 후 다시 시도해 주세요. 재질과 렌즈는 직접 선택해도 돼요.',
         failed: '사진을 분석하지 못했어요. 재질과 렌즈를 직접 선택해 주세요.'
     });
-    var IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
+    var IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
     var MAX_IMAGE_BYTES = 5 * 1024 * 1024;
     var IMAGE_TIMEOUT_MS = 45000;
     // Photos from a phone or a camera are often far larger than the analysis needs: anything over
@@ -209,6 +209,15 @@
         return { kind: 'analysis', analysis: analysis, notice: notice };
     }
 
+    // The photo that was analysed is attached to the request (estimate-attachments.js), where the
+    // customer can take it out again.
+    function setAttached(file) {
+        var attachments = globalThis.BridgePathAttachments;
+        if (attachments && attachments.instance && typeof attachments.instance.setAutoFile === 'function') {
+            attachments.instance.setAutoFile(file);
+        }
+    }
+
     function createImageAnalysis(options) {
         var statusLine = options.statusLine;
         var materialSelect = options.materialSelect;
@@ -287,8 +296,9 @@
             }
             sequence += 1;
             var mine = sequence;
-            // A new choice of photo drops what the old one gave.
+            // A new choice of photo drops what the old one gave, and the old photo leaves the attachments.
             current = { file: null, analysis: null };
+            setAttached(null);
 
             if (!file) {
                 say('');
@@ -309,6 +319,8 @@
                 return;
             }
 
+            // The photo goes with the request whatever the analysis says: the customer chose it.
+            setAttached(file);
             say(IMAGE_MESSAGES.analyzing);
             var request = new AbortController();
             controller = request;

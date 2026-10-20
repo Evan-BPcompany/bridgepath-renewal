@@ -28,15 +28,9 @@
             </p>
 
             <form id="inquiryForm" class="inquiry-form" novalidate>
-                <!-- Image Upload Section -->
+                <!-- Attachments: the shared component of the estimate pages -->
                 <div class="form-group full-width">
-                    <label for="productImage">제품 이미지 업로드</label>
-                    <p class="form-hint" id="imageDisabledNote">지금은 이미지를 첨부할 수 없어요. 제품 설명에 참고할 내용을 적어 주세요.</p>
-                    <div class="image-upload-box is-disabled" id="imageUploadBox" aria-disabled="true">
-                        <div class="upload-icon">📷</div>
-                        <p>이미지 첨부는 지금 사용할 수 없어요</p>
-                        <input type="file" id="productImage" name="productImage" accept="image/*" style="display: none;" disabled aria-describedby="imageDisabledNote">
-                    </div>
+                    <div id="attachments"></div>
                 </div>
 
                 <!-- Main Information -->
@@ -89,6 +83,7 @@
     <script src="config.js"></script>
     <script src="estimate-api.js"></script>
     <script src="estimate-customer-step.js"></script>
+    <script src="estimate-attachments.js"></script>
     <script src="estimate-submit.js"></script>
     <script src="other-inquiry.js"></script>
 </body>

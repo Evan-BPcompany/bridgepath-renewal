@@ -86,13 +86,7 @@
 
             <div class="form-section">
                 <div class="form-group full-width">
-                    <label for="golfImage">골프용품 이미지 업로드</label>
-                    <p class="form-hint">참고 이미지가 있으면 업로드해주세요. (옵션)</p>
-                    <div class="image-upload-box" id="imageUploadBox">
-                        <div class="upload-icon">📷</div>
-                        <p>이미지를 클릭하거나 드래그해서 업로드</p>
-                        <input type="file" id="golfImage" name="golfImage" accept="image/*" style="display: none;">
-                    </div>
+                    <div id="attachments"></div>
                 </div>
 
                 <div class="form-row">
@@ -181,6 +175,7 @@
     <script src="estimate-api.js"></script>
     <script src="estimate-common.js"></script>
     <script src="estimate-customer-step.js"></script>
+    <script src="estimate-attachments.js"></script>
     <script src="estimate-submit.js"></script>
     <script src="estimate-flow.js"></script>
     <script src="golf-estimate.js"></script>

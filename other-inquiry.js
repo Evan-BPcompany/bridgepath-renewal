@@ -1,7 +1,7 @@
 // The inquiry of the other products (a single page, no steps): the product input and the customer
 // information are checked together and sent as JSON with the category "other". The checks, the
 // request and the result are those of estimate-api.js and estimate-submit.js; this file only knows
-// the controls of the page. Files are not sent yet, so the upload box is disabled in the HTML.
+// the controls of the page. The attachments are the shared component (estimate-attachments.js).
 (function () {
     'use strict';
 
@@ -37,6 +37,10 @@
         }
 
         var customerStep = globalThis.BridgePathCustomerStep.mount(host, {});
+        var attachmentsHost = document.getElementById('attachments');
+        var attachments = attachmentsHost && globalThis.BridgePathAttachments
+            ? globalThis.BridgePathAttachments.mount(attachmentsHost, {})
+            : null;
         var productErrors = globalThis.BridgePathSubmit.createProductErrors({
             controlsFor: controlsFor,
             summaryParent: form,
@@ -55,6 +59,12 @@
             errorBefore: submitButton,
             lockElements: function () {
                 return Array.prototype.slice.call(form.querySelectorAll('input, textarea, select, button'));
+            },
+            getFiles: function () { return attachments ? attachments.getFiles() : []; },
+            afterSuccess: function () {
+                if (attachments) {
+                    attachments.reset();
+                }
             },
             hideOnSuccess: [form]
         });

@@ -1336,7 +1336,7 @@ How the range is computed (`src/services/estimatePreviewService.ts`, rules in `s
 
 ### Photo analysis: POST /api/estimate-preview/analyze-image
 
-The visitor's photo of the product goes in, and the frame material and lens type it shows come out, so the form can fill them in and start the price guidance. Multipart form with one field `image` (JPG, PNG or GIF, up to 5 MB; the first bytes must match the type). The image is kept in memory only and sent to the Claude API; nothing is written to disk or S3, and the form tells the visitor the photo is sent to an AI service.
+The visitor's photo of the product goes in, and the frame material and lens type it shows come out, so the form can fill them in and start the price guidance. Multipart form with one field `image` (JPG, PNG or WEBP, up to 5 MB; the first bytes must match the type; the same types as the attachments, so the analysed photo can be attached to the request). The image is kept in memory only and sent to the Claude API; nothing is written to disk or S3, and the form tells the visitor the photo is sent to an AI service.
 
 Answer: `{ analysis: { is_sunglasses, frame_material, lens_type, confidence, summary }, notice }`. `frame_material` and `lens_type` use the values of the preview request, or `unknown`. A photo cannot show polarization, so `lens_type` is `unknown` unless the image says so. Errors: `400` (no image, wrong type, bytes do not match), `413` (over 5 MB), `429` (rate limit), `502` (the model refused or answered something unusable), `503` (no `ANTHROPIC_API_KEY`).
 
@@ -1382,3 +1382,13 @@ A request with files is saved with all of them or not at all, so a failed attach
 ### The AI screen record (`ai_preview`)
 
 A sunglasses request may carry `specification_json.ai_preview`: what the customer's screen showed when the AI quote was started: `{ source: "customer_screen", analysis: { frame_material, lens_type, confidence, complexity, frame_shape, frame_color, overview, details: { frame, lens, decoration }, cost_factors[], recommendations[] }, price: { currency: "KRW", quantity, unit_price: { min, max }, total_price: { min, max } } }` (`utils/specification.ts`). It is written by the browser, so it is **a record of what the customer saw, never a quote and never trusted**: staff work from the real specification and the pricing rules. It is advisory, so a record that does not fit this shape is dropped (a warning is logged) and the request goes on.
+
+### Attachments on the estimate pages (front end)
+
+All four pages (`sunglasses`, `shoes`, `golf`, `other-inquiry`) have a block `<div id="attachments">`, filled by `estimate-attachments.js` (PRD FR-2): a file chooser (also drag and drop) for JPG, PNG, WEBP and PDF, 10 MB a file, 5 files, 30 MB together, the list with name, size and a **delete** button for each file, a mark on a file of the same name and size, and a message by file for what is refused. The checks are those of `estimate-api.js` (`FILE_POLICY`, `validateFiles`); the API checks everything again by content.
+
+- With files the request is a multipart form, without them JSON (`buildRequest` in `estimate-api.js`). `estimate-submit.js` takes the files from the component (`getFiles`) and empties it after an accepted request (`afterSuccess`).
+- **Sunglasses**: the photo that is put in the AI box is attached as soon as it is ready, whatever the analysis says, and marked "AI 분석에 쓴 사진". The customer can take it out of the list. The form says that the photo goes to an AI service and is attached to the request.
+- The request carries `specification_json.ai_preview` when the result screen was shown: what the customer saw (see "The AI screen record"). The browser cuts the texts to the limits of the API so the record is not lost to a long sentence; `estimateAttachedRequest.dom.test.ts` checks that the record is one the API accepts.
+- **Failures** (PRD FR-4.7): a 5xx answer means nothing was saved (the API is all or nothing), so the page says "접수되지 않았어요" and keeps the form and the files; only a timeout or a lost connection may have been saved, and says so. What the API refuses about a file (400) is shown by file name.
+- The analysis and the attachments take the same types (JPG, PNG, WEBP); GIF is no longer accepted by either.

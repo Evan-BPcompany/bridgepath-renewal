@@ -65,7 +65,7 @@ router.post('/estimate-preview/analyze-image', receiveImage, async (req: Request
 
     const mediaType = file.mimetype as AnalysisImageType;
     if (!ANALYSIS_IMAGE_TYPES.includes(mediaType)) {
-      fail(res, 400, 'Only JPG, PNG and GIF images can be analyzed', 'IMAGE_TYPE_NOT_ALLOWED');
+      fail(res, 400, 'Only JPG, PNG and WEBP images can be analyzed', 'IMAGE_TYPE_NOT_ALLOWED');
       return;
     }
 

@@ -216,7 +216,7 @@ describe('the photo of the sunglasses form', () => {
   it('does not send a file that cannot be analysed', async () => {
     upload('doc.pdf', 'application/pdf');
     await settle(0);
-    expect($('#imageAnalysisStatus').textContent).toContain('JPG, PNG, GIF');
+    expect($('#imageAnalysisStatus').textContent).toContain('JPG, PNG, WEBP');
 
     upload('big.png', 'image/png', 5 * 1024 * 1024 + 1);
     await settle(0);

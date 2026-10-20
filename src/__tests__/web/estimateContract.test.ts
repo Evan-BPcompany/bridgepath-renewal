@@ -371,7 +371,7 @@ describe('the front end against the real API', () => {
       expect(create).not.toHaveBeenCalled();
     });
 
-    it('500 from the service: a server error, and with files it says the request may be saved', async () => {
+    it('500 from the service: a server error; nothing was saved, with files too', async () => {
       create.mockRejectedValue(new Error('database down'));
 
       const plain = read(await send(app, build('golf', 'bags')));
@@ -381,13 +381,26 @@ describe('the front end against the real API', () => {
       );
 
       expect(plain).toEqual({ kind: 'serverError', mayHaveBeenSaved: false });
-      expect(withFiles).toEqual({ kind: 'serverError', mayHaveBeenSaved: true });
-      expect(api.messageForResult(withFiles)).toBe(api.messageFor('server_error_files'));
+      expect(withFiles).toEqual({ kind: 'serverError', mayHaveBeenSaved: false });
+      expect(api.messageForResult(withFiles)).toBe(api.messageFor('server_error'));
+    });
+
+    it('files that cannot be stored: not saved, no receipt number, and the page says so', async () => {
+      upload.mockRejectedValue(new Error('storage down'));
+
+      const result = read(
+        await send(app, build('golf', 'bags', INDIVIDUAL, [new g.File([PNG], 'a.png', { type: 'image/png' })])),
+        true
+      );
+
+      expect(result).toEqual({ kind: 'serverError', mayHaveBeenSaved: false, filesFailed: true });
+      expect(api.messageForResult(result)).toBe(api.messageFor('files_not_saved'));
+      expect(create).not.toHaveBeenCalled();
     });
   });
 
-  describe('the limits of the front end are stricter than the API, so the API never has to refuse a file', () => {
-    it('the front end allows 5 files of at most 10 MB, 30 MB together, the API allows more', () => {
+  describe('the limits of the front end are those of the API, so the API rarely has to refuse a file', () => {
+    it('the front end allows no more files, bytes or types than the API', () => {
       const { FILE_VALIDATION } = require('../../utils/fileValidation');
 
       expect(api.FILE_POLICY.maxFiles).toBeLessThanOrEqual(FILE_VALIDATION.MAX_FILES_PER_ESTIMATE);
@@ -397,13 +410,14 @@ describe('the front end against the real API', () => {
       }
     });
 
-    it('WEBP and GIF are refused by the front end (the API takes no WEBP, and GIF is not in the PRD)', () => {
+    it('GIF is refused by the front end (it is not in the PRD); WEBP is taken', () => {
       const result = api.validateFiles([], [
         { name: 'a.webp', size: 10, type: 'image/webp' },
         { name: 'b.gif', size: 10, type: 'image/gif' }
       ]);
 
-      expect(result.rejected.map((r: { code: string }) => r.code)).toEqual(['type_not_allowed', 'type_not_allowed']);
+      expect(result.accepted.map((f: { name: string }) => f.name)).toEqual(['a.webp']);
+      expect(result.rejected.map((r: { code: string }) => r.code)).toEqual(['type_not_allowed']);
     });
   });
 

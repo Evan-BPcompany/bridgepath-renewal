@@ -88,6 +88,7 @@
             jpg: 'image/jpeg',
             jpeg: 'image/jpeg',
             png: 'image/png',
+            webp: 'image/webp',
             pdf: 'application/pdf'
         })
     });
@@ -624,8 +625,14 @@
         if (m.indexOf('File is empty') !== -1) {
             return 'empty';
         }
+        if (m.indexOf('Total file size exceeds') !== -1) {
+            return 'total_too_large';
+        }
         if (m.indexOf('File size exceeds') !== -1) {
             return 'too_large';
+        }
+        if (m.indexOf('Too many files') !== -1) {
+            return 'too_many';
         }
         if (m.indexOf('is not allowed') !== -1) {
             return 'type_not_allowed';
@@ -703,8 +710,14 @@
         if (status === 503 && body && body.code === 'PRIVACY_CONSENT_NOT_CONFIGURED') {
             return { kind: 'notReady' };
         }
+        // The API saves a request with its files or not at all, so an answer of the 500s means that
+        // nothing was saved. Only a request that got no answer (timeout, network) may have been.
         if (typeof status === 'number' && status >= 500) {
-            return { kind: 'serverError', mayHaveBeenSaved: hadFiles };
+            var result = { kind: 'serverError', mayHaveBeenSaved: false };
+            if (hadFiles && body && body.code === 'FILE_UPLOAD_FAILED') {
+                result.filesFailed = true;
+            }
+            return result;
         }
         if (status === 201) {
             return { kind: 'serverError', mayHaveBeenSaved: true };
@@ -766,7 +779,7 @@
         invalid_date: '날짜를 확인해 주세요.',
         invalid: '입력한 내용을 확인해 주세요.',
 
-        file_type_not_allowed: '{name}: JPG, PNG, PDF 파일만 첨부할 수 있어요.',
+        file_type_not_allowed: '{name}: JPG, PNG, WEBP, PDF 파일만 첨부할 수 있어요.',
         file_type_unknown: '{name}: 파일 형식을 확인할 수 없어요. 다른 파일로 바꿔 주세요.',
         file_type_mismatch: '{name}: 파일 형식을 확인할 수 없어요. 다른 파일로 바꿔 주세요.',
         file_too_large: '{name}: 파일당 10MB까지 첨부할 수 있어요.',
@@ -781,6 +794,7 @@
         not_ready: '지금은 견적 접수를 준비하고 있어요. 전화나 이메일로 문의해 주세요.',
         server_error: '일시적인 문제가 생겼어요. 입력하신 내용은 그대로 남아 있으니 잠시 뒤 다시 시도해 주세요.',
         server_error_files: '파일을 보내는 중 문제가 생겼어요. 문의가 이미 접수되었을 수 있으니, 다시 보내기 전에 전화나 이메일로 확인해 주세요.',
+        files_not_saved: '파일을 저장하지 못해 접수되지 않았어요. 입력하신 내용은 그대로 남아 있으니, 잠시 뒤 다시 시도하거나 파일을 빼고 보내 주세요.',
         network: '인터넷 연결을 확인한 뒤 다시 시도해 주세요. 이미 접수되었을 수 있으니 중복 접수가 걱정되면 전화나 이메일로 확인해 주세요.',
         invalid_request: '입력한 내용을 확인한 뒤 다시 시도해 주세요.',
         specification: '제품 정보를 확인한 뒤 다시 시도해 주세요.',
@@ -827,6 +841,9 @@
             case 'notReady':
                 return messageFor('not_ready');
             case 'serverError':
+                if (result.filesFailed) {
+                    return messageFor('files_not_saved');
+                }
                 return messageFor(result.mayHaveBeenSaved ? 'server_error_files' : 'server_error');
             case 'network':
             case 'timeout':

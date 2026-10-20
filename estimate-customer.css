@@ -354,3 +354,108 @@
 .result-photo[hidden] {
     display: none;
 }
+
+/* Attachments of an estimate request (estimate-attachments.js). */
+.attachments {
+    margin: 0;
+    padding: 1rem 1.2rem;
+    border: 1px dashed #667eea;
+    border-radius: 8px;
+    background: #fafaff;
+}
+
+.attachments-title {
+    margin: 0 0 0.3rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.attachments .attachments-hint {
+    margin: 0 0 0.8rem;
+}
+
+.attachments-add {
+    padding: 0.5rem 1.2rem;
+    border: 1px solid #667eea;
+    border-radius: 6px;
+    background: #fff;
+    color: #667eea;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.attachments-add:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.attachments-list {
+    margin: 0.8rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.attachments-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.4rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid #e3e5f0;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.attachments-name {
+    flex: 1 1 10rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.92rem;
+}
+
+.attachments-size {
+    font-size: 0.82rem;
+    color: #777;
+}
+
+.attachments-tag {
+    padding: 0.05rem 0.5rem;
+    border: 1px solid #667eea;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: #667eea;
+}
+
+.attachments-tag-warning {
+    border-color: #c77700;
+    color: #c77700;
+}
+
+.attachments-remove {
+    padding: 0.2rem 0.7rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.attachments-remove:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.attachments-summary {
+    margin: 0.5rem 0 0;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.attachments-problems[hidden] {
+    display: none;
+}
+
+.attachments-problems p {
+    margin: 0.3rem 0 0;
+}
