@@ -25,6 +25,7 @@
     "it:schemas": "node dist/scripts/integration-schemas.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@aws-sdk/client-s3": "^3.1143.0",
     "@sendgrid/mail": "^8.1.6",
     "@types/bcryptjs": "^2.4.6",

@@ -412,7 +412,7 @@ describeIntegration('customer estimates on a real PostgreSQL', ({ url }) => {
     const BIG = { windowMs: HOUR, max: 100_000 };
     const limited = (overrides: Record<string, { windowMs: number; max: number }>): Express =>
       createApp({
-        rateLimits: { login: BIG, api: BIG, mutation: BIG, password: BIG, estimateCreate: BIG, estimateRead: BIG, estimatePreview: BIG, ...overrides }
+        rateLimits: { login: BIG, api: BIG, mutation: BIG, password: BIG, estimateCreate: BIG, estimateRead: BIG, estimatePreview: BIG, imageAnalysis: BIG, ...overrides }
       });
     const sendTo = (target: Express, email: string) =>
       request(target).post('/api/estimates').send({ ...CUSTOMER_PROFILE, category: 'shoes', specification_json: SHOE_SPEC, customer_email: email });

@@ -75,7 +75,6 @@
         quantityMax: 1000000,
         textShort: 100,
         textLong: 2000,
-        dimensionMax: 100000
     });
 
     var MB = 1024 * 1024;
@@ -121,7 +120,6 @@
 
     var QUANTITY_PATTERN = /^[0-9]{1,7}$/;
     var DATE_PATTERN = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
-    var NUMBER_PATTERN = /^[0-9]{1,6}(\.[0-9]{1,3})?$/;
 
     function text(value) {
         return typeof value === 'string' ? value.trim() : '';
@@ -173,18 +171,6 @@
             return undefined;
         }
         return value;
-    }
-
-    function checkOptionalNumber(values, field, errors) {
-        var raw = typeof values[field] === 'number' ? String(values[field]) : text(values[field]);
-        if (raw === '') {
-            return undefined;
-        }
-        if (!NUMBER_PATTERN.test(raw) || Number(raw) > LIMITS.dimensionMax) {
-            errors.push({ field: field, code: 'invalid_number' });
-            return undefined;
-        }
-        return Number(raw);
     }
 
     function checkOptionalDate(values, errors) {
@@ -245,9 +231,6 @@
             spec.lens_type = checkChoice(input, 'lensType', OPTIONS.lensType, errors);
             put('frame_color', checkOptionalText(input, 'frameColor', LIMITS.textShort, errors));
             put('lens_color', checkOptionalText(input, 'lensColor', LIMITS.textShort, errors));
-            put('bridge_width_mm', checkOptionalNumber(input, 'bridgeWidth', errors));
-            put('arm_length_mm', checkOptionalNumber(input, 'armLength', errors));
-            put('lens_width_mm', checkOptionalNumber(input, 'lensWidth', errors));
             put('additional_info', checkOptionalText(input, 'additionalInfo', LIMITS.textLong, errors));
         } else if (page === 'shoes') {
             spec.shoe_type = kind.subtype;

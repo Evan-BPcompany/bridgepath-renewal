@@ -255,14 +255,14 @@ describe('estimate flow: values of the pages', () => {
     expect($('#step1-content').classList.contains('active')).toBe(true);
   });
 
-  it('checks the optional values too (a negative arm length)', () => {
+  it('checks the optional values too (a frame colour that is too long)', () => {
     open('sunglasses', 'optical');
     choose($('#lensType'), 'normal');
     choose($('#frameMaterial'), 'metal');
     type($('#quantity'), '5');
-    type($('#armLength'), '-3');
+    type($('#frameColor'), 'x'.repeat(101));
     click($('#nextBtn2'));
-    expect($('#armLength').getAttribute('aria-invalid')).toBe('true');
+    expect($('#frameColor').getAttribute('aria-invalid')).toBe('true');
     expect($('#step3-content').classList.contains('active')).toBe(false);
   });
 });

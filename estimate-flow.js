@@ -10,8 +10,7 @@
     var CONTROLS = {
         sunglasses: {
             frameColor: 'frameColor', lensType: 'lensType', frameMaterial: 'frameMaterial', lensColor: 'lensColor',
-            bridgeWidth: 'bridgeWidth', armLength: 'armLength', lensWidth: 'lensWidth', quantity: 'quantity',
-            deliveryDate: 'deliveryDate', additionalInfo: 'additionalInfo'
+            quantity: 'quantity', deliveryDate: 'deliveryDate', additionalInfo: 'additionalInfo'
         },
         shoes: {
             material: 'material', color: 'color', quantity: 'quantity', deliveryDate: 'deliveryDate', additionalInfo: 'additionalInfo'
@@ -187,6 +186,11 @@
                     return;
                 }
                 clearProductErrors();
+                // A page with a result screen (the sunglasses quote) shows it before the customer step.
+                if (globalThis.BridgePathResult && typeof globalThis.BridgePathResult.show === 'function') {
+                    globalThis.BridgePathResult.show();
+                    return;
+                }
                 if (typeof globalThis.goToStep === 'function') {
                     globalThis.goToStep(3);
                 }

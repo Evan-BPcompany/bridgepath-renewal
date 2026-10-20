@@ -38,6 +38,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   estimateCreate: BIG,
   estimateRead: BIG,
   estimatePreview: BIG,
+  imageAnalysis: BIG,
   ...overrides
 });
 
@@ -50,7 +51,8 @@ describe('Rate limit configuration', () => {
       password: { windowMs: 15 * 60 * 1000, max: 5 },
       estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
       estimateRead: { windowMs: 15 * 60 * 1000, max: 30 },
-      estimatePreview: { windowMs: 15 * 60 * 1000, max: 60 }
+      estimatePreview: { windowMs: 15 * 60 * 1000, max: 60 },
+      imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 }
     });
     expect(parseRateLimits({})).toEqual(RATE_LIMIT_DEFAULTS);
     expect(parseTrustProxy(undefined)).toBe(0);
@@ -115,6 +117,7 @@ describe('Rate limit configuration', () => {
       'estimateCreate',
       'estimatePreview',
       'estimateRead',
+      'imageAnalysis',
       'login',
       'mutation',
       'password'

@@ -44,7 +44,8 @@ export function createTestApp(): Express {
       password: unlimited,
       estimateCreate: unlimited,
       estimateRead: unlimited,
-      estimatePreview: unlimited
+      estimatePreview: unlimited,
+      imageAnalysis: unlimited
     }
   });
 }

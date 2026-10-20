@@ -11,6 +11,7 @@ import { createAdminAccountRouter } from './routes/adminAccount';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
 import estimatesRouter from './routes/estimates';
 import estimatePreviewRouter from './routes/estimatePreview';
+import estimateImageAnalysisRouter from './routes/estimateImageAnalysis';
 
 export interface CreateAppOptions {
   // Overrides for tests; production values come from the environment (see config/env.ts).
@@ -61,6 +62,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.post('/api/estimates', limiters.estimateCreate);
   app.get('/api/estimates/:receipt_id', limiters.estimateRead);
   app.post('/api/estimate-preview', limiters.estimatePreview);
+  // Before Multer in the router: a refused request never has its image parsed or sent on.
+  app.post('/api/estimate-preview/analyze-image', limiters.imageAnalysis);
 
   app.use(express.json());
   app.use(cookieParser());
@@ -88,6 +91,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // Customer API routes (Phase 2 Day 1)
   app.use('/api', estimatesRouter);
   app.use('/api', estimatePreviewRouter);
+  app.use('/api', estimateImageAnalysisRouter);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err && typeof err === 'object' && (err as { type?: string }).type === 'entity.parse.failed') {

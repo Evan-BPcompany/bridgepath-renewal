@@ -129,9 +129,6 @@ describe('specification: sunglasses', () => {
       ...base,
       frameColor: ' 검정 ',
       lensColor: '갈색',
-      bridgeWidth: '20',
-      armLength: '145.5',
-      lensWidth: '56',
       deliveryDate: '2026-12-31',
       additionalInfo: 'UV 차단'
     });
@@ -146,9 +143,6 @@ describe('specification: sunglasses', () => {
         lens_type: 'polarized',
         frame_color: '검정',
         lens_color: '갈색',
-        bridge_width_mm: 20,
-        arm_length_mm: 145.5,
-        lens_width_mm: 56,
         additional_info: 'UV 차단',
         delivery_date: '2026-12-31'
       }
@@ -157,7 +151,7 @@ describe('specification: sunglasses', () => {
 
   it('leaves out what was not filled in', () => {
     const { spec } = api.buildSpecification('sunglasses', 'optical', {
-      ...base, frameColor: '  ', bridgeWidth: '', deliveryDate: '', additionalInfo: undefined
+      ...base, frameColor: '  ', lensColor: '', deliveryDate: '', additionalInfo: undefined
     });
 
     expect(Object.keys(spec).sort()).toEqual(['frame_type', 'lens_type', 'material', 'quantity', 'schema_version']);
@@ -180,10 +174,13 @@ describe('specification: sunglasses', () => {
     ).toEqual(['frameMaterial:invalid_choice', 'lensType:invalid_choice']);
   });
 
-  it.each(['-1', 'abc', '1e3', '1,5', '1000000.1', '100001'])('refuses the dimension %j', value => {
-    expect(codesOf(api.validateSpecInput('sunglasses', 'optical', { ...base, bridgeWidth: value }).errors)).toEqual([
-      'bridgeWidth:invalid_number'
-    ]);
+  it('no longer takes the bridge width, the arm length or the lens width', () => {
+    const { spec } = api.buildSpecification('sunglasses', 'optical', {
+      ...base, bridgeWidth: '20', armLength: '145', lensWidth: '56'
+    });
+
+    expect(Object.keys(spec).join()).not.toMatch(/bridge|arm|lens_width/);
+    expect(api.validateSpecInput('sunglasses', 'optical', { ...base, bridgeWidth: 'abc' }).valid).toBe(true);
   });
 
   it('refuses a text that is too long', () => {
@@ -923,7 +920,7 @@ describe('the texts for the visitor', () => {
     const collect = (errors: Array<{ code: string }>) => errors.forEach(e => produced.add(e.code));
     collect(api.validateCustomer({}).errors);
     collect(api.validateCustomer({ customer_type: 'x', customer_name: 'a\u0001', customer_email: 'x', customer_phone: '1' }).errors);
-    collect(api.validateSpecInput('sunglasses', 'optical', { frameColor: 'x'.repeat(200), bridgeWidth: 'x', deliveryDate: 'x' }).errors);
+    collect(api.validateSpecInput('sunglasses', 'optical', { frameColor: 'x'.repeat(200), deliveryDate: 'x' }).errors);
     collect(api.validateSpecInput('shoes', 'boots', {}).errors);
     collect(api.validateSpecInput('other', null, {}).errors);
     for (const code of produced) {

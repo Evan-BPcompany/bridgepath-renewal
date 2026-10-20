@@ -62,6 +62,9 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
       'estimate-common.js',
       'estimate-customer-step.js',
       'estimate-flow.js',
+      // Only the sunglasses form has the photo analysis and the result screen (estimatePhoto and
+      // estimateResult .dom.test.ts).
+      ...(page === 'sunglasses' ? ['estimate-preview.js', 'estimate-result.js'] : []),
       `${page}-estimate.js`
     ]);
     scripts.forEach(file => expect(fs.existsSync(path.join(ROOT, file))).toBe(true));
@@ -97,7 +100,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 });
 
 describe('the new scripts', () => {
-  it.each(['estimate-customer-step.js', 'estimate-flow.js'])('%s never writes markup', file => {
+  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-preview.js', 'estimate-result.js'])('%s never writes markup', file => {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });

@@ -88,6 +88,8 @@
                         <p>이미지를 클릭하거나 드래그해서 업로드</p>
                         <input type="file" id="sunglassImage" name="sunglassImage" accept="image/*" style="display: none;">
                     </div>
+                    <p class="form-hint">사진을 올리면 AI가 재질과 렌즈를 추정해 아래 항목을 채워 줘요. 분석을 위해 사진이 AI 서비스로 전송되며 이 사이트에는 저장되지 않아요.</p>
+                    <p class="image-analysis-status" id="imageAnalysisStatus" role="status" aria-live="polite" hidden></p>
                 </div>
 
                 <div class="form-row">
@@ -130,21 +132,6 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="bridgeWidth">브릿지 너비 (mm)</label>
-                        <input type="number" id="bridgeWidth" name="bridgeWidth" placeholder="예: 20" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="armLength">암 길이 (mm)</label>
-                        <input type="number" id="armLength" name="armLength" placeholder="예: 145" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="lensWidth">렌즈 가로 크기 (mm)</label>
-                        <input type="number" id="lensWidth" name="lensWidth" placeholder="예: 56" min="0">
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
                         <label for="quantity">수량 *</label>
                         <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
                     </div>
@@ -162,7 +149,76 @@
 
             <div class="form-buttons">
                 <button class="btn-secondary" onclick="goToStep(1)">이전 단계</button>
-                <button class="btn-primary" id="nextBtn2">다음 단계</button>
+                <button class="btn-primary" id="nextBtn2">AI 견적 시작</button>
+            </div>
+        </section>
+
+        <!-- Result of the AI quote: shown by estimate-result.js between step 2 and step 3 -->
+        <section class="step-content" id="result-content">
+            <h2>AI 견적 결과</h2>
+            <p class="step-description">입력하신 정보와 사진으로 계산한 예상 범위예요. 확정 견적이 아니에요.</p>
+
+            <div class="result-layout">
+                <div class="result-main">
+                    <div class="result-top">
+                        <figure class="result-photo" id="resultPhotoBox" hidden>
+                            <img id="resultPhoto" alt="업로드한 선글라스 사진">
+                        </figure>
+                        <div class="result-analysis">
+                            <section class="result-block" id="resultOverviewBox" hidden>
+                                <h3>종합 분석 <span class="result-badge" id="resultComplexity"></span></h3>
+                                <p id="resultOverview"></p>
+                            </section>
+                            <section class="result-block">
+                                <h3>인식 결과</h3>
+                                <p class="result-note" id="resultRecognitionNote"></p>
+                                <dl class="result-facts">
+                                    <div><dt>프레임 재질</dt><dd id="resultMaterial"></dd></div>
+                                    <div><dt>렌즈 타입</dt><dd id="resultLens"></dd></div>
+                                    <div id="resultShapeRow" hidden><dt>프레임 형태</dt><dd id="resultShape"></dd></div>
+                                    <div id="resultColorRow" hidden><dt>프레임 색상</dt><dd id="resultColor"></dd></div>
+                                </dl>
+                            </section>
+                        </div>
+                    </div>
+
+                    <section class="result-block result-cost">
+                        <h3>예상 비용</h3>
+                        <p class="result-status" id="resultCostStatus" role="status" aria-live="polite"></p>
+                        <table class="result-table" id="resultCostTable" hidden>
+                            <tbody>
+                                <tr><th scope="row">단가</th><td id="resultUnit"></td></tr>
+                                <tr><th scope="row">수량</th><td id="resultQuantity"></td></tr>
+                                <tr class="result-total"><th scope="row">총 예산</th><td id="resultTotal"></td></tr>
+                            </tbody>
+                        </table>
+                        <p class="form-hint" id="resultNotice"></p>
+                    </section>
+                </div>
+
+                <aside class="result-side">
+                    <section class="result-block" id="resultDetailsBox" hidden>
+                        <h3>상세 분석</h3>
+                        <dl class="result-details">
+                            <dt>프레임</dt><dd id="resultDetailFrame"></dd>
+                            <dt>렌즈</dt><dd id="resultDetailLens"></dd>
+                            <dt>장식</dt><dd id="resultDetailDecoration"></dd>
+                        </dl>
+                    </section>
+                    <section class="result-block" id="resultFactorsBox" hidden>
+                        <h3>주요 비용 요인</h3>
+                        <ul id="resultFactors"></ul>
+                    </section>
+                    <section class="result-block" id="resultRecommendBox" hidden>
+                        <h3>권고사항</h3>
+                        <ul id="resultRecommendations"></ul>
+                    </section>
+                </aside>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn-secondary" id="resultEditBtn" type="button">수정하기</button>
+                <button class="btn-primary" id="resultRequestBtn" type="button">정식 견적 요청하기</button>
             </div>
         </section>
 
@@ -196,6 +252,8 @@
     <script src="estimate-common.js"></script>
     <script src="estimate-customer-step.js"></script>
     <script src="estimate-flow.js"></script>
+    <script src="estimate-preview.js"></script>
+    <script src="estimate-result.js"></script>
     <script src="sunglasses-estimate.js"></script>
 </body>
 

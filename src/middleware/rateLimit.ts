@@ -69,6 +69,8 @@ export interface RateLimiters {
   estimateRead: RequestHandler;
   // POST /api/estimate-preview: a database read per request, so it is limited per client IP too.
   estimatePreview: RequestHandler;
+  // POST /api/estimate-preview/analyze-image: every request may cost a paid model call.
+  imageAnalysis: RequestHandler;
 }
 
 export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
@@ -85,6 +87,7 @@ export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
     password: build(settings.password, { keyGenerator: adminKey }),
     estimateCreate: build(settings.estimateCreate, { keyGenerator: clientKey }),
     estimateRead: build(settings.estimateRead, { keyGenerator: clientKey }),
-    estimatePreview: build(settings.estimatePreview, { keyGenerator: clientKey })
+    estimatePreview: build(settings.estimatePreview, { keyGenerator: clientKey }),
+    imageAnalysis: build(settings.imageAnalysis, { keyGenerator: clientKey })
   };
 }

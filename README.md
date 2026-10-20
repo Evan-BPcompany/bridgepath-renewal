@@ -263,6 +263,9 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 | `CUSTOMER_ESTIMATE_CREATE_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 3600000 / 10 | `POST /api/estimates` per client IP (public). |
 | `CUSTOMER_ESTIMATE_READ_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 30 | `GET /api/estimates/:receipt_id` per client IP (public). |
 | `CUSTOMER_ESTIMATE_PREVIEW_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 900000 / 60 | `POST /api/estimate-preview` per client IP (public). |
+| `CUSTOMER_IMAGE_ANALYSIS_RATE_LIMIT_WINDOW_MS` / `_MAX` | no | 3600000 / 10 | `POST /api/estimate-preview/analyze-image` per client IP (public; every request can cost a Claude API call). |
+| `ANTHROPIC_API_KEY` | for photo analysis | - | Claude API key. Without it the analysis endpoint answers `503 IMAGE_ANALYSIS_NOT_CONFIGURED` and the form works without it. Never commit it. |
+| `IMAGE_ANALYSIS_MODEL` | no | `claude-opus-5-5` | Model that reads the photo. |
 | `FILE_DOWNLOAD_ENABLED` | no | `false` | `true` without a download provider stops the server at startup. |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | for file upload | - | S3 storage for estimate files. |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | for email | - | Without a key the worker keeps events pending and retries. |
@@ -1329,3 +1332,19 @@ How the range is computed (`src/services/estimatePreviewService.ts`, rules in `s
 1. Unit price = the active `base_prices` row for the material (`Plastic Frame`, `Metal Frame`, `Acetate Frame`, `Wood Frame`, `Premium Frame` for `mixed`) x the lens multiplier x the quantity tier multiplier.
 2. The range is the unit price -/+ 15%. Every unknown answer widens it by 10 points. A material that is `unknown`, or has no active row, is priced between the cheapest and the dearest active eyewear row.
 3. Staff change the base prices in `base_prices`; the multipliers and tiers live in the rules file. **The multipliers are placeholders and the development base prices are `[SAMPLE]` data: replace both with real quote figures before showing the range to customers.**
+
+### Photo analysis: POST /api/estimate-preview/analyze-image
+
+The visitor's photo of the product goes in, and the frame material and lens type it shows come out, so the form can fill them in and start the price guidance. Multipart form with one field `image` (JPG, PNG or GIF, up to 5 MB; the first bytes must match the type). The image is kept in memory only and sent to the Claude API; nothing is written to disk or S3, and the form tells the visitor the photo is sent to an AI service.
+
+Answer: `{ analysis: { is_sunglasses, frame_material, lens_type, confidence, summary }, notice }`. `frame_material` and `lens_type` use the values of the preview request, or `unknown`. A photo cannot show polarization, so `lens_type` is `unknown` unless the image says so. Errors: `400` (no image, wrong type, bytes do not match), `413` (over 5 MB), `429` (rate limit), `502` (the model refused or answered something unusable), `503` (no `ANTHROPIC_API_KEY`).
+
+The form (`estimate-preview.js`) fills a select only when the visitor has not chosen a value there, and never blocks the request form when the analysis fails. The service is `src/services/imageAnalysisService.ts`; the answer is checked against a JSON schema before it is used. **Not yet checked against the real API: the tests use a fake client.**
+
+### Result screen of the sunglasses quote
+
+Step 2 of `sunglasses-estimate.html` ends with **AI 견적 시작** (no longer a plain next button). When the product input is valid, `estimate-flow.js` calls `BridgePathResult.show()` (`estimate-result.js`) instead of going to step 3. The result screen has the same parts as the reference quote: the photo, 종합 분석 (with a complexity badge), 인식 결과 (frame material, lens type, shape, colour; the visitor edits them with **수정하기**, which goes back to step 2), 예상 비용 (unit price range, quantity, total budget range from `POST /api/estimate-preview`), and on the side 상세 분석, 주요 비용 요인 and 권고사항. **정식 견적 요청하기** goes on to step 3, where the request is sent as before.
+
+- The analysis texts come from the photo analysis (`analyze-image` answers `frame_shape`, `frame_color`, `complexity`, `overview`, `details`, `cost_factors` and `recommendations` besides the material and the lens). Without a photo the screen shows the form values and the price only. The prompt forbids prices, countries and factories in those texts: the only prices on the screen are the range of the rules.
+- The bridge width, arm length and lens width fields are gone from the form and from the specification (`bridge_width_mm`, `arm_length_mm`, `lens_width_mm` are no longer sent).
+- The price range has no minimum order quantity and no domestic/overseas columns: there is no data for them yet.

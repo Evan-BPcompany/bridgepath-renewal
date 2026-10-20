@@ -59,6 +59,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   estimateCreate: BIG,
   estimateRead: BIG,
   estimatePreview: BIG,
+  imageAnalysis: BIG,
   ...overrides
 });
 
