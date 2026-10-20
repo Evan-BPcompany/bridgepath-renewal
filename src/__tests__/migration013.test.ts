@@ -25,10 +25,11 @@ describe('Migration 013: align estimates.status with the PRD', () => {
   const upSql = normalize(withoutComments(upPart));
   const downSql = normalize(withoutComments(downPart));
 
-  it('is the file after 012 and the last migration', () => {
+  it('is the file right after 012', () => {
     const files = fs.readdirSync(migrationsDir).filter(name => /^\d{3}_/.test(name)).sort();
-    expect(files[files.length - 1]).toBe(FILE);
-    expect(files[files.length - 2]).toBe('012_customer_type_and_privacy_consent.ts');
+    const index = files.indexOf(FILE);
+    expect(index).toBeGreaterThan(0);
+    expect(files[index - 1]).toBe('012_customer_type_and_privacy_consent.ts');
   });
 
   describe('up', () => {

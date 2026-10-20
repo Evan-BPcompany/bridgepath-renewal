@@ -11,7 +11,7 @@ import { PREVIEW_NOTICE } from '../routes/estimatePreview';
 const BASE_PRICES: BasePriceRow[] = [
   { product_variant: 'Plastic Frame', base_price: 15000 },
   { product_variant: 'Metal Frame', base_price: 25000 },
-  { product_variant: 'Premium Frame', base_price: 50000 }
+  { product_variant: 'Mixed Frame', base_price: 50000 }
 ];
 
 describe('calculateSunglassesPreview', () => {

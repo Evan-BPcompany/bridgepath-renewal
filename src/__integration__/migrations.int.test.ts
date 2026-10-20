@@ -29,7 +29,8 @@ const MIGRATIONS = [
   '010_admin_memos_content_check.ts',
   '011_admin_must_change_password.ts',
   '012_customer_type_and_privacy_consent.ts',
-  '013_align_estimate_statuses.ts'
+  '013_align_estimate_statuses.ts',
+  '014_sunglasses_base_prices.ts'
 ];
 
 // Compared after a plain (not locale-dependent) sort on both sides.

@@ -1329,7 +1329,7 @@ Answer: `{ available: true, currency: "KRW", quantity, unit_price: { min, max },
 
 How the range is computed (`src/services/estimatePreviewService.ts`, rules in `src/config/sunglassesPricingRules.ts`):
 
-1. Unit price = the active `base_prices` row for the material (`Plastic Frame`, `Metal Frame`, `Acetate Frame`, `Wood Frame`, `Premium Frame` for `mixed`) x the lens multiplier x the quantity tier multiplier.
+1. Unit price = the active `base_prices` row for the material (`Plastic Frame`, `Metal Frame`, `Acetate Frame`, `Wood Frame`, `Mixed Frame`) x the lens multiplier x the quantity tier multiplier.
 2. The range is the unit price -/+ 15%. Every unknown answer widens it by 10 points. A material that is `unknown`, or has no active row, is priced between the cheapest and the dearest active eyewear row.
 3. Staff change the base prices in `base_prices`; the multipliers and tiers live in the rules file. **The multipliers are placeholders and the development base prices are `[SAMPLE]` data: replace both with real quote figures before showing the range to customers.**
 
@@ -1348,3 +1348,19 @@ Step 2 of `sunglasses-estimate.html` ends with **AI 견적 시작** (no longer a
 - The analysis texts come from the photo analysis (`analyze-image` answers `frame_shape`, `frame_color`, `complexity`, `overview`, `details`, `cost_factors` and `recommendations` besides the material and the lens). Without a photo the screen shows the form values and the price only. The prompt forbids prices, countries and factories in those texts: the only prices on the screen are the range of the rules.
 - The bridge width, arm length and lens width fields are gone from the form and from the specification (`bridge_width_mm`, `arm_length_mm`, `lens_width_mm` are no longer sent).
 - The price range has no minimum order quantity and no domestic/overseas columns: there is no data for them yet.
+
+### Base prices of sunglasses (migration 014)
+
+`014_sunglasses_base_prices.ts` writes the first base prices (category `eyewear`) from China factory listings on Made-in-China.com read on 2026-10-20: for each material the median of the listings that pass the filters of `scripts/sunglasses-base-prices.js`, in USD, converted to KRW at 1 USD = 1,330.79 KRW (open.er-api.com, 2026-10-20). Alibaba.com was not used: it answers an automated browser with a slider verification, which is not bypassed.
+
+| Variant | Listings used | Median USD | Base price KRW |
+|---|---|---|---|
+| Plastic Frame | 12 | 1.955 | 2,600 |
+| Metal Frame | 14 | 3.9025 | 5,190 |
+| Acetate Frame | 16 | 7.3725 | 9,810 |
+| Wood Frame | 10 | 5.07 | 6,750 |
+| Mixed Frame (acetate + metal) | 14 | 6.475 | 8,620 |
+
+- The data and the sources are in `docs/pricing/sunglasses-factory-prices-2026-10-20.json`; `node scripts/sunglasses-base-prices.js` prints the table again (`--rate=` for another rate, `--json` for machine output). `migration014.test.ts` fails when the migration and the script disagree.
+- A price is a factory price per piece as listed, at the middle of the listed range (FOB-style). It does **not** include shipping, duty, mold, logo, packaging or the service fee, and listings are mostly stock designs, not custom OEM development. It is an opening estimate: replace each row with the figures of real quotes as they come in, and keep the lens multipliers and quantity tiers (placeholders) in mind.
+- The migration also switches off the other `[SAMPLE]` eyewear rows (`Premium Frame`), so an unknown material is priced between the cheapest and the dearest of these five. Nothing is applied by the tests: run `npm run db:migrate` yourself on a database you chose.

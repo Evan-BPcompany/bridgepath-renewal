@@ -13,7 +13,7 @@ export const MATERIAL_VARIANTS: Record<string, string> = {
   metal: 'Metal Frame',
   acetate: 'Acetate Frame',
   wood: 'Wood Frame',
-  mixed: 'Premium Frame'
+  mixed: 'Mixed Frame'
 };
 
 // Answers that mean "the customer does not know": priced across all variants, with a wider range.
