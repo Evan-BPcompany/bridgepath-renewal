@@ -512,3 +512,56 @@
     overflow-wrap: anywhere;
     font-size: 0.92rem;
 }
+
+/* ==================== Detailed quote from the staff (result screen, step 3) ==================== */
+.detailed-card {
+    margin-top: 28px;
+    padding: 20px 22px;
+    border: 1px solid #d7deef;
+    border-radius: 12px;
+    background: #f6f8fd;
+}
+
+.detailed-card h3 {
+    margin: 0 0 8px;
+    font-size: 1.05rem;
+}
+
+.detailed-card p {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #333;
+}
+
+.detailed-card .detailed-time {
+    color: #1d3a8a;
+    font-weight: 600;
+}
+
+.detailed-card .btn-primary {
+    margin-top: 6px;
+}
+
+.detailed-login {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #e1e6f3;
+}
+
+.detailed-login[hidden],
+.detailed-note[hidden] {
+    display: none;
+}
+
+.detailed-note {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #f3f6ff;
+    color: #1d3a8a;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}

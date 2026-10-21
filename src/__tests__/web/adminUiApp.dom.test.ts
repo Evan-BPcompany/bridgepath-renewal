@@ -343,6 +343,35 @@ describe('the list', () => {
     expect(cells.slice(4)).toEqual(['-', '-', '-', '0']);
   });
 
+  it('marks a request for a detailed quote in the list, and a simple one (or one from before the kind existed) not', async () => {
+    routes['GET /admin/estimates'] = () => ({
+      status: 200,
+      body: {
+        success: true,
+        data: [item({ id: 'a', receipt_id: 'BP1', request_kind: 'detailed' }), item({ id: 'b', receipt_id: 'BP2', request_kind: 'simple' }), item({ id: 'c', receipt_id: 'BP3' })],
+        pagination: { page: 1, total: 3, total_pages: 1 }
+      }
+    });
+    await open();
+
+    const first = $$('table.list tbody tr').map(row => row.querySelector('td').textContent);
+    expect(first).toEqual(['BP1상세견적', 'BP2', 'BP3']);
+    expect($$('table.list .tag-detailed')).toHaveLength(1);
+    // Only a link to the request carries its number.
+    expect($('table.list tbody a').textContent).toBe('BP1');
+  });
+
+  it('says in the detail how the request was sent and whether the customer has an account', async () => {
+    routes[`GET /admin/estimates/${ID}`] = () => ({ status: 200, body: detail({}, { request_kind: 'detailed', has_account: true }) });
+    await open(`#/estimates/${ID}`);
+    expect(section('secCustomer').textContent).toContain('요청 종류담당자 상세견적 요청 · 회원 계정');
+  });
+
+  it('says "simple" and "no account" for a request from before the kind existed', async () => {
+    await open(`#/estimates/${ID}`);
+    expect(section('secCustomer').textContent).toContain('요청 종류간단 접수 · 비회원');
+  });
+
   it('puts what a customer wrote in the table as text only', async () => {
     routes['GET /admin/estimates'] = () => ({
       status: 200, body: { success: true, data: [item({ customer_name: '<img src=x onerror=alert(1)>', company_name: '<script>alert(2)</script>' })], pagination: { page: 1, total: 1, total_pages: 1 } }

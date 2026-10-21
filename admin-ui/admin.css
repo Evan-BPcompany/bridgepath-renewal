@@ -410,3 +410,18 @@ ul.memos p {
         margin-bottom: 0.5rem;
     }
 }
+
+.tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
+.tag-detailed {
+    background: #e8efff;
+    color: #1d3a8a;
+}

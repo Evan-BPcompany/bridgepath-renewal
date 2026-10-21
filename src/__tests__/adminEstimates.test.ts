@@ -217,6 +217,7 @@ describe('Admin estimates API (mocked database)', () => {
           'file_count',
           'id',
           'receipt_id',
+          'request_kind',
           'status',
           'updated_at'
         ].sort()
@@ -459,7 +460,7 @@ describe('Admin estimates API (mocked database)', () => {
       }
       const query = db.state.queries.find(q => q.sql.includes('FROM estimates WHERE id'))!;
       expect(query.sql.replace(/\s+/g, ' ')).toContain(
-        'customer_type, privacy_consent_at, privacy_consent_version'
+        'customer_type, request_kind, customer_id, privacy_consent_at, privacy_consent_version'
       );
     });
 

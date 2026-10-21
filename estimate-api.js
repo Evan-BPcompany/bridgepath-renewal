@@ -479,6 +479,11 @@
         var customer = options.customer || {};
         var files = Array.isArray(options.files) ? options.files : [];
 
+        // A request for a detailed quote from the staff is for signed-in customers: it names its kind,
+        // and carries the session cookie of the customer (a guest's request does not).
+        var detailed = options.requestKind === 'detailed';
+        var credentials = detailed ? 'include' : 'omit';
+
         var fields = {
             category: kind.category,
             customer_type: customer.customer_type,
@@ -486,7 +491,8 @@
             company_name: customer.company_name,
             customer_email: customer.customer_email,
             customer_phone: customer.customer_phone,
-            privacy_consent_version: options.consentVersion
+            privacy_consent_version: options.consentVersion,
+            request_kind: detailed ? 'detailed' : undefined
         };
         var url = joinUrl(options.apiBase, '/api/estimates');
 
@@ -506,7 +512,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                     body: JSON.stringify(payload),
-                    credentials: 'omit'
+                    credentials: credentials
                 }
             };
         }
@@ -532,7 +538,7 @@
                 method: 'POST',
                 headers: { Accept: 'application/json' },
                 body: form,
-                credentials: 'omit'
+                credentials: credentials
             }
         };
     }
@@ -707,6 +713,9 @@
             var headerSeconds = headerOf(response.headers, 'Retry-After') !== undefined ? parseRetryAfter(response.headers) : undefined;
             return { kind: 'rateLimited', retryAfterSeconds: headerSeconds !== undefined ? headerSeconds : parseRetryAfter({ 'Retry-After': fromBody }) };
         }
+        if (status === 401 && body && body.code === 'CUSTOMER_AUTH_REQUIRED') {
+            return { kind: 'authRequired' };
+        }
         if (status === 503 && body && body.code === 'PRIVACY_CONSENT_NOT_CONFIGURED') {
             return { kind: 'notReady' };
         }
@@ -792,6 +801,7 @@
 
         rate_limited: '요청이 많아 잠시 접수를 받을 수 없어요. 약 {minutes}분 뒤에 다시 시도해 주세요.',
         not_ready: '지금은 견적 접수를 준비하고 있어요. 전화나 이메일로 문의해 주세요.',
+        auth_required: '로그인이 필요해요. 로그인 시간이 지났다면 AI 견적 결과 화면에서 ‘담당자 상세견적 받으러 가기’를 눌러 다시 로그인해 주세요. 입력하신 내용은 그대로 남아 있어요.',
         server_error: '일시적인 문제가 생겼어요. 입력하신 내용은 그대로 남아 있으니 잠시 뒤 다시 시도해 주세요.',
         server_error_files: '파일을 보내는 중 문제가 생겼어요. 문의가 이미 접수되었을 수 있으니, 다시 보내기 전에 전화나 이메일로 확인해 주세요.',
         files_not_saved: '파일을 저장하지 못해 접수되지 않았어요. 입력하신 내용은 그대로 남아 있으니, 잠시 뒤 다시 시도하거나 파일을 빼고 보내 주세요.',
@@ -840,6 +850,8 @@
                 return messageFor('rate_limited', { minutes: Math.max(1, Math.ceil(result.retryAfterSeconds / 60)) });
             case 'notReady':
                 return messageFor('not_ready');
+            case 'authRequired':
+                return messageFor('auth_required');
             case 'serverError':
                 if (result.filesFailed) {
                     return messageFor('files_not_saved');

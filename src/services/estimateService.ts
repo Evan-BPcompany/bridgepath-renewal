@@ -25,6 +25,10 @@ export interface CreateEstimateRequest {
   // not at all.
   estimate_id?: string;
   files?: StoredFile[];
+  // The signed-in customer who sent it (migration 016), and whether it asks for a detailed quote
+  // from the staff. A detailed request needs a customer; the database refuses one without.
+  customer_id?: string;
+  request_kind?: 'simple' | 'detailed';
 }
 
 // What the customer is told after a request: no internal status (PRD FR-4.9.3). The status of a
@@ -136,9 +140,9 @@ export async function createEstimate(
           INSERT INTO estimates (
             id, receipt_id, category, customer_name, customer_email,
             customer_phone, company_name, specification_json, status,
-            customer_type, privacy_consent_at, privacy_consent_version
+            customer_type, privacy_consent_at, privacy_consent_version, customer_id, request_kind
           )
-          VALUES (COALESCE($10::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, $6, $7, 'new_receipt', $8, CURRENT_TIMESTAMP, $9)
+          VALUES (COALESCE($10::uuid, gen_random_uuid()), $1, $2, $3, $4, $5, $6, $7, 'new_receipt', $8, CURRENT_TIMESTAMP, $9, $11, $12)
           RETURNING id, receipt_id, status, created_at
         `;
 
@@ -152,7 +156,9 @@ export async function createEstimate(
           JSON.stringify(request.specification_json),
           request.customer_type,
           request.privacy_consent_version,
-          request.estimate_id || null
+          request.estimate_id || null,
+          request.customer_id || null,
+          request.request_kind || 'simple'
         ]);
 
         if (estimateResult.rows.length === 0) {

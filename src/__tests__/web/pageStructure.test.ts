@@ -58,6 +58,8 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
     const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(match => match[1]);
     expect(scripts).toEqual([
       'config.js',
+      // Only the sunglasses page asks signed-in customers for a detailed quote (estimateDetailedQuote.dom.test.ts).
+      ...(page === 'sunglasses' ? ['customer-auth.js'] : []),
       'estimate-api.js',
       'estimate-common.js',
       'estimate-customer-step.js',

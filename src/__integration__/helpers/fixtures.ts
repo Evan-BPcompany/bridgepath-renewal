@@ -107,6 +107,8 @@ export interface NewEstimate {
   privacy_consent_at?: Date | string | null;
   privacy_consent_version?: string | null;
   created_at?: Date | string;
+  request_kind?: string;
+  customer_id?: string | null;
 }
 
 // Inserts an estimate directly (no API). Receipt ids are unique per call.
@@ -127,6 +129,8 @@ export async function insertEstimate(db: Knex, estimate: NewEstimate = {}): Prom
       ...(estimate.privacy_consent_version !== undefined
         ? { privacy_consent_version: estimate.privacy_consent_version }
         : {}),
+      ...(estimate.request_kind !== undefined ? { request_kind: estimate.request_kind } : {}),
+      ...(estimate.customer_id !== undefined ? { customer_id: estimate.customer_id } : {}),
       specification_json: JSON.stringify(SHOE_SPEC),
       ...(estimate.created_at ? { created_at: estimate.created_at } : {})
     })

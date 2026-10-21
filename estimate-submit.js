@@ -149,7 +149,9 @@
     //          getFiles() -> the files to send with the request (optional),
     //          getExtraSpec() -> values added to the specification, e.g. { ai_preview } (optional),
     //          afterSuccess() -> called once the request has been accepted (optional),
-    //          getSummary() -> the rows of the product for the receipt, [{ label, value }] (optional).
+    //          getSummary() -> the rows of the product for the receipt, [{ label, value }] (optional),
+    //          getRequestKind() -> 'simple' (default) or 'detailed': a request for a detailed quote from the
+    //          staff, which only a signed-in customer may send (optional).
     // Returns { submit }; the caller connects it to the click or the submit event.
     function createSubmitter(options) {
         var estimate = api();
@@ -185,6 +187,10 @@
             });
         }
 
+        function requestKind() {
+            return options.getRequestKind && options.getRequestKind() === 'detailed' ? 'detailed' : 'simple';
+        }
+
         function won(amount) {
             return Number(amount).toLocaleString('ko-KR') + '원';
         }
@@ -193,6 +199,9 @@
         // shown, the contact details and the files. Built before the form is emptied.
         function buildSummary(spec, customer, files) {
             var rows = options.getSummary ? options.getSummary().slice() : [];
+            if (requestKind() === 'detailed') {
+                rows.unshift({ label: '요청 종류', value: '담당자 상세견적' });
+            }
             var price = spec.ai_preview && spec.ai_preview.price;
             if (price && price.unit_price && price.total_price) {
                 rows.push({
@@ -337,7 +346,8 @@
                     spec: spec,
                     customer: customer.value,
                     consentVersion: config.PRIVACY_CONSENT_VERSION,
-                    files: files
+                    files: files,
+                    requestKind: requestKind()
                 });
                 result = await estimate.submitEstimate({
                     request: request,

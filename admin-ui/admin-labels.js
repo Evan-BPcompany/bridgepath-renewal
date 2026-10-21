@@ -41,6 +41,13 @@
         business_brand: '사업자·브랜드 운영 중'
     });
 
+    // How the customer sent it: anyone can send a simple request; only a signed-in customer asks the
+    // staff for a detailed quote.
+    var REQUEST_KIND = Object.freeze({
+        simple: '간단 접수',
+        detailed: '담당자 상세견적 요청'
+    });
+
     var FILE_STATUS = Object.freeze({
         quarantine: '격리 (검사 전)',
         pending_scan: '검사 대기',
@@ -174,7 +181,7 @@
     }
 
     var api = Object.freeze({
-        STATUS: STATUS, STATUS_ORDER: STATUS_ORDER, CATEGORY: CATEGORY, CUSTOMER_TYPE: CUSTOMER_TYPE,
+        STATUS: STATUS, STATUS_ORDER: STATUS_ORDER, CATEGORY: CATEGORY, CUSTOMER_TYPE: CUSTOMER_TYPE, REQUEST_KIND: REQUEST_KIND,
         FILE_STATUS: FILE_STATUS, SCAN_STATUS: SCAN_STATUS, ROLE: ROLE, SPEC_KEY: SPEC_KEY, AI: AI,
         pick: pick, statusLabel: statusLabel, statusTone: statusTone, formatDateTime: formatDateTime,
         formatWon: formatWon, formatBytes: formatBytes, specValue: specValue

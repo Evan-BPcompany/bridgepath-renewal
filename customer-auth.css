@@ -228,3 +228,9 @@ body[data-auth-page] {
 [hidden] {
     display: none !important;
 }
+
+a.auth-button {
+    box-sizing: border-box;
+    text-align: center;
+    text-decoration: none;
+}

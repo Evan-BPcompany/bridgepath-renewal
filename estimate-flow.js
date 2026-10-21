@@ -132,6 +132,47 @@
             ? globalThis.BridgePathAttachments.mount(attachmentsHost, {})
             : null;
 
+        // ---- the detailed quote: a signed-in customer asks the staff for a detailed quote (the result
+        // screen of the sunglasses page starts it). Step 3 then says so, is filled from the account
+        // and sends the request as a detailed one.
+        var detailedCustomer = null;
+        var stepThreeHeading = document.querySelector('#step3-content h2');
+        var stepThreeTitle = stepThreeHeading ? stepThreeHeading.textContent : '';
+
+        function applyMode(customer) {
+            detailedCustomer = customer || null;
+            var note = document.getElementById('detailedNote');
+            if (note) {
+                note.hidden = !detailedCustomer;
+            }
+            if (stepThreeHeading) {
+                stepThreeHeading.textContent = detailedCustomer ? '담당자 상세견적 요청 정보를 확인해주세요' : stepThreeTitle;
+            }
+            if (detailedCustomer && customerStep && typeof customerStep.setValues === 'function') {
+                customerStep.setValues({
+                    customer_name: detailedCustomer.name,
+                    customer_email: detailedCustomer.email,
+                    customer_phone: detailedCustomer.phone,
+                    company_name: detailedCustomer.company_name,
+                    customer_type: detailedCustomer.customer_type
+                });
+            }
+        }
+
+        function startDetailed(customer) {
+            applyMode(customer);
+            if (typeof globalThis.goToStep === 'function') {
+                globalThis.goToStep(3);
+            }
+            if (stepThreeHeading) {
+                stepThreeHeading.setAttribute('tabindex', '-1');
+                stepThreeHeading.focus();
+            }
+        }
+
+        globalThis.BridgePathFlow.startDetailed = startDetailed;
+        globalThis.BridgePathFlow.setSimple = function () { applyMode(null); };
+
         // ---- errors of step 2
         var formSection = stepTwo ? stepTwo.querySelector('.form-section') : null;
         var productErrors = null;
@@ -193,6 +234,7 @@
                 hideOnSuccess: [document.getElementById('customerStep'), buttons],
                 getFiles: function () { return attachments ? attachments.getFiles() : []; },
                 getSummary: function () { return summaryRows(page); },
+                getRequestKind: function () { return detailedCustomer ? 'detailed' : 'simple'; },
                 // The sunglasses page records what its screen showed (estimate-result.js).
                 getExtraSpec: function () {
                     var result = globalThis.BridgePathResult;
@@ -201,6 +243,16 @@
                 afterSuccess: function () {
                     if (attachments) {
                         attachments.reset();
+                    }
+                    if (detailedCustomer) {
+                        var title = document.getElementById('successTitle');
+                        var timeNote = document.getElementById('detailedSuccessNote');
+                        if (title) {
+                            title.textContent = '담당자 상세견적 요청이 접수되었어요';
+                        }
+                        if (timeNote) {
+                            timeNote.hidden = false;
+                        }
                     }
                 },
                 onProductInvalid: function () {
@@ -213,7 +265,11 @@
         }
     }
 
-    globalThis.BridgePathFlow = { init: init, collectValues: collectValues, CONTROLS: CONTROLS };
+    globalThis.BridgePathFlow = {
+        init: init, collectValues: collectValues, CONTROLS: CONTROLS,
+        // Replaced by init() on a page that has a customer step.
+        startDetailed: function () {}, setSimple: function () {}
+    };
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = globalThis.BridgePathFlow;
     }

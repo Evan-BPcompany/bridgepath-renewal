@@ -34,7 +34,8 @@ const ALL_MIGRATIONS = [
   '012_customer_type_and_privacy_consent.ts',
   '013_align_estimate_statuses.ts',
   '014_sunglasses_base_prices.ts',
-  '015_customer_accounts.ts'
+  '015_customer_accounts.ts',
+  '016_estimate_customer_link.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -77,6 +78,14 @@ describeIntegration('migrations 001-013', ({ url }) => {
   const appliedNames = async (): Promise<string[]> => {
     const rows = await suite().db('knex_migrations').orderBy('id').select('name');
     return rows.map((row: { name: string }) => row.name);
+  };
+
+  // Applies everything, then rolls back down to the first `count` migrations.
+  const migrateTo = async (count: number): Promise<void> => {
+    await migrateEverything(suite().db);
+    while ((await appliedNames()).length > count) {
+      await migrateDownOne(suite().db);
+    }
   };
 
   const tableNames = async (): Promise<string[]> => {
@@ -971,11 +980,8 @@ describeIntegration('migrations 001-013', ({ url }) => {
 
   // Migration 014 writes the first real sunglasses prices (not the structure of the schema).
   describe('014 (the first real sunglasses base prices)', () => {
-    // Everything up to and including 014, without 015 (which has its own tests below).
-    const through014 = async (): Promise<void> => {
-      await migrateEverything(suite().db);
-      await migrateDownOne(suite().db);
-    };
+    // Everything up to and including 014, without 015 and 016 (which have their own tests below).
+    const through014 = (): Promise<void> => migrateTo(14);
 
     const eyewear = async () =>
       suite().db('base_prices').where({ category: 'eyewear' }).orderBy('product_variant').select('product_variant', 'base_price', 'is_active', 'description');
@@ -1058,7 +1064,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
       suite().db('customers').insert({ email, ...extra }).returning('id');
 
     beforeEach(async () => {
-      await migrateEverything(suite().db);
+      await migrateTo(15);
     });
 
     afterEach(async () => {
@@ -1067,8 +1073,8 @@ describeIntegration('migrations 001-013', ({ url }) => {
       }
     });
 
-    it('is applied last by the real "latest" and creates the four tables', async () => {
-      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+    it('is applied after 014 and creates the four tables', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 15));
       const names = await tableNames();
       for (const table of ['customers', 'customer_identities', 'customer_sessions', 'customer_email_codes']) {
         expect(names).toContain(table);
@@ -1139,6 +1145,71 @@ describeIntegration('migrations 001-013', ({ url }) => {
       await migrateDownOne(suite().db);
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 14));
       expect(await tableNames()).not.toContain('customers');
+
+      await migrateTo(15);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+    });
+  });
+
+  // Migration 016: a request can belong to a signed-in customer and be a detailed quote request.
+  describe('016 (estimate: customer and kind of request)', () => {
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    const newCustomer = async (email: string): Promise<string> => {
+      const [row] = await suite().db('customers').insert({ email }).returning('id');
+      return row.id;
+    };
+
+    it('is the last migration, and every request so far is a simple one without an account', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+      const { id } = await insertEstimate(suite().db);
+
+      expect(await suite().db('estimates').where({ id }).first()).toMatchObject({ request_kind: 'simple', customer_id: null });
+    });
+
+    it('accepts only the two kinds, and a detailed request only with a customer', async () => {
+      const customer = await newCustomer('kind@example.com');
+
+      await expect(insertEstimate(suite().db, { request_kind: 'premium' })).rejects.toMatchObject({ code: CHECK });
+      await expect(insertEstimate(suite().db, { request_kind: 'detailed' } )).rejects.toMatchObject({ code: CHECK });
+      await expect(insertEstimate(suite().db, { request_kind: 'detailed', customer_id: customer } )).resolves.toBeTruthy();
+      await expect(insertEstimate(suite().db, { request_kind: 'simple', customer_id: customer } )).resolves.toBeTruthy();
+    });
+
+    it('refuses a customer that does not exist', async () => {
+      await expect(
+        insertEstimate(suite().db, { customer_id: '00000000-0000-4000-8000-000000000000' })
+      ).rejects.toMatchObject({ code: FOREIGN_KEY });
+    });
+
+    it('keeps the request when the account is deleted, without the link, whatever its kind', async () => {
+      const customer = await newCustomer('gone@example.com');
+      const simple = await insertEstimate(suite().db, { customer_id: customer });
+      const detailed = await insertEstimate(suite().db, { request_kind: 'detailed', customer_id: customer });
+
+      await suite().db('customers').where({ id: customer }).del();
+
+      expect(await suite().db('estimates').where({ id: simple.id }).first()).toMatchObject({ customer_id: null, request_kind: 'simple' });
+      expect(await suite().db('estimates').where({ id: detailed.id }).first()).toMatchObject({ customer_id: null, request_kind: 'detailed' });
+    });
+
+    it('rolls back to the schema of 015, and applies again to the same schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+
+      await migrateDownOne(suite().db);
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 15));
+      expect(await suite().db.raw(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = 'estimates' AND column_name IN ('customer_id','request_kind')`,
+        [suite().schema]
+      ).then((r: { rows: unknown[] }) => r.rows)).toEqual([]);
 
       await migrateEverything(suite().db);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);

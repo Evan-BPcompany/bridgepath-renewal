@@ -98,7 +98,10 @@ describe('estimate service (fake database)', () => {
         'individual_startup',
         'dev-draft',
         // No estimate id of its own: the database makes one.
-        null
+        null,
+        // A guest's simple request: no customer account, the default kind.
+        null,
+        'simple'
       ]);
     });
 
@@ -113,12 +116,18 @@ describe('estimate service (fake database)', () => {
 
       const insert = find('INSERT INTO estimates')!;
       expect(insert.sql.replace(/\s+/g, ' ')).toContain(
-        'customer_type, privacy_consent_at, privacy_consent_version'
+        'customer_type, privacy_consent_at, privacy_consent_version, customer_id, request_kind'
       );
-      expect(insert.sql.replace(/\s+/g, ' ')).toContain("'new_receipt', $8, CURRENT_TIMESTAMP, $9)");
-      expect(insert.params).toHaveLength(10);
+      expect(insert.sql.replace(/\s+/g, ' ')).toContain("'new_receipt', $8, CURRENT_TIMESTAMP, $9, $11, $12)");
+      expect(insert.params).toHaveLength(12);
       expect(insert.params.slice(7, 9)).toEqual(['business_brand', '2026-v1']);
       expect(JSON.stringify(insert.params)).not.toContain('1999');
+    });
+
+    it('links the request to the signed-in customer and keeps the kind of the request', async () => {
+      await createEstimate({ ...request, customer_id: 'c0000000-0000-0000-0000-0000000000c1', request_kind: 'detailed' });
+
+      expect(find('INSERT INTO estimates')!.params.slice(9)).toEqual([null, 'c0000000-0000-0000-0000-0000000000c1', 'detailed']);
     });
 
     describe('with files that are already in the storage', () => {

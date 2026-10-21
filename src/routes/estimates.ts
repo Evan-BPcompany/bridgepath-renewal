@@ -16,11 +16,33 @@ import {
 } from '../middleware/upload';
 import { validateFileBuffer, validateFileSet } from '../utils/fileValidation';
 import logger from '../utils/logger';
+import { readCustomerSession } from '../middleware/customerAuth';
 
 const router = Router();
 
-router.post('/estimates', receiveFiles, async (req: Request, res: Response) => {
+// The session is read after the body is parsed: a signed-in customer's request is linked to the
+// account, and a "detailed" request (the staff write a detailed quote) is only for signed-in customers.
+router.post('/estimates', receiveFiles, readCustomerSession, async (req: Request, res: Response) => {
   try {
+    const rawKind = (req.body as Record<string, unknown> | undefined)?.request_kind;
+    if (rawKind !== undefined && rawKind !== 'simple' && rawKind !== 'detailed') {
+      res.status(400).json({
+        error: 'Invalid request_kind',
+        details: [{ field: 'request_kind', message: 'must be simple or detailed' }],
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    const requestKind: 'simple' | 'detailed' = rawKind === 'detailed' ? 'detailed' : 'simple';
+    if (requestKind === 'detailed' && !req.customer) {
+      res.status(401).json({
+        error: 'Sign in to ask for a detailed quote',
+        code: 'CUSTOMER_AUTH_REQUIRED',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
     // Without an approved privacy consent version no request may be stored (production keeps no
     // approved version until the text has been reviewed). Nothing has been written or numbered yet.
     const acceptedConsentVersions = getAcceptedConsentVersions(config.nodeEnv);
@@ -192,7 +214,9 @@ router.post('/estimates', receiveFiles, async (req: Request, res: Response) => {
         specification_json: cleanSpecification,
         ...contactResult.value,
         estimate_id: estimateId,
-        files: storedFiles
+        files: storedFiles,
+        customer_id: req.customer?.id,
+        request_kind: requestKind === 'detailed' ? 'detailed' : undefined
       });
     } catch (createErr) {
       await discardStoredFiles(storedFiles);

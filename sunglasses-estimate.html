@@ -224,12 +224,25 @@
                 <button class="btn-secondary" id="resultEditBtn" type="button">수정하기</button>
                 <button class="btn-primary" id="resultRequestBtn" type="button">정식 견적 요청하기</button>
             </div>
+
+            <!-- Detailed quote from the staff: for signed-in customers only (estimate-result.js) -->
+            <section class="detailed-card" aria-labelledby="detailedTitle">
+                <h3 id="detailedTitle">담당자 상세견적도 받아보세요</h3>
+                <p>AI 견적은 참고용 범위예요. 담당자가 직접 확인해 작성하는 상세견적을 받아볼 수 있어요.</p>
+                <p class="detailed-time">담당자 상세견적은 업무일 기준 2~3일 정도 걸릴 수 있어요. 회원가입 후 로그인한 고객만 요청할 수 있어요.</p>
+                <button class="btn-primary" id="detailedBtn" type="button">담당자 상세견적 받으러 가기</button>
+                <div class="detailed-login" id="detailedLogin" role="status" aria-live="polite" hidden>
+                    <p>로그인이 필요해요. 새 창에서 로그인하거나 가입한 뒤 이 화면으로 돌아오면 이어서 진행돼요. 입력한 내용과 사진은 이 화면에 그대로 남아 있어요.</p>
+                    <p><a href="login.html?next=%2Flogin-complete.html" target="_blank" rel="noopener">로그인</a> · <a href="login.html?mode=signup&amp;next=%2Flogin-complete.html" target="_blank" rel="noopener">회원가입</a></p>
+                </div>
+            </section>
         </section>
 
         <!-- Step 3: Customer Information -->
         <section class="step-content" id="step3-content">
             <h2>고객 정보를 입력해주세요</h2>
             <p class="step-description">견적 안내를 위해 연락받으실 정보를 입력해주세요.</p>
+            <p class="detailed-note" id="detailedNote" hidden>담당자 상세견적 요청이에요. 로그인한 계정의 정보로 채워 두었으니 확인해 주세요. 담당자 상세견적은 업무일 기준 2~3일 정도 걸릴 수 있어요.</p>
 
             <div class="form-section">
                 <div id="customerStep"></div>
@@ -247,6 +260,7 @@
                     <span id="copyReceiptNote" role="status"></span></p>
                 <p id="receiptTimeRow" hidden>접수 시각: <span id="receiptTime"></span></p>
                 <p id="receiptMessage" hidden></p>
+                <p id="detailedSuccessNote" hidden>담당자 상세견적은 업무일 기준 2~3일 정도 걸릴 수 있어요.</p>
                 <div id="receiptSummary" class="receipt-summary-box" hidden>
                     <h4>접수 내용</h4>
                     <dl id="receiptSummaryList" class="receipt-summary"></dl>
@@ -258,6 +272,7 @@
     </div>
 
     <script src="config.js"></script>
+    <script src="customer-auth.js"></script>
     <script src="estimate-api.js"></script>
     <script src="estimate-common.js"></script>
     <script src="estimate-customer-step.js"></script>

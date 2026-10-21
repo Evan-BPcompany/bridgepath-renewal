@@ -89,6 +89,8 @@ export interface EstimateListItem {
   customer_name: string | null;
   // 'individual_startup' | 'business_brand'; null for requests received before migration 012.
   customer_type: string | null;
+  // 'simple' or 'detailed' (the customer asked for a detailed quote from the staff; migration 016).
+  request_kind: string;
   created_at: string;
   updated_at: string;
   file_count: number;
@@ -107,7 +109,7 @@ export async function listEstimates(
   const countSql = `SELECT COUNT(*)::int AS total FROM estimates e ${clause}`;
   const listSql = `
     SELECT e.id, e.receipt_id, e.category, e.status, e.company_name, e.customer_name,
-           e.customer_type, e.created_at, e.updated_at,
+           e.customer_type, e.request_kind, e.created_at, e.updated_at,
            (SELECT COUNT(*)::int FROM files f WHERE f.estimate_id = e.id) AS file_count
     FROM estimates e
     ${clause}
@@ -130,6 +132,7 @@ export async function listEstimates(
       company_name: row.company_name,
       customer_name: row.customer_name,
       customer_type: row.customer_type ?? null,
+      request_kind: row.request_kind ?? 'simple',
       created_at: iso(row.created_at),
       updated_at: iso(row.updated_at),
       file_count: row.file_count
@@ -150,6 +153,9 @@ export interface EstimateDetail {
     // Customer type and privacy consent (PRD FR-4.2, FR-5.3): all three are null for requests
     // received before migration 012, which have no consent record.
     customer_type: string | null;
+    // 'simple' or 'detailed' (migration 016), and whether a customer account sent it.
+    request_kind: string;
+    has_account: boolean;
     privacy_consent_at: string | null;
     privacy_consent_version: string | null;
     specification_json: unknown;
@@ -183,7 +189,7 @@ export async function getEstimateDetail(id: string): Promise<EstimateDetail | nu
 
   const estimateResult = await pool.query(
     `SELECT id, receipt_id, category, status, customer_name, customer_email, customer_phone,
-            company_name, customer_type, privacy_consent_at, privacy_consent_version,
+            company_name, customer_type, request_kind, customer_id, privacy_consent_at, privacy_consent_version,
             specification_json, is_consultation, created_at, updated_at
      FROM estimates WHERE id = $1`,
     [id]
@@ -233,6 +239,8 @@ export async function getEstimateDetail(id: string): Promise<EstimateDetail | nu
       customer_phone: e.customer_phone,
       company_name: e.company_name,
       customer_type: e.customer_type ?? null,
+      request_kind: e.request_kind ?? 'simple',
+      has_account: Boolean(e.customer_id),
       privacy_consent_at: e.privacy_consent_at ? iso(e.privacy_consent_at) : null,
       privacy_consent_version: e.privacy_consent_version ?? null,
       specification_json: e.specification_json,

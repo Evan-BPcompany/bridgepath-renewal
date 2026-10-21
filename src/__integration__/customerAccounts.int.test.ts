@@ -16,7 +16,7 @@ import { sendCodeEmail } from '../services/customerMailer';
 import { fetchSocialProfile } from '../services/oauthProviders';
 import { describeIntegration } from './helpers/integrationMode';
 import { useIsolatedSchema } from './helpers/lifecycle';
-import { cookieValueOf, createTestApp, resetData } from './helpers/fixtures';
+import { CUSTOMER_PROFILE, SHOE_SPEC, cookieValueOf, createTestApp, resetData } from './helpers/fixtures';
 
 const PASSWORD = 'abcdefg1';
 const NEW_PASSWORD = 'brand-new-2';
@@ -481,6 +481,72 @@ describeIntegration('customer accounts on a real PostgreSQL', ({ url }) => {
 
       expect(res.status).toBe(200);
       expect((await login('buyer@example.com', NEW_PASSWORD)).status).toBe(200);
+    });
+  });
+
+  describe('requests of a signed-in customer (detailed quote)', () => {
+    const send = (extra: Record<string, unknown> = {}, cookie?: string) => {
+      const req = request(app).post('/api/estimates');
+      return (cookie ? req.set('Cookie', cookie) : req).send({
+        ...CUSTOMER_PROFILE,
+        customer_email: 'buyer@example.com',
+        category: 'shoes',
+        specification_json: SHOE_SPEC,
+        ...extra
+      });
+    };
+    const estimates = () => suite().db('estimates').orderBy('created_at');
+
+    it('links a detailed request to the account and marks its kind', async () => {
+      const { cookie } = await registered();
+      const customer = await customerByEmail('buyer@example.com');
+
+      const res = await send({ request_kind: 'detailed' }, cookie);
+
+      expect(res.status).toBe(201);
+      expect(await estimates()).toMatchObject([{ customer_id: customer.id, request_kind: 'detailed', status: 'new_receipt' }]);
+    });
+
+    it('links a simple request of a signed-in customer to the account, and leaves a guest request alone', async () => {
+      const { cookie } = await registered();
+      const customer = await customerByEmail('buyer@example.com');
+
+      expect((await send({}, cookie)).status).toBe(201);
+      expect((await send()).status).toBe(201);
+
+      expect(await estimates()).toMatchObject([
+        { customer_id: customer.id, request_kind: 'simple' },
+        { customer_id: null, request_kind: 'simple' }
+      ]);
+    });
+
+    it('refuses a detailed request without a session and stores nothing', async () => {
+      const guest = await send({ request_kind: 'detailed' });
+      expect(guest.status).toBe(401);
+      expect(guest.body.code).toBe('CUSTOMER_AUTH_REQUIRED');
+
+      const { cookie } = await registered();
+      await request(app).post('/api/customers/logout').set('Cookie', cookie);
+      expect((await send({ request_kind: 'detailed' }, cookie)).status).toBe(401);
+
+      expect(await estimates()).toHaveLength(0);
+    });
+
+    it('shows the kind to the staff, in the list and in the detail', async () => {
+      const { cookie } = await registered();
+      await send({ request_kind: 'detailed' }, cookie);
+      await send();
+      const admin = await request(app).post('/admin/login').send({ username: 'master', password: 'Correct-Horse-9' });
+      const adminCookie = `access_token=${cookieValueOf(admin, 'access_token')}`;
+
+      const list = await request(app).get('/admin/estimates').set('Cookie', adminCookie);
+      const items: Array<{ id: string; request_kind: string }> = list.body.data;
+      expect(items.map(item => item.request_kind).sort()).toEqual(['detailed', 'simple']);
+
+      const detailed = items.find(item => item.request_kind === 'detailed')!;
+      const detail = await request(app).get(`/admin/estimates/${detailed.id}`).set('Cookie', adminCookie);
+      expect(detail.body.data.estimate).toMatchObject({ request_kind: 'detailed', has_account: true });
+      expect(JSON.stringify(detail.body)).not.toMatch(/customer_id/);
     });
   });
 });

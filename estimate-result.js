@@ -309,9 +309,65 @@
             }
         }
 
+        // ---- the detailed quote from the staff (for signed-in customers only)
+        // A customer who is not signed in logs in or signs up in a new tab (the form and the photo stay
+        // on this one); when they come back, the sign-in is noticed and the request goes on.
+        var detailedButton = byId('detailedBtn');
+        var loginBox = byId('detailedLogin');
+        var waitingForLogin = false;
+        var checking = false;
+
+        function goOnAsCustomer(customer) {
+            waitingForLogin = false;
+            if (loginBox) {
+                loginBox.hidden = true;
+            }
+            sequence += 1;
+            flow.startDetailed(customer);
+        }
+
+        async function checkSignedIn() {
+            var auth = globalThis.BridgePathAuth;
+            if (!auth || checking) {
+                return false;
+            }
+            checking = true;
+            try {
+                var me = await auth.me();
+                if (me.ok && me.body && me.body.customer) {
+                    goOnAsCustomer(me.body.customer);
+                    return true;
+                }
+                return false;
+            } finally {
+                checking = false;
+            }
+        }
+
+        if (detailedButton) {
+            detailedButton.addEventListener('click', async function () {
+                if (!(await checkSignedIn()) && loginBox) {
+                    waitingForLogin = true;
+                    loginBox.hidden = false;
+                }
+            });
+            var comeBack = function () {
+                if (waitingForLogin && screen.classList.contains('active')) {
+                    checkSignedIn();
+                }
+            };
+            window.addEventListener('focus', comeBack);
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) {
+                    comeBack();
+                }
+            });
+        }
+
         var editButton = byId('resultEditBtn');
         if (editButton) {
             editButton.addEventListener('click', function () {
+                waitingForLogin = false;
                 sequence += 1;
                 if (typeof globalThis.goToStep === 'function') {
                     globalThis.goToStep(2);
@@ -322,6 +378,8 @@
         var requestButton = byId('resultRequestBtn');
         if (requestButton) {
             requestButton.addEventListener('click', function () {
+                waitingForLogin = false;
+                flow.setSimple();
                 sequence += 1;
                 if (typeof globalThis.goToStep === 'function') {
                     globalThis.goToStep(3);

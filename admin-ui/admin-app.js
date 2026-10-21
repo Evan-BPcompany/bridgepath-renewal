@@ -368,7 +368,9 @@
                 var body = h('tbody');
                 items.forEach(function (item) {
                     body.appendChild(h('tr', {}, [
-                        h('td', {}, [h('a', { href: '#/estimates/' + encodeURIComponent(item.id), text: item.receipt_id })]),
+                        h('td', {}, [h('a', { href: '#/estimates/' + encodeURIComponent(item.id), text: item.receipt_id })].concat(
+                            item.request_kind === 'detailed' ? [h('span', { class: 'tag tag-detailed', text: '상세견적' })] : []
+                        )),
                         h('td', { text: labels.formatDateTime(item.created_at) }),
                         h('td', {}, [badge(item.status)]),
                         h('td', { text: labels.pick(labels.CATEGORY, item.category, item.category) }),
@@ -495,6 +497,7 @@
 
                 section('고객 정보', [definitionList([
                     ['이름', e.customer_name], ['회사·브랜드', e.company_name], ['이메일', e.customer_email], ['전화', e.customer_phone],
+                    ['요청 종류', labels.pick(labels.REQUEST_KIND, e.request_kind || 'simple', e.request_kind) + (e.has_account ? ' · 회원 계정' : ' · 비회원')],
                     ['고객 유형', e.customer_type ? labels.pick(labels.CUSTOMER_TYPE, e.customer_type, e.customer_type) : '확인 불가 (기록 이전 접수)'],
                     ['개인정보 동의', e.privacy_consent_at ? labels.formatDateTime(e.privacy_consent_at) + ' · 안내문 ' + (e.privacy_consent_version || '') : '기록 없음']
                 ])], 'secCustomer');

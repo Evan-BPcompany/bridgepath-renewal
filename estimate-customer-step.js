@@ -301,6 +301,24 @@
             showServerErrors: function (errors) {
                 showErrors(errors, true);
             },
+            // Fills the fields from known values (the account of a signed-in customer). Only values that
+            // are there are written; nothing is checked or sent.
+            setValues: function (values) {
+                var given = values || {};
+                var put = function (input, value) {
+                    if (typeof value === 'string' && value !== '') {
+                        input.value = value;
+                    }
+                };
+                put(nameInput, given.customer_name);
+                put(companyInput, given.company_name);
+                put(emailInput, given.customer_email);
+                put(phoneInput, given.customer_phone);
+                if (typeof given.customer_type === 'string') {
+                    typeInputs.forEach(function (input) { input.checked = input.value === given.customer_type; });
+                }
+                applyType();
+            },
             reset: function () {
                 typeInputs.forEach(function (input) { input.checked = false; });
                 [nameInput, companyInput, emailInput, phoneInput].forEach(function (input) { input.value = ''; });
