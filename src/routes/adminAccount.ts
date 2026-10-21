@@ -41,6 +41,22 @@ export function createAdminAccountRouter(deps: AdminAccountRouterDeps): Router {
     requireJson
   ];
 
+  // Who is signed in: the screen asks after a reload. An account that must change its password
+  // may ask too (allowPasswordChangeRequired), so the screen can send it to the right place.
+  router.get('/', allowPasswordChangeRequired, authMiddleware, (req: Request, res: Response): void => {
+    const admin = req.admin!;
+    res.json({
+      success: true,
+      data: {
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role,
+        must_change_password: admin.mustChangePassword
+      }
+    });
+  });
+
   router.patch('/password', ...guards, async (req: Request, res: Response): Promise<void> => {
     const admin = req.admin!;
 

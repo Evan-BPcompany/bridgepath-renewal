@@ -1,0 +1,412 @@
+/* The admin screen. Plain CSS, no build step; light and readable on a laptop or a phone. */
+:root {
+    --ink: #1f2430;
+    --muted: #6b7280;
+    --line: #e3e5f0;
+    --bg: #f4f5fa;
+    --card: #ffffff;
+    --accent: #4a5bd0;
+    --accent-ink: #ffffff;
+    --danger: #b42318;
+    --danger-bg: #fef3f2;
+    --success: #067647;
+    --success-bg: #ecfdf3;
+    --warning: #93370d;
+    --warning-bg: #fffaeb;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+.skip {
+    position: absolute;
+    left: -999px;
+}
+
+.skip:focus {
+    left: 8px;
+    top: 8px;
+    padding: 6px 10px;
+    background: #fff;
+    z-index: 10;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 1.2rem;
+    background: #232b55;
+    color: #fff;
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.who {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.9rem;
+}
+
+.who[hidden],
+[hidden] {
+    display: none !important;
+}
+
+.main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.2rem;
+}
+
+h2 {
+    margin: 0.2rem 0 1rem;
+    font-size: 1.35rem;
+}
+
+h2:focus {
+    outline: none;
+}
+
+h3 {
+    margin: 0 0 0.7rem;
+    font-size: 1.02rem;
+}
+
+h4 {
+    margin: 0.9rem 0 0.3rem;
+    font-size: 0.95rem;
+}
+
+.card {
+    margin: 0 0 1rem;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+}
+
+.card.narrow {
+    max-width: 440px;
+}
+
+.field {
+    margin: 0 0 0.8rem;
+}
+
+label {
+    display: block;
+    margin: 0 0 0.25rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #c8ccdc;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+textarea {
+    resize: vertical;
+}
+
+button {
+    padding: 0.45rem 1rem;
+    border: 1px solid #c8ccdc;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+}
+
+button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+}
+
+button:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.topbar button {
+    border-color: #5b66a8;
+    background: transparent;
+    color: #fff;
+}
+
+.hint,
+.muted {
+    margin: 0.3rem 0;
+    font-size: 0.84rem;
+    color: var(--muted);
+}
+
+.empty {
+    margin: 0.5rem 0;
+    color: var(--muted);
+}
+
+.error {
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-size: 0.9rem;
+}
+
+.error p {
+    margin: 0.15rem 0;
+}
+
+.notice {
+    max-width: 1100px;
+    margin: 0.8rem auto 0;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    font-size: 0.92rem;
+}
+
+.notice-info {
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.notice-success {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.notice-warning {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+/* list */
+.filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.6rem 0.9rem;
+    align-items: end;
+}
+
+.filters .field {
+    margin: 0;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table.list {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    font-size: 0.9rem;
+}
+
+table.list th,
+table.list td {
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+}
+
+table.list th {
+    background: #f8f9fd;
+    font-size: 0.8rem;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+table.list td.num {
+    text-align: right;
+}
+
+.list a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.list a:hover {
+    text-decoration: underline;
+}
+
+.pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+/* status badges */
+.badge {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.badge-new {
+    background: #fee4e2;
+    color: #b42318;
+}
+
+.badge-work {
+    background: #e0eaff;
+    color: #3538cd;
+}
+
+.badge-wait {
+    background: #fef0c7;
+    color: #93370d;
+}
+
+.badge-good {
+    background: #d1fadf;
+    color: #067647;
+}
+
+.badge-done {
+    background: #eaecf0;
+    color: #344054;
+}
+
+.badge-stop {
+    background: #f2f4f7;
+    color: #667085;
+}
+
+/* detail */
+.back {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0 0 1rem;
+}
+
+dl.facts {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: 0.35rem 1rem;
+    margin: 0;
+}
+
+dl.facts dt {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+dl.facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.long {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+details.raw {
+    margin-top: 0.8rem;
+}
+
+details.raw pre {
+    max-height: 260px;
+    overflow: auto;
+    padding: 0.7rem;
+    border-radius: 6px;
+    background: #f8f9fd;
+    font-size: 0.8rem;
+}
+
+ul.memos {
+    margin: 0.8rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+ul.memos li {
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--line);
+}
+
+ul.memos p {
+    margin: 0.1rem 0;
+}
+
+@media (max-width: 640px) {
+    .main {
+        padding: 0.8rem;
+    }
+
+    dl.facts {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    dl.facts dd {
+        margin-bottom: 0.5rem;
+    }
+}

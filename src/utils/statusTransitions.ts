@@ -101,6 +101,21 @@ export function isRoleAllowed(role: AdminRole, transition: StatusTransition): bo
   return role === 'admin' || transition.managerAllowed;
 }
 
+export interface AllowedTransition {
+  to: EstimateStatus;
+  reason_required: boolean;
+}
+
+// The statuses this role may move an estimate to from `from`, in the order of STATUS_TRANSITIONS.
+// The admin screen shows exactly these, so the rules live only here. A status without a row
+// (a retired one) has no way on.
+export function allowedTransitions(from: string, role: AdminRole): AllowedTransition[] {
+  return STATUS_TRANSITIONS.filter(t => t.from === from && isRoleAllowed(role, t)).map(t => ({
+    to: t.to,
+    reason_required: t.reasonRequired
+  }));
+}
+
 export type TransitionCheck =
   | { ok: true; transition: StatusTransition }
   | { ok: false; error: (typeof STATUS_ERRORS)[keyof typeof STATUS_ERRORS] };

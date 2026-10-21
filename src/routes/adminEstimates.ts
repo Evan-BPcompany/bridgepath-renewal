@@ -14,7 +14,7 @@ import {
 } from '../services/adminEstimateService';
 import adminFilesRouter from './adminFiles';
 import adminMemosRouter from './adminMemos';
-import { STATUS_ERRORS } from '../utils/statusTransitions';
+import { STATUS_ERRORS, allowedTransitions } from '../utils/statusTransitions';
 import { logAdminAudit } from '../utils/auditLog';
 import logger from '../utils/logger';
 
@@ -100,7 +100,11 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       ip: req.ip
     });
 
-    res.json({ success: true, data: detail });
+    // What this admin may do next, so that the screen does not carry the rules itself.
+    res.json({
+      success: true,
+      data: { ...detail, allowed_transitions: allowedTransitions(detail.estimate.status, admin.role) }
+    });
   } catch (err) {
     logger.error('Admin estimate detail error', {
       error: err instanceof Error ? err.message : String(err)

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Bridge Path 관리자</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <a class="skip" href="#app">본문으로 건너뛰기</a>
+    <header class="topbar">
+        <h1>Bridge Path 관리자</h1>
+        <div id="whoBox" class="who" hidden>
+            <span id="whoName"></span>
+            <button type="button" id="logoutBtn">로그아웃</button>
+        </div>
+    </header>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <main id="app" class="main"></main>
+
+    <script src="admin-labels.js"></script>
+    <script src="admin-api.js"></script>
+    <script src="admin-app.js"></script>
+</body>
+</html>

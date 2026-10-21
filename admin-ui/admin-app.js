@@ -1,0 +1,735 @@
+// The admin screen (PRD FR-5): sign in, the list of estimate requests, one request with its status,
+// history and memos. It talks to the admin API of the same server through admin-api.js and uses
+// the words of admin-labels.js.
+//
+// Everything that comes from the server, and so from a customer (a name, a message, a file name,
+// the specification), is put in with textContent; no element is built from a string and there is
+// no innerHTML in this file. The session is the HttpOnly cookies of the server: nothing is stored.
+(function () {
+    'use strict';
+
+    var PAGE_SIZE = 20;
+    var REASON_MAX = 1000;
+    var MEMO_MAX = 5000;
+
+    var SORTS = [
+        ['created_at:desc', '접수 최신순'],
+        ['created_at:asc', '접수 오래된순'],
+        ['updated_at:desc', '최근 변경순'],
+        ['status:asc', '상태순'],
+        ['receipt_id:desc', '접수번호순']
+    ];
+
+    // ------------------------------------------------------------------------------------------
+    // Small helpers
+
+    function h(tag, props, children) {
+        var element = document.createElement(tag);
+        var settings = props || {};
+        Object.keys(settings).forEach(function (key) {
+            var value = settings[key];
+            if (value === undefined || value === null || value === false) {
+                return;
+            }
+            if (key === 'class') {
+                element.className = value;
+            } else if (key === 'text') {
+                element.textContent = value;
+            } else if (key === 'on') {
+                Object.keys(value).forEach(function (name) { element.addEventListener(name, value[name]); });
+            } else if (key === 'value') {
+                element.value = value;
+            } else if (value === true) {
+                element.setAttribute(key, '');
+            } else {
+                element.setAttribute(key, String(value));
+            }
+        });
+        (children || []).forEach(function (child) {
+            if (child === null || child === undefined || child === false) {
+                return;
+            }
+            element.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+        });
+        return element;
+    }
+
+    function clear(node) {
+        while (node.firstChild) {
+            node.removeChild(node.firstChild);
+        }
+    }
+
+    function labeled(label, control, hint) {
+        return h('div', { class: 'field' }, [h('label', { for: control.id, text: label }), control, hint ? h('p', { class: 'hint', text: hint }) : null]);
+    }
+
+    function badge(status) {
+        var labels = globalThis.AdminLabels;
+        return h('span', { class: 'badge badge-' + labels.statusTone(status), text: labels.statusLabel(status) });
+    }
+
+    function definitionList(rows) {
+        var list = h('dl', { class: 'facts' });
+        rows.forEach(function (row) {
+            if (row[1] === null || row[1] === undefined || row[1] === '') {
+                return;
+            }
+            list.appendChild(h('dt', { text: row[0] }));
+            list.appendChild(h('dd', { class: row[2] || '', text: String(row[1]) }));
+        });
+        return list;
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The routes: #/login, #/password, #/estimates?..., #/estimates/<id>
+
+    function parseHash(hash) {
+        var text = String(hash || '').replace(/^#/, '');
+        var cut = text.indexOf('?');
+        var path = cut === -1 ? text : text.slice(0, cut);
+        var query = {};
+        if (cut !== -1) {
+            text.slice(cut + 1).split('&').forEach(function (pair) {
+                if (!pair) {
+                    return;
+                }
+                var parts = pair.split('=');
+                try {
+                    query[decodeURIComponent(parts[0])] = decodeURIComponent((parts[1] || '').replace(/\+/g, ' '));
+                } catch (error) {
+                    // a broken escape: the pair is left out
+                }
+            });
+        }
+        var segments = path.split('/').filter(Boolean);
+        if (segments[0] === 'login') {
+            return { name: 'login' };
+        }
+        if (segments[0] === 'password') {
+            return { name: 'password' };
+        }
+        if (segments[0] === 'estimates' && segments[1]) {
+            return { name: 'detail', id: segments[1] };
+        }
+        return { name: 'list', query: query };
+    }
+
+    function buildHash(query) {
+        var parts = [];
+        Object.keys(query).forEach(function (key) {
+            if (query[key] !== undefined && query[key] !== null && String(query[key]) !== '') {
+                parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(query[key])));
+            }
+        });
+        return '#/estimates' + (parts.length > 0 ? '?' + parts.join('&') : '');
+    }
+
+    // ------------------------------------------------------------------------------------------
+
+    function init() {
+        var app = document.getElementById('app');
+        var notice = document.getElementById('notice');
+        var whoBox = document.getElementById('whoBox');
+        var whoName = document.getElementById('whoName');
+        var logoutButton = document.getElementById('logoutBtn');
+        var labels = globalThis.AdminLabels;
+        if (!app || !globalThis.AdminApi || !labels || typeof globalThis.fetch !== 'function') {
+            return;
+        }
+
+        var api = globalThis.AdminApi.create(function (url, request) { return globalThis.fetch(url, request); });
+        var me = null;
+        var turn = 0; // a screen that was replaced meanwhile must not be drawn
+
+        // ---- the frame
+        function say(text, kind) {
+            notice.textContent = text || '';
+            notice.className = 'notice' + (text ? ' notice-' + (kind || 'info') : '');
+            notice.hidden = !text;
+        }
+
+        function showWho() {
+            whoBox.hidden = !me;
+            whoName.textContent = me ? me.username + ' (' + labels.pick(labels.ROLE, me.role, me.role) + ')' : '';
+        }
+
+        function go(hash) {
+            if (location.hash === hash) {
+                render();
+            } else {
+                location.hash = hash;
+            }
+        }
+
+        function frame(title, nodes) {
+            clear(app);
+            var heading = h('h2', { text: title, tabindex: '-1', id: 'screenTitle' });
+            app.appendChild(heading);
+            nodes.forEach(function (node) { app.appendChild(node); });
+            heading.focus();
+            return heading;
+        }
+
+        api.onSessionEnded(function () {
+            me = null;
+            showWho();
+            go('#/login');
+            say('로그인이 끝났어요. 다시 로그인해 주세요.', 'warning');
+        });
+        api.onPasswordChangeRequired(function () {
+            go('#/password');
+            say('먼저 비밀번호를 바꿔 주세요.', 'warning');
+        });
+
+        // ---- sign in
+        function viewLogin() {
+            var user = h('input', { id: 'loginUser', type: 'text', name: 'username', autocomplete: 'username', required: true });
+            var pass = h('input', { id: 'loginPassword', type: 'password', name: 'password', autocomplete: 'current-password', required: true });
+            var error = h('p', { class: 'error', role: 'alert', hidden: true });
+            var submit = h('button', { type: 'submit', class: 'primary', text: '로그인' });
+            var form = h('form', { id: 'loginForm', class: 'card narrow', novalidate: true }, [
+                labeled('아이디', user), labeled('비밀번호', pass), error, submit
+            ]);
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                if (!user.value.trim() || !pass.value) {
+                    error.textContent = '아이디와 비밀번호를 입력해 주세요.';
+                    error.hidden = false;
+                    return;
+                }
+                submit.disabled = true;
+                error.hidden = true;
+                api.login(user.value.trim(), pass.value).then(function (result) {
+                    submit.disabled = false;
+                    if (!result.ok) {
+                        error.textContent = result.message;
+                        error.hidden = false;
+                        pass.value = '';
+                        pass.focus();
+                        return;
+                    }
+                    pass.value = '';
+                    me = result.data;
+                    showWho();
+                    say('');
+                    go(me && me.must_change_password ? '#/password' : '#/estimates');
+                });
+            });
+            frame('로그인', [form]);
+            user.focus();
+        }
+
+        // ---- change of the password (forced at the first sign-in, or by choice)
+        function viewPassword() {
+            var forced = !!(me && me.must_change_password);
+            var current = h('input', { id: 'pwCurrent', type: 'password', autocomplete: 'current-password', required: true });
+            var next = h('input', { id: 'pwNew', type: 'password', autocomplete: 'new-password', required: true });
+            var again = h('input', { id: 'pwAgain', type: 'password', autocomplete: 'new-password', required: true });
+            var error = h('div', { class: 'error', role: 'alert', hidden: true });
+            var submit = h('button', { type: 'submit', class: 'primary', text: '비밀번호 바꾸기' });
+            var form = h('form', { id: 'passwordForm', class: 'card narrow', novalidate: true }, [
+                forced ? h('p', { class: 'hint', text: '처음 로그인했거나 임시 비밀번호예요. 새 비밀번호로 바꾼 뒤 다시 로그인해 주세요.' }) : null,
+                labeled('지금 비밀번호', current),
+                labeled('새 비밀번호', next, '12자 이상, 영문 대문자·소문자·숫자·기호 중 3가지 이상, 72바이트 이하'),
+                labeled('새 비밀번호 확인', again),
+                error, submit
+            ]);
+            function showError(messages) {
+                clear(error);
+                messages.forEach(function (text) { error.appendChild(h('p', { text: text })); });
+                error.hidden = messages.length === 0;
+            }
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                if (!current.value || !next.value) {
+                    showError(['지금 비밀번호와 새 비밀번호를 입력해 주세요.']);
+                    return;
+                }
+                if (next.value !== again.value) {
+                    showError(['새 비밀번호와 확인이 달라요.']);
+                    return;
+                }
+                submit.disabled = true;
+                showError([]);
+                api.changePassword(current.value, next.value).then(function (result) {
+                    submit.disabled = false;
+                    if (!result.ok) {
+                        var lines = [result.message];
+                        if (result.code === 'PASSWORD_POLICY_VIOLATION' && result.details && Array.isArray(result.details.violations)) {
+                            var names = {
+                                TOO_SHORT: '12자 이상이어야 해요.',
+                                NOT_ENOUGH_CHARACTER_TYPES: '대문자·소문자·숫자·기호 중 3가지 이상을 써 주세요.',
+                                CONTAINS_CONTROL_CHARACTERS: '사용할 수 없는 문자가 들어 있어요.',
+                                MATCHES_ACCOUNT_INFO: '아이디나 이메일과 같거나 너무 비슷해요.',
+                                MATCHES_DEFAULT_PASSWORD: '초기 비밀번호는 쓸 수 없어요.'
+                            };
+                            result.details.violations.forEach(function (code) { lines.push(labels.pick(names, code, code)); });
+                        }
+                        showError(lines);
+                        return;
+                    }
+                    current.value = next.value = again.value = '';
+                    // The server signed every session of this account out.
+                    me = null;
+                    showWho();
+                    go('#/login');
+                    say('비밀번호를 바꿨어요. 새 비밀번호로 다시 로그인해 주세요.', 'success');
+                });
+            });
+            frame(forced ? '비밀번호를 바꿔 주세요' : '비밀번호 변경', [form]);
+        }
+
+        // ---- the list
+        function readFilters(query) {
+            var sort = SORTS.some(function (item) { return item[0] === query.sort_key; }) ? query.sort_key : SORTS[0][0];
+            var page = parseInt(query.page, 10);
+            return {
+                status: labels.STATUS[query.status] ? query.status : '',
+                category: labels.CATEGORY[query.category] ? query.category : '',
+                q: (query.q || '').trim(),
+                from: /^\d{4}-\d{2}-\d{2}$/.test(query.from || '') ? query.from : '',
+                to: /^\d{4}-\d{2}-\d{2}$/.test(query.to || '') ? query.to : '',
+                sort: sort,
+                page: page > 0 ? page : 1
+            };
+        }
+
+        function apiQuery(filters) {
+            var parts = filters.sort.split(':');
+            return {
+                page: filters.page, limit: PAGE_SIZE, status: filters.status, category: filters.category, q: filters.q,
+                created_from: filters.from, created_to: filters.to, sort: parts[0], order: parts[1]
+            };
+        }
+
+        function hashOf(filters, page) {
+            return buildHash({
+                status: filters.status, category: filters.category, q: filters.q, from: filters.from, to: filters.to,
+                sort_key: filters.sort === SORTS[0][0] ? '' : filters.sort, page: page > 1 ? page : ''
+            });
+        }
+
+        function viewList(query) {
+            var filters = readFilters(query);
+            var mine = ++turn;
+
+            function select(id, options, value) {
+                var element = h('select', { id: id });
+                options.forEach(function (option) {
+                    var node = h('option', { value: option[0], text: option[1] });
+                    if (option[0] === value) {
+                        node.selected = true;
+                    }
+                    element.appendChild(node);
+                });
+                return element;
+            }
+            var status = select('fStatus', [['', '전체 상태']].concat(labels.STATUS_ORDER.map(function (key) { return [key, labels.STATUS[key]]; })), filters.status);
+            var category = select('fCategory', [['', '전체 제품']].concat(Object.keys(labels.CATEGORY).map(function (key) { return [key, labels.CATEGORY[key]]; })), filters.category);
+            var sort = select('fSort', SORTS, filters.sort);
+            var search = h('input', { id: 'fSearch', type: 'search', placeholder: '접수번호, 이름, 회사, 이메일, 전화', value: filters.q });
+            var from = h('input', { id: 'fFrom', type: 'date', value: filters.from });
+            var to = h('input', { id: 'fTo', type: 'date', value: filters.to });
+
+            var form = h('form', { id: 'filterForm', class: 'filters card', novalidate: true }, [
+                labeled('상태', status), labeled('제품', category), labeled('검색', search),
+                labeled('접수일 시작', from), labeled('접수일 끝', to), labeled('정렬', sort),
+                h('div', { class: 'field actions' }, [
+                    h('button', { type: 'submit', class: 'primary', text: '검색' }),
+                    h('button', { type: 'button', id: 'filterReset', text: '초기화', on: { click: function () { go('#/estimates'); } } })
+                ])
+            ]);
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                go(hashOf({
+                    status: status.value, category: category.value, q: search.value.trim(), from: from.value, to: to.value, sort: sort.value
+                }, 1));
+            });
+
+            var result = h('div', { id: 'listResult', 'aria-live': 'polite' }, [h('p', { class: 'hint', text: '불러오는 중…' })]);
+            frame('견적 접수 목록', [form, result]);
+
+            api.list(apiQuery(filters)).then(function (answer) {
+                if (mine !== turn) {
+                    return;
+                }
+                clear(result);
+                if (!answer.ok) {
+                    result.appendChild(h('p', { class: 'error', role: 'alert', text: answer.message }));
+                    return;
+                }
+                var items = answer.data || [];
+                var pagination = answer.pagination || { page: 1, total: items.length, total_pages: 1 };
+                if (items.length === 0) {
+                    result.appendChild(h('p', { class: 'empty', text: '조건에 맞는 접수가 없어요.' }));
+                    return;
+                }
+                var body = h('tbody');
+                items.forEach(function (item) {
+                    body.appendChild(h('tr', {}, [
+                        h('td', {}, [h('a', { href: '#/estimates/' + encodeURIComponent(item.id), text: item.receipt_id })]),
+                        h('td', { text: labels.formatDateTime(item.created_at) }),
+                        h('td', {}, [badge(item.status)]),
+                        h('td', { text: labels.pick(labels.CATEGORY, item.category, item.category) }),
+                        h('td', { text: item.customer_name || '-' }),
+                        h('td', { text: item.company_name || '-' }),
+                        h('td', { text: item.customer_type ? labels.pick(labels.CUSTOMER_TYPE, item.customer_type, item.customer_type) : '-' }),
+                        h('td', { class: 'num', text: String(item.file_count || 0) })
+                    ]));
+                });
+                var head = h('tr', {}, ['접수번호', '접수 일시', '상태', '제품', '고객', '회사·브랜드', '고객 유형', '첨부'].map(function (name) {
+                    return h('th', { scope: 'col', text: name });
+                }));
+                result.appendChild(h('div', { class: 'table-wrap' }, [
+                    h('table', { class: 'list' }, [h('caption', { class: 'sr-only', text: '견적 접수 목록' }), h('thead', {}, [head]), body])
+                ]));
+
+                var page = pagination.page;
+                var last = Math.max(1, pagination.total_pages || 1);
+                var prev = h('button', { type: 'button', id: 'pagePrev', text: '이전', disabled: page <= 1 });
+                var next = h('button', { type: 'button', id: 'pageNext', text: '다음', disabled: page >= last });
+                prev.addEventListener('click', function () { go(hashOf(filters, page - 1)); });
+                next.addEventListener('click', function () { go(hashOf(filters, page + 1)); });
+                result.appendChild(h('nav', { class: 'pager', 'aria-label': '쪽 이동' }, [
+                    prev, h('span', { id: 'pageInfo', text: page + ' / ' + last + ' 쪽 · 총 ' + pagination.total + '건' }), next
+                ]));
+            });
+        }
+
+        // ---- one request
+        function specRows(spec) {
+            var order = [
+                'frame_type', 'shoe_type', 'product_type', 'product_description', 'material', 'lens_type', 'frame_color',
+                'lens_color', 'color', 'size', 'size_range', 'sizes', 'design', 'customization', 'quantity', 'delivery_date',
+                'additional_info', 'special_requirements'
+            ];
+            var rows = [];
+            var done = {};
+            function add(key) {
+                if (done[key] || key === 'ai_preview' || !Object.prototype.hasOwnProperty.call(spec, key)) {
+                    return;
+                }
+                done[key] = true;
+                var value = labels.specValue(key, spec[key]);
+                if (value !== '') {
+                    rows.push([labels.pick(labels.SPEC_KEY, key, key), value, key === 'additional_info' || key === 'special_requirements' || key === 'product_description' ? 'long' : '']);
+                }
+            }
+            order.forEach(add);
+            Object.keys(spec).sort().forEach(add);
+            return rows;
+        }
+
+        function sectionAi(preview) {
+            var ai = labels.AI;
+            var analysis = preview.analysis || null;
+            var price = preview.price || null;
+            var blocks = [
+                h('p', { class: 'hint', text: '고객이 AI 견적을 시작했을 때 화면에 보인 내용을 고객의 브라우저가 보낸 기록이에요. 견적이 아니고, 사실로 확인된 값도 아니에요. 담당자는 위의 제품 사양과 규칙에 따른 가격으로 판단해 주세요.' })
+            ];
+            if (price && price.unit_price && price.total_price) {
+                blocks.push(definitionList([
+                    ['예상 개당 가격', '약 ' + labels.formatWon(price.unit_price.min) + ' ~ ' + labels.formatWon(price.unit_price.max)],
+                    ['예상 총액', '약 ' + labels.formatWon(price.total_price.min) + ' ~ ' + labels.formatWon(price.total_price.max) + (price.quantity ? ' (' + Number(price.quantity).toLocaleString('ko-KR') + '개 기준)' : '')]
+                ]));
+            }
+            if (analysis) {
+                blocks.push(definitionList([
+                    ['AI가 본 재질', analysis.frame_material ? labels.pick(ai.frame_material, analysis.frame_material, analysis.frame_material) : ''],
+                    ['AI가 본 렌즈', analysis.lens_type ? labels.pick(ai.lens_type, analysis.lens_type, analysis.lens_type) : ''],
+                    ['프레임 형태', analysis.frame_shape], ['프레임 색상', analysis.frame_color],
+                    ['확신도', analysis.confidence ? labels.pick(ai.confidence, analysis.confidence, analysis.confidence) : ''],
+                    ['제작 복잡도', analysis.complexity ? labels.pick(ai.complexity, analysis.complexity, analysis.complexity) : ''],
+                    ['종합 분석', analysis.overview, 'long'],
+                    ['프레임', analysis.details && analysis.details.frame], ['렌즈', analysis.details && analysis.details.lens],
+                    ['장식', analysis.details && analysis.details.decoration]
+                ]));
+                [['주요 비용 요인', analysis.cost_factors], ['권고사항', analysis.recommendations]].forEach(function (pair) {
+                    if (Array.isArray(pair[1]) && pair[1].length > 0) {
+                        blocks.push(h('h4', { text: pair[0] }));
+                        blocks.push(h('ul', {}, pair[1].map(function (text) { return h('li', { text: String(text) }); })));
+                    }
+                });
+            }
+            return blocks;
+        }
+
+        function viewDetail(id) {
+            var mine = ++turn;
+            var holder = h('div', { id: 'detailBody', 'aria-live': 'polite' }, [h('p', { class: 'hint', text: '불러오는 중…' })]);
+            frame('접수 상세', [h('p', {}, [h('a', { href: '#/estimates', class: 'back', text: '← 목록으로' })]), holder]);
+
+            function load() {
+                return api.detail(id).then(function (answer) {
+                    if (mine !== turn) {
+                        return;
+                    }
+                    clear(holder);
+                    if (!answer.ok) {
+                        holder.appendChild(h('p', { class: 'error', role: 'alert', text: answer.message }));
+                        return;
+                    }
+                    draw(answer.data);
+                });
+            }
+
+            function draw(data) {
+                var e = data.estimate;
+                var spec = e.specification_json && typeof e.specification_json === 'object' ? e.specification_json : {};
+                var title = document.getElementById('screenTitle');
+                title.textContent = '접수 ' + e.receipt_id;
+
+                holder.appendChild(h('div', { class: 'summary' }, [
+                    badge(e.status),
+                    h('span', { text: labels.pick(labels.CATEGORY, e.category, e.category) }),
+                    h('span', { class: 'muted', text: '접수 ' + labels.formatDateTime(e.created_at) + ' · 변경 ' + labels.formatDateTime(e.updated_at) })
+                ]));
+
+                function section(name, nodes, id) {
+                    var element = h('section', { class: 'card', 'aria-labelledby': id }, [h('h3', { id: id, text: name })]);
+                    nodes.forEach(function (node) { element.appendChild(node); });
+                    holder.appendChild(element);
+                    return element;
+                }
+
+                section('고객 정보', [definitionList([
+                    ['이름', e.customer_name], ['회사·브랜드', e.company_name], ['이메일', e.customer_email], ['전화', e.customer_phone],
+                    ['고객 유형', e.customer_type ? labels.pick(labels.CUSTOMER_TYPE, e.customer_type, e.customer_type) : '확인 불가 (기록 이전 접수)'],
+                    ['개인정보 동의', e.privacy_consent_at ? labels.formatDateTime(e.privacy_consent_at) + ' · 안내문 ' + (e.privacy_consent_version || '') : '기록 없음']
+                ])], 'secCustomer');
+
+                var specNodes = [definitionList(specRows(spec))];
+                specNodes.push(h('details', { class: 'raw' }, [h('summary', { text: '원본 데이터 (JSON)' }), h('pre', { text: JSON.stringify(e.specification_json, null, 2) })]));
+                section('제품 사양', specNodes, 'secSpec');
+
+                if (spec.ai_preview && typeof spec.ai_preview === 'object') {
+                    section('고객 화면에 보인 AI 분석 (참고용)', sectionAi(spec.ai_preview), 'secAi');
+                }
+
+                // files
+                var files = data.files || [];
+                var fileNodes = [];
+                if (files.length === 0) {
+                    fileNodes.push(h('p', { class: 'empty', text: '첨부 파일이 없어요.' }));
+                } else {
+                    var fileBody = h('tbody');
+                    files.forEach(function (file) {
+                        fileBody.appendChild(h('tr', {}, [
+                            h('td', { text: file.filename }), h('td', { text: labels.formatBytes(file.file_size) }), h('td', { text: file.mime_type }),
+                            h('td', { text: labels.pick(labels.FILE_STATUS, file.file_status, file.file_status) + ' · 바이러스 검사 ' + labels.pick(labels.SCAN_STATUS, file.virus_scan_status, file.virus_scan_status) }),
+                            h('td', { text: labels.formatDateTime(file.uploaded_at) })
+                        ]));
+                    });
+                    fileNodes.push(h('div', { class: 'table-wrap' }, [h('table', { class: 'list' }, [
+                        h('thead', {}, [h('tr', {}, ['파일명', '크기', '형식', '상태', '올린 시각'].map(function (name) { return h('th', { scope: 'col', text: name }); }))]),
+                        fileBody
+                    ])]));
+                    fileNodes.push(h('p', { class: 'hint', text: '첨부 파일 열람은 바이러스 검사를 도입하기 전이라 막혀 있어요. 파일이 필요하면 고객에게 이메일로 요청해 주세요.' }));
+                }
+                section('첨부 파일 (' + files.length + ')', fileNodes, 'secFiles');
+
+                // status change
+                var allowed = data.allowed_transitions || [];
+                var statusNodes = [h('p', {}, ['지금 상태: ', badge(e.status)])];
+                if (allowed.length === 0) {
+                    statusNodes.push(h('p', { class: 'hint', text: '지금 상태에서 바꿀 수 있는 다음 상태가 없어요.' }));
+                } else {
+                    var target = h('select', { id: 'statusTarget' });
+                    allowed.forEach(function (item) {
+                        target.appendChild(h('option', { value: item.to, text: labels.statusLabel(item.to) + (item.reason_required ? ' (사유 필요)' : '') }));
+                    });
+                    var reason = h('textarea', { id: 'statusReason', rows: '3', maxlength: String(REASON_MAX) });
+                    var reasonHint = h('p', { class: 'hint', id: 'statusReasonHint' });
+                    var statusError = h('p', { class: 'error', role: 'alert', hidden: true });
+                    var apply = h('button', { type: 'submit', class: 'primary', text: '상태 바꾸기' });
+                    function needsReason() {
+                        return allowed.some(function (item) { return item.to === target.value && item.reason_required; });
+                    }
+                    function syncReason() {
+                        reasonHint.textContent = needsReason()
+                            ? '이 상태로 바꾸려면 사유가 꼭 필요해요. (' + REASON_MAX + '자까지)'
+                            : '사유는 선택이에요. (' + REASON_MAX + '자까지)';
+                    }
+                    target.addEventListener('change', syncReason);
+                    syncReason();
+                    var statusForm = h('form', { id: 'statusForm', novalidate: true }, [
+                        labeled('바꿀 상태', target), labeled('사유', reason), reasonHint, statusError, apply
+                    ]);
+                    statusForm.addEventListener('submit', function (event) {
+                        event.preventDefault();
+                        var text = reason.value.trim();
+                        if (needsReason() && !text) {
+                            statusError.textContent = globalThis.AdminApi.messageFor('REASON_REQUIRED');
+                            statusError.hidden = false;
+                            reason.focus();
+                            return;
+                        }
+                        apply.disabled = true;
+                        statusError.hidden = true;
+                        var body = { to_status: target.value, expected_status: e.status };
+                        if (text) {
+                            body.reason = text;
+                        }
+                        api.changeStatus(id, body).then(function (result) {
+                            apply.disabled = false;
+                            if (result.ok) {
+                                say('상태를 "' + labels.statusLabel(body.to_status) + '"(으)로 바꿨어요.', 'success');
+                                clear(holder);
+                                holder.appendChild(h('p', { class: 'hint', text: '불러오는 중…' }));
+                                load();
+                                return;
+                            }
+                            statusError.textContent = result.message;
+                            statusError.hidden = false;
+                            if (result.code === 'STATUS_CONFLICT') {
+                                say(result.message, 'warning');
+                                clear(holder);
+                                load();
+                            }
+                        });
+                    });
+                    statusNodes.push(statusForm);
+                }
+                section('상태 변경', statusNodes, 'secStatus');
+
+                // history
+                var history = data.status_history || [];
+                var historyNodes = [];
+                if (history.length === 0) {
+                    historyNodes.push(h('p', { class: 'empty', text: '아직 상태 변경 기록이 없어요.' }));
+                } else {
+                    var historyBody = h('tbody');
+                    history.forEach(function (entry) {
+                        historyBody.appendChild(h('tr', {}, [
+                            h('td', { text: labels.formatDateTime(entry.created_at) }),
+                            h('td', { text: (entry.old_status ? labels.statusLabel(entry.old_status) : '(처음)') + ' → ' + labels.statusLabel(entry.new_status) }),
+                            h('td', { text: entry.changed_by ? entry.changed_by.username : '시스템' }),
+                            h('td', { class: 'long', text: entry.reason || '' })
+                        ]));
+                    });
+                    historyNodes.push(h('div', { class: 'table-wrap' }, [h('table', { class: 'list' }, [
+                        h('thead', {}, [h('tr', {}, ['시각', '변경', '담당자', '사유'].map(function (name) { return h('th', { scope: 'col', text: name }); }))]),
+                        historyBody
+                    ])]));
+                }
+                section('상태 이력', historyNodes, 'secHistory');
+
+                // memos
+                var memoText = h('textarea', { id: 'memoText', rows: '3', maxlength: String(MEMO_MAX) });
+                var memoError = h('p', { class: 'error', role: 'alert', hidden: true });
+                var memoAdd = h('button', { type: 'submit', class: 'primary', text: '메모 남기기' });
+                var memoForm = h('form', { id: 'memoForm', novalidate: true }, [
+                    labeled('내부 메모', memoText, '고객에게는 보이지 않아요. 한 번 남기면 고치거나 지울 수 없어요. (' + MEMO_MAX + '자까지)'), memoError, memoAdd
+                ]);
+                memoForm.addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    var text = memoText.value.trim();
+                    if (!text) {
+                        memoError.textContent = '메모 내용을 적어 주세요.';
+                        memoError.hidden = false;
+                        memoText.focus();
+                        return;
+                    }
+                    memoAdd.disabled = true;
+                    memoError.hidden = true;
+                    api.addMemo(id, text).then(function (result) {
+                        memoAdd.disabled = false;
+                        if (!result.ok) {
+                            memoError.textContent = result.message;
+                            memoError.hidden = false;
+                            return;
+                        }
+                        say('메모를 남겼어요.', 'success');
+                        clear(holder);
+                        load();
+                    });
+                });
+                var memos = data.memos || [];
+                var memoList = h('ul', { class: 'memos' });
+                memos.forEach(function (memo) {
+                    memoList.appendChild(h('li', {}, [
+                        h('p', { class: 'muted', text: (memo.author ? memo.author.username : '') + ' · ' + labels.formatDateTime(memo.created_at) }),
+                        h('p', { class: 'long', text: memo.content })
+                    ]));
+                });
+                section('내부 메모 (' + memos.length + ')', [memoForm, memos.length === 0 ? h('p', { class: 'empty', text: '아직 메모가 없어요.' }) : memoList], 'secMemos');
+            }
+
+            load();
+        }
+
+        // ---- the router
+        function render() {
+            say('');
+            var route = parseHash(location.hash);
+            if (route.name === 'login') {
+                turn += 1;
+                viewLogin();
+            } else if (!me) {
+                turn += 1;
+                go('#/login');
+            } else if (route.name === 'password') {
+                turn += 1;
+                viewPassword();
+            } else if (me.must_change_password) {
+                go('#/password');
+            } else if (route.name === 'detail') {
+                viewDetail(route.id);
+            } else {
+                viewList(route.query);
+            }
+        }
+
+        function handleHashChange() {
+            // A notice that the previous screen left on purpose (a sign-in message) is kept once.
+            var kept = notice.textContent;
+            var kind = notice.className;
+            render();
+            var name = parseHash(location.hash).name;
+            if (kept && (name === 'login' || name === 'password') && notice.hidden) {
+                notice.textContent = kept;
+                notice.className = kind;
+                notice.hidden = false;
+            }
+        }
+
+        logoutButton.addEventListener('click', function () {
+            logoutButton.disabled = true;
+            api.logout().then(function () {
+                logoutButton.disabled = false;
+                me = null;
+                showWho();
+                go('#/login');
+                say('로그아웃했어요.', 'info');
+            });
+        });
+        window.addEventListener('hashchange', handleHashChange);
+
+        // ---- start: is there a session already (a reload)?
+        api.me().then(function (answer) {
+            if (answer.ok) {
+                me = answer.data;
+                showWho();
+            }
+            render();
+        });
+
+        // For the tests, which load the screen again and again into one window.
+        var instance = { dispose: function () { window.removeEventListener('hashchange', handleHashChange); } };
+        exported.instance = instance;
+        return instance;
+    }
+
+    var exported = { init: init, parseHash: parseHash, buildHash: buildHash, instance: null };
+    globalThis.AdminApp = exported;
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = exported;
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

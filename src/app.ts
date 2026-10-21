@@ -1,3 +1,4 @@
+import path from 'path';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -36,6 +37,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     next();
   };
   app.use('/admin', noStore);
+  app.use('/admin-ui', noStore);
   app.use('/api', noStore);
 
   // Each app gets its own limiters (and in-memory counters).
@@ -75,6 +77,18 @@ export function createApp(options: CreateAppOptions = {}): Express {
       environment: config.nodeEnv
     });
   });
+
+  // The admin screen: static files of admin-ui/, served by this server so that the admin cookies
+  // (SameSite=Strict) are first-party. Scripts and styles are external files, so the default
+  // Content-Security-Policy of helmet is enough. It must not be indexed or cached.
+  app.use(
+    '/admin-ui',
+    (_req: Request, res: Response, next: NextFunction) => {
+      res.set('X-Robots-Tag', 'noindex, nofollow');
+      next();
+    },
+    express.static(path.join(__dirname, '..', 'admin-ui'), { index: 'index.html', dotfiles: 'ignore', redirect: true })
+  );
 
   // Admin authentication routes (Day 3)
   app.use('/admin', adminAuthRouter);
