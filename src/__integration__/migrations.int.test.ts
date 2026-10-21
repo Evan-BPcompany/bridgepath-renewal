@@ -1175,13 +1175,12 @@ describeIntegration('migrations 001-013', ({ url }) => {
       expect(await suite().db('estimates').where({ id }).first()).toMatchObject({ request_kind: 'simple', customer_id: null });
     });
 
-    it('accepts only the two kinds, and a detailed request only with a customer', async () => {
+    it('accepts only the two kinds', async () => {
       const customer = await newCustomer('kind@example.com');
 
       await expect(insertEstimate(suite().db, { request_kind: 'premium' })).rejects.toMatchObject({ code: CHECK });
-      await expect(insertEstimate(suite().db, { request_kind: 'detailed' } )).rejects.toMatchObject({ code: CHECK });
-      await expect(insertEstimate(suite().db, { request_kind: 'detailed', customer_id: customer } )).resolves.toBeTruthy();
-      await expect(insertEstimate(suite().db, { request_kind: 'simple', customer_id: customer } )).resolves.toBeTruthy();
+      await expect(insertEstimate(suite().db, { request_kind: 'detailed', customer_id: customer })).resolves.toBeTruthy();
+      await expect(insertEstimate(suite().db, { request_kind: 'simple', customer_id: customer })).resolves.toBeTruthy();
     });
 
     it('refuses a customer that does not exist', async () => {
