@@ -71,6 +71,10 @@ export interface RateLimiters {
   estimatePreview: RequestHandler;
   // POST /api/estimate-preview/analyze-image: every request may cost a paid model call.
   imageAnalysis: RequestHandler;
+  // Customer accounts, per client IP. Login counts only failed attempts; the others count every request.
+  customerLogin: RequestHandler;
+  customerSignup: RequestHandler;
+  customerCode: RequestHandler;
 }
 
 export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
@@ -88,6 +92,9 @@ export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
     estimateCreate: build(settings.estimateCreate, { keyGenerator: clientKey }),
     estimateRead: build(settings.estimateRead, { keyGenerator: clientKey }),
     estimatePreview: build(settings.estimatePreview, { keyGenerator: clientKey }),
-    imageAnalysis: build(settings.imageAnalysis, { keyGenerator: clientKey })
+    imageAnalysis: build(settings.imageAnalysis, { keyGenerator: clientKey }),
+    customerLogin: build(settings.customerLogin, { keyGenerator: clientKey, skipSuccessfulRequests: true }),
+    customerSignup: build(settings.customerSignup, { keyGenerator: clientKey }),
+    customerCode: build(settings.customerCode, { keyGenerator: clientKey })
   };
 }

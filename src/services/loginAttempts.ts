@@ -28,10 +28,12 @@ END`;
 export async function recordFailedLogin(
   db: Queryable,
   adminId: string,
-  now: Date
+  now: Date,
+  // Customer accounts use the same columns and the same rule.
+  table: 'admin_users' | 'customers' = 'admin_users'
 ): Promise<FailedLoginResult> {
   const result = await db.query(
-    `UPDATE admin_users
+    `UPDATE ${table}
      SET failed_login_attempts = ${NEXT_ATTEMPTS},
          locked_until = CASE
            WHEN locked_until IS NOT NULL AND locked_until > $2 THEN locked_until

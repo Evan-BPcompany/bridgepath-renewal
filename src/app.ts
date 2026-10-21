@@ -10,6 +10,7 @@ import { assertFileDownloadConfiguration, downloadProvider } from './services/fi
 import adminAuthRouter from './routes/adminAuth';
 import { createAdminAccountRouter } from './routes/adminAccount';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
+import { createCustomerAuthRouter } from './routes/customerAuth';
 import estimatesRouter from './routes/estimates';
 import estimatePreviewRouter from './routes/estimatePreview';
 import estimateImageAnalysisRouter from './routes/estimateImageAnalysis';
@@ -100,6 +101,17 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use(
     '/admin/estimates',
     createAdminEstimatesRouter({ mutationLimiter: limiters.mutation })
+  );
+
+  // Customer accounts: sign-up with an e-mail code, login, Google/Kakao. The limiters sit on the
+  // routes themselves (they count only what each route needs to count).
+  app.use(
+    '/api/customers',
+    createCustomerAuthRouter({
+      loginLimiter: limiters.customerLogin,
+      signupLimiter: limiters.customerSignup,
+      codeLimiter: limiters.customerCode
+    })
   );
 
   // Customer API routes (Phase 2 Day 1)

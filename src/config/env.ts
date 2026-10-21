@@ -21,6 +21,10 @@ export interface RateLimitSettings {
   estimatePreview: RateLimitSetting;
   // Photo analysis calls the paid Claude API, so it gets the tightest limit.
   imageAnalysis: RateLimitSetting;
+  // Customer accounts: password logins that fail, sign-ups, and the e-mail codes (send/check).
+  customerLogin: RateLimitSetting;
+  customerSignup: RateLimitSetting;
+  customerCode: RateLimitSetting;
 }
 
 export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
@@ -31,12 +35,20 @@ export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
   estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
   estimateRead: { windowMs: 15 * 60 * 1000, max: 30 },
   estimatePreview: { windowMs: 15 * 60 * 1000, max: 60 },
-  imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 }
+  imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 },
+  customerLogin: { windowMs: 15 * 60 * 1000, max: 10 },
+  customerSignup: { windowMs: 60 * 60 * 1000, max: 10 },
+  customerCode: { windowMs: 15 * 60 * 1000, max: 20 }
 };
 
 const RATE_LIMIT_WINDOW_MS_RANGE = { min: 1000, max: 24 * 60 * 60 * 1000 };
 const RATE_LIMIT_MAX_RANGE = { min: 1, max: 100000 };
 const TRUST_PROXY_RANGE = { min: 0, max: 10 };
+
+export interface OAuthProviderConfig {
+  clientId: string;
+  clientSecret?: string;
+}
 
 export interface AppConfig {
   nodeEnv: 'development' | 'production' | 'test';
@@ -66,6 +78,11 @@ export interface AppConfig {
     intervalMs: number;
     staleTimeoutMs: number;
   };
+  // Where the customer pages are served (the browser is sent back here after a Google/Kakao login),
+  // and the public address of this API (the redirect address registered with Google/Kakao).
+  frontendBaseUrl: string;
+  publicApiUrl: string;
+  oauth: { google?: OAuthProviderConfig; kakao?: OAuthProviderConfig };
   supportEmail?: string;
   supportPhone?: string;
   logLevel?: string;
@@ -191,7 +208,10 @@ export function parseRateLimits(env: NodeJS.ProcessEnv): RateLimitSettings {
       'CUSTOMER_IMAGE_ANALYSIS_RATE_LIMIT',
       env,
       RATE_LIMIT_DEFAULTS.imageAnalysis
-    )
+    ),
+    customerLogin: parseRateLimitSetting('CUSTOMER_LOGIN_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerLogin),
+    customerSignup: parseRateLimitSetting('CUSTOMER_SIGNUP_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerSignup),
+    customerCode: parseRateLimitSetting('CUSTOMER_CODE_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerCode)
   };
 }
 
@@ -231,6 +251,39 @@ export function productionWarnings(settings: {
     );
   }
   return warnings;
+}
+
+// A base address from the environment: http(s) only, no path, query or trailing slash.
+export function parseBaseUrl(name: string, raw: string | undefined, fallback: string): string {
+  const value = raw === undefined || raw.trim() === '' ? fallback : raw.trim();
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a full http(s) address`);
+  }
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error(`${name} must be an http(s) address without a path, query or fragment`);
+  }
+  return url.origin;
+}
+
+// A provider is on only when its client id is set; the secret is needed by Google, optional for Kakao.
+export function parseOAuthProvider(
+  idName: string,
+  secretName: string,
+  env: NodeJS.ProcessEnv,
+  secretRequired: boolean
+): OAuthProviderConfig | undefined {
+  const clientId = env[idName]?.trim();
+  if (!clientId) {
+    return undefined;
+  }
+  const clientSecret = env[secretName]?.trim() || undefined;
+  if (secretRequired && !clientSecret) {
+    throw new Error(`${secretName} is required when ${idName} is set`);
+  }
+  return { clientId, clientSecret };
 }
 
 export function loadConfig(): AppConfig {
@@ -285,6 +338,12 @@ export function loadConfig(): AppConfig {
       enabled: nodeEnv !== 'test' && process.env.EMAIL_WORKER_ENABLED === 'true',
       intervalMs: parseInt(process.env.EMAIL_WORKER_INTERVAL_MS || '30000', 10),
       staleTimeoutMs: parseInt(process.env.EMAIL_WORKER_STALE_TIMEOUT_MS || '300000', 10)
+    },
+    frontendBaseUrl: parseBaseUrl('FRONTEND_BASE_URL', process.env.FRONTEND_BASE_URL, corsOrigins[0]),
+    publicApiUrl: parseBaseUrl('PUBLIC_API_URL', process.env.PUBLIC_API_URL, `http://localhost:${port}`),
+    oauth: {
+      google: parseOAuthProvider('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', process.env, true),
+      kakao: parseOAuthProvider('KAKAO_CLIENT_ID', 'KAKAO_CLIENT_SECRET', process.env, false)
     },
     supportEmail: process.env.SUPPORT_EMAIL,
     supportPhone: process.env.SUPPORT_PHONE,

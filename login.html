@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>로그인 · 회원가입 - Bridge Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="customer-auth.css">
+</head>
+
+<body data-auth-page="account">
+    <header class="auth-header">
+        <a class="auth-logo" href="index.html">Bridge Path</a>
+        <a class="auth-header-link" href="estimate.html">AI 가상견적 받기</a>
+    </header>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            <p class="auth-notice" id="notice" role="status" aria-live="polite" hidden></p>
+
+            <!-- 로그인 -->
+            <section class="auth-step" id="step-login" data-step="login">
+                <h1>로그인</h1>
+                <p class="auth-lead">담당자 상세견적을 요청하고 진행 상황을 확인하세요.</p>
+
+                <form id="loginForm" novalidate>
+                    <label class="auth-label" for="loginEmail">이메일</label>
+                    <input class="auth-input" id="loginEmail" type="email" autocomplete="email" maxlength="100" placeholder="이메일을 입력해 주세요.">
+
+                    <label class="auth-label" for="loginPassword">비밀번호</label>
+                    <input class="auth-input" id="loginPassword" type="password" autocomplete="current-password" maxlength="200" placeholder="비밀번호를 입력해 주세요.">
+
+                    <p class="auth-error" id="loginError" role="alert" hidden></p>
+                    <button class="auth-button" id="loginSubmit" type="submit">로그인</button>
+                </form>
+                <button class="auth-link" id="toReset" type="button">비밀번호 재설정</button>
+
+                <div class="auth-social" id="socialBox" hidden>
+                    <div class="auth-divider"><span>또는</span></div>
+                    <a class="auth-social-button auth-kakao" id="kakaoBtn" href="#" hidden>카카오 계정으로 로그인</a>
+                    <a class="auth-social-button auth-google" id="googleBtn" href="#" hidden>구글 계정으로 로그인</a>
+                </div>
+
+                <p class="auth-switch">아직 회원이 아니신가요? <button class="auth-link auth-link-accent" id="toSignup" type="button">지금 바로 시작하기</button></p>
+            </section>
+
+            <!-- 회원가입 -->
+            <section class="auth-step" id="step-signup" data-step="signup" hidden>
+                <h1>회원가입</h1>
+                <p class="auth-lead">이메일로 인증코드를 보내 드려요.</p>
+
+                <form id="signupForm" novalidate>
+                    <label class="auth-label" for="signupEmail">이메일</label>
+                    <input class="auth-input" id="signupEmail" type="email" autocomplete="email" maxlength="100" placeholder="이메일을 입력해 주세요.">
+
+                    <label class="auth-label" for="signupPassword">비밀번호</label>
+                    <input class="auth-input" id="signupPassword" type="password" autocomplete="new-password" maxlength="200" placeholder="8자 이상, 글자와 숫자 포함">
+
+                    <label class="auth-label" for="signupName">이름</label>
+                    <input class="auth-input" id="signupName" type="text" autocomplete="name" maxlength="100" placeholder="이름을 입력해 주세요.">
+
+                    <label class="auth-label" for="signupPhone">전화번호 <span class="auth-optional">(선택)</span></label>
+                    <input class="auth-input" id="signupPhone" type="tel" autocomplete="tel" maxlength="20" placeholder="010-1234-5678">
+
+                    <label class="auth-label" for="signupCompany">회사명·브랜드명 <span class="auth-optional">(선택)</span></label>
+                    <input class="auth-input" id="signupCompany" type="text" autocomplete="organization" maxlength="100" placeholder="회사명 또는 브랜드명">
+
+                    <label class="auth-check">
+                        <input id="signupConsent" type="checkbox">
+                        <span>개인정보 수집·이용에 동의합니다. <a href="privacy-consent.html" target="_blank" rel="noopener">내용 보기</a></span>
+                    </label>
+
+                    <p class="auth-error" id="signupError" role="alert" hidden></p>
+                    <button class="auth-button" id="signupSubmit" type="submit">인증코드 받기</button>
+                </form>
+                <button class="auth-link" id="signupBack" type="button">이미 계정이 있어요 · 로그인</button>
+            </section>
+
+            <!-- 이메일 인증코드 -->
+            <section class="auth-step" id="step-code" data-step="code" hidden>
+                <h1>이메일 인증</h1>
+                <p class="auth-lead"><span id="codeEmail"></span>으로<br>발송된 인증코드를 입력해 주세요.</p>
+
+                <div class="auth-code" id="codeBoxes">
+                    <input class="auth-code-box" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="인증코드 1번째 자리">
+                    <input class="auth-code-box" type="text" inputmode="numeric" maxlength="1" aria-label="인증코드 2번째 자리">
+                    <input class="auth-code-box" type="text" inputmode="numeric" maxlength="1" aria-label="인증코드 3번째 자리">
+                    <input class="auth-code-box" type="text" inputmode="numeric" maxlength="1" aria-label="인증코드 4번째 자리">
+                    <input class="auth-code-box" type="text" inputmode="numeric" maxlength="1" aria-label="인증코드 5번째 자리">
+                    <input class="auth-code-box" type="text" inputmode="numeric" maxlength="1" aria-label="인증코드 6번째 자리">
+                </div>
+
+                <p class="auth-error" id="codeError" role="alert" hidden></p>
+                <button class="auth-link" id="codeResend" type="button">인증코드 재전송</button>
+                <button class="auth-button auth-button-outline" id="codeBack" type="button">뒤로가기</button>
+            </section>
+
+            <!-- 비밀번호 재설정: 이메일 -->
+            <section class="auth-step" id="step-reset-request" data-step="reset-request" hidden>
+                <h1>비밀번호 재설정</h1>
+                <p class="auth-lead">가입한 이메일로 인증코드를 보내 드려요.</p>
+
+                <form id="resetRequestForm" novalidate>
+                    <label class="auth-label" for="resetEmail">이메일</label>
+                    <input class="auth-input" id="resetEmail" type="email" autocomplete="email" maxlength="100" placeholder="이메일을 입력해 주세요.">
+
+                    <p class="auth-error" id="resetRequestError" role="alert" hidden></p>
+                    <button class="auth-button" id="resetRequestSubmit" type="submit">인증코드 받기</button>
+                </form>
+                <button class="auth-link" id="resetRequestBack" type="button">로그인으로 돌아가기</button>
+            </section>
+
+            <!-- 비밀번호 재설정: 코드와 새 비밀번호 -->
+            <section class="auth-step" id="step-reset" data-step="reset" hidden>
+                <h1>새 비밀번호 설정</h1>
+                <p class="auth-lead"><span id="resetEmailShown"></span>으로<br>발송된 인증코드와 새 비밀번호를 입력해 주세요.</p>
+
+                <form id="resetForm" novalidate>
+                    <label class="auth-label" for="resetCode">인증코드</label>
+                    <input class="auth-input" id="resetCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="숫자 6자리">
+
+                    <label class="auth-label" for="resetPassword">새 비밀번호</label>
+                    <input class="auth-input" id="resetPassword" type="password" autocomplete="new-password" maxlength="200" placeholder="8자 이상, 글자와 숫자 포함">
+
+                    <p class="auth-error" id="resetError" role="alert" hidden></p>
+                    <button class="auth-button" id="resetSubmit" type="submit">비밀번호 변경</button>
+                </form>
+                <button class="auth-link" id="resetAgain" type="button">인증코드 다시 받기</button>
+                <button class="auth-link" id="resetBack" type="button">로그인으로 돌아가기</button>
+            </section>
+
+            <!-- Google·카카오로 처음 들어온 고객의 개인정보 동의 -->
+            <section class="auth-step" id="step-consent" data-step="consent" hidden>
+                <h1>개인정보 동의</h1>
+                <p class="auth-lead">서비스를 이용하려면 동의가 필요해요.</p>
+
+                <form id="consentForm" novalidate>
+                    <label class="auth-check">
+                        <input id="consentCheck" type="checkbox">
+                        <span>개인정보 수집·이용에 동의합니다. <a href="privacy-consent.html" target="_blank" rel="noopener">내용 보기</a></span>
+                    </label>
+
+                    <p class="auth-error" id="consentError" role="alert" hidden></p>
+                    <button class="auth-button" id="consentSubmit" type="submit">동의하고 계속</button>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="customer-auth.js"></script>
+    <script src="customer-auth-page.js"></script>
+</body>
+</html>

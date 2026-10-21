@@ -45,7 +45,10 @@ export function createTestApp(): Express {
       estimateCreate: unlimited,
       estimateRead: unlimited,
       estimatePreview: unlimited,
-      imageAnalysis: unlimited
+      imageAnalysis: unlimited,
+      customerLogin: unlimited,
+      customerSignup: unlimited,
+      customerCode: unlimited
     }
   });
 }
@@ -54,7 +57,7 @@ export function createTestApp(): Express {
 // test starts from the state right after the migrations.
 export async function resetData(db: Knex): Promise<void> {
   await db.raw(
-    'TRUNCATE estimates, email_events, receipt_sequence, admin_sessions RESTART IDENTITY CASCADE'
+    'TRUNCATE estimates, email_events, receipt_sequence, admin_sessions, customers RESTART IDENTITY CASCADE'
   );
   await db('admin_users').whereNot({ id: MASTER_ID }).del();
   await db('admin_users')

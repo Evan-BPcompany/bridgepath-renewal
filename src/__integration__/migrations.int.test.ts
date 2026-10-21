@@ -33,7 +33,8 @@ const ALL_MIGRATIONS = [
   '011_admin_must_change_password.ts',
   '012_customer_type_and_privacy_consent.ts',
   '013_align_estimate_statuses.ts',
-  '014_sunglasses_base_prices.ts'
+  '014_sunglasses_base_prices.ts',
+  '015_customer_accounts.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -970,11 +971,17 @@ describeIntegration('migrations 001-013', ({ url }) => {
 
   // Migration 014 writes the first real sunglasses prices (not the structure of the schema).
   describe('014 (the first real sunglasses base prices)', () => {
+    // Everything up to and including 014, without 015 (which has its own tests below).
+    const through014 = async (): Promise<void> => {
+      await migrateEverything(suite().db);
+      await migrateDownOne(suite().db);
+    };
+
     const eyewear = async () =>
       suite().db('base_prices').where({ category: 'eyewear' }).orderBy('product_variant').select('product_variant', 'base_price', 'is_active', 'description');
 
     beforeEach(async () => {
-      await migrateEverything(suite().db);
+      await through014();
     });
 
     afterEach(async () => {
@@ -985,7 +992,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
     });
 
     it('is applied after 013 by the real "latest"', async () => {
-      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 14));
     });
 
     it('writes the five prices, replaces the samples of Plastic and Metal, and switches the Premium sample off', async () => {
@@ -1031,7 +1038,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
       const prices = (await eyewear()).filter(row => row.is_active).map(row => [row.product_variant, Number(row.base_price)]);
 
       await migrateDownOne(suite().db);
-      await migrateEverything(suite().db);
+      await through014();
 
       expect((await eyewear()).filter(row => row.is_active).map(row => [row.product_variant, Number(row.base_price)])).toEqual(prices);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
@@ -1039,9 +1046,102 @@ describeIntegration('migrations 001-013', ({ url }) => {
 
     it('can be run twice over its own rows: the prices are replaced, not doubled', async () => {
       await migrateDownOne(suite().db);
-      await migrateEverything(suite().db);
+      await through014();
 
       expect(await suite().db('base_prices').where({ category: 'eyewear', is_active: true }).count({ n: '*' }).first()).toMatchObject({ n: '5' });
+    });
+  });
+
+  // Migration 015: customer accounts (sign-up with an e-mail code, Google/Kakao, sessions).
+  describe('015 (customer accounts)', () => {
+    const insertCustomer = (email: string, extra: Record<string, unknown> = {}) =>
+      suite().db('customers').insert({ email, ...extra }).returning('id');
+
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    it('is applied last by the real "latest" and creates the four tables', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+      const names = await tableNames();
+      for (const table of ['customers', 'customer_identities', 'customer_sessions', 'customer_email_codes']) {
+        expect(names).toContain(table);
+      }
+    });
+
+    it('keeps one account per e-mail and refuses an e-mail that is not in lowercase', async () => {
+      await insertCustomer('buyer@example.com');
+
+      await expect(insertCustomer('buyer@example.com')).rejects.toMatchObject({ code: UNIQUE });
+      await expect(insertCustomer('Buyer2@Example.com')).rejects.toMatchObject({ code: CHECK });
+    });
+
+    it('accepts only the two customer types and the two providers', async () => {
+      await expect(insertCustomer('a@example.com', { customer_type: 'individual_startup' })).resolves.toBeTruthy();
+      await expect(insertCustomer('b@example.com', { customer_type: 'whale' })).rejects.toMatchObject({ code: CHECK });
+
+      const [{ id }] = await insertCustomer('c@example.com');
+      await expect(
+        suite().db('customer_identities').insert({ customer_id: id, provider: 'naver', provider_user_id: '1' })
+      ).rejects.toMatchObject({ code: CHECK });
+    });
+
+    it('knows a Google or Kakao user once, and one identity per provider for an account', async () => {
+      const [{ id: first }] = await insertCustomer('one@example.com');
+      const [{ id: second }] = await insertCustomer('two@example.com');
+      await suite().db('customer_identities').insert({ customer_id: first, provider: 'google', provider_user_id: 'g-1' });
+
+      await expect(
+        suite().db('customer_identities').insert({ customer_id: second, provider: 'google', provider_user_id: 'g-1' })
+      ).rejects.toMatchObject({ code: UNIQUE });
+      await expect(
+        suite().db('customer_identities').insert({ customer_id: first, provider: 'google', provider_user_id: 'g-2' })
+      ).rejects.toMatchObject({ code: UNIQUE });
+      await expect(
+        suite().db('customer_identities').insert({ customer_id: first, provider: 'kakao', provider_user_id: 'g-1' })
+      ).resolves.toBeTruthy();
+    });
+
+    it('keeps one code per account and purpose', async () => {
+      const [{ id }] = await insertCustomer('code@example.com');
+      const row = { customer_id: id, purpose: 'signup', code_hash: 'a'.repeat(64), expires_at: new Date(Date.now() + 60000) };
+      await suite().db('customer_email_codes').insert(row);
+
+      await expect(suite().db('customer_email_codes').insert(row)).rejects.toMatchObject({ code: UNIQUE });
+      await expect(suite().db('customer_email_codes').insert({ ...row, purpose: 'password_reset' })).resolves.toBeTruthy();
+      await expect(suite().db('customer_email_codes').insert({ ...row, purpose: 'other' })).rejects.toMatchObject({ code: CHECK });
+    });
+
+    it('removes identities, sessions and codes with the account', async () => {
+      const [{ id }] = await insertCustomer('gone@example.com');
+      await suite().db('customer_identities').insert({ customer_id: id, provider: 'google', provider_user_id: 'g-9' });
+      await suite().db('customer_sessions').insert({ customer_id: id, token_hash: 'b'.repeat(64), expires_at: new Date(Date.now() + 60000) });
+      await suite().db('customer_email_codes').insert({
+        customer_id: id, purpose: 'signup', code_hash: 'c'.repeat(64), expires_at: new Date(Date.now() + 60000)
+      });
+
+      await suite().db('customers').where({ id }).del();
+
+      for (const table of ['customer_identities', 'customer_sessions', 'customer_email_codes']) {
+        expect(await suite().db(table).count({ n: '*' }).first()).toMatchObject({ n: '0' });
+      }
+    });
+
+    it('rolls back to the schema of 014, and applies again to the same schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+
+      await migrateDownOne(suite().db);
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 14));
+      expect(await tableNames()).not.toContain('customers');
+
+      await migrateEverything(suite().db);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
     });
   });
 });

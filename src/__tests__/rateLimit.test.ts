@@ -39,6 +39,9 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   estimateRead: BIG,
   estimatePreview: BIG,
   imageAnalysis: BIG,
+  customerLogin: BIG,
+  customerSignup: BIG,
+  customerCode: BIG,
   ...overrides
 });
 
@@ -52,7 +55,10 @@ describe('Rate limit configuration', () => {
       estimateCreate: { windowMs: 60 * 60 * 1000, max: 10 },
       estimateRead: { windowMs: 15 * 60 * 1000, max: 30 },
       estimatePreview: { windowMs: 15 * 60 * 1000, max: 60 },
-      imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 }
+      imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 },
+      customerLogin: { windowMs: 15 * 60 * 1000, max: 10 },
+      customerSignup: { windowMs: 60 * 60 * 1000, max: 10 },
+      customerCode: { windowMs: 15 * 60 * 1000, max: 20 }
     });
     expect(parseRateLimits({})).toEqual(RATE_LIMIT_DEFAULTS);
     expect(parseTrustProxy(undefined)).toBe(0);
@@ -114,6 +120,9 @@ describe('Rate limit configuration', () => {
   it('the running config exposes the same shape (defaults unless the environment overrides them)', () => {
     expect(Object.keys(config.rateLimits).sort()).toEqual([
       'api',
+      'customerCode',
+      'customerLogin',
+      'customerSignup',
       'estimateCreate',
       'estimatePreview',
       'estimateRead',
