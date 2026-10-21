@@ -46,7 +46,9 @@
         var values = collectValues(page);
         var rows = [];
         var card = document.querySelector('.category-card.selected');
-        var kind = card && card.querySelector('p') ? card.querySelector('p').textContent.trim() : '';
+        // The Korean name of the card when it has one (the sunglasses and golf cards also carry an English title).
+        var name = card ? (card.querySelector('.category-sub') || card.querySelector('p')) : null;
+        var kind = name ? name.textContent.trim() : '';
         if (kind) {
             rows.push({ label: '제품 종류', value: kind });
         }

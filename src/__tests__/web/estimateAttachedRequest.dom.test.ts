@@ -443,7 +443,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     await settle();
 
     expect($('#receiptSummary').hidden).toBe(false);
-    expect(row('제품 종류')).toBe('Sunglasses');
+    expect(row('제품 종류')).toBe('선글라스');
     expect(row('프레임 재질')).toBe('아세테이트');
     expect(row('렌즈 타입')).toBe('그래디언트 렌즈');
     expect(row('수량')).toBe('500개');
