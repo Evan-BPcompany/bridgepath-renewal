@@ -35,7 +35,7 @@ describe('login.html', () => {
     const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
     expect(new Set(ids).size).toBe(ids.length);
     expect([...html.matchAll(/data-step="([^"]+)"/g)].map(match => match[1])).toEqual([
-      'login', 'signup', 'code', 'reset-request', 'reset', 'consent'
+      'login', 'signup', 'code', 'reset-request', 'reset', 'complete'
     ]);
   });
 

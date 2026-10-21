@@ -231,6 +231,8 @@ describeIntegration('customer accounts on a real PostgreSQL', ({ url }) => {
       expect((await signup({ password: 'short' })).status).toBe(400);
       expect((await signup({ privacy_consent: false })).status).toBe(400);
       expect((await signup({ email: 'bad' })).status).toBe(400);
+      expect((await signup({ phone: '' })).status).toBe(400);
+      expect((await signup({ phone: undefined })).status).toBe(400);
       expect(await customers()).toHaveLength(0);
     });
 
@@ -312,21 +314,23 @@ describeIntegration('customer accounts on a real PostgreSQL', ({ url }) => {
       expect((await request(app).get('/api/customers/me').set('Cookie', 'access_token=whatever')).status).toBe(401);
     });
 
-    it('updates the profile and records the consent of an account that has none', async () => {
+    it('updates the profile, and completes an account that lacks the consent and the phone', async () => {
       const { cookie, email } = await registered();
 
       const patched = await request(app).patch('/api/customers/me').set('Cookie', cookie).send({ name: 'Lee', phone: '02-123-4567' });
-      expect(patched.body.customer).toMatchObject({ name: 'Lee', phone: '02-123-4567', company_name: 'ACME' });
+      expect(patched.body.customer).toMatchObject({ name: 'Lee', phone: '02-123-4567', company_name: 'ACME', phone_required: false });
 
-      await suite().db('customers').where({ email }).update({ privacy_consent_at: null, privacy_consent_version: null });
-      expect((await me(cookie)).body.customer.consent_required).toBe(true);
+      await suite().db('customers').where({ email }).update({ privacy_consent_at: null, privacy_consent_version: null, phone: null });
+      expect((await me(cookie)).body.customer).toMatchObject({ consent_required: true, phone_required: true });
 
-      const consent = await request(app)
-        .post('/api/customers/me/consent')
-        .set('Cookie', cookie)
-        .send({ privacy_consent: true, privacy_consent_version: 'dev-draft' });
-      expect(consent.body.customer.consent_required).toBe(false);
-      expect((await customerByEmail(email)).privacy_consent_version).toBe('dev-draft');
+      const complete = (body: Record<string, unknown>) => request(app).post('/api/customers/me/complete').set('Cookie', cookie).send(body);
+      const noPhone = await complete({ privacy_consent: true, privacy_consent_version: 'dev-draft' });
+      expect(noPhone.status).toBe(400);
+      expect((await customerByEmail(email)).privacy_consent_at).toBeNull();
+
+      const done = await complete({ privacy_consent: true, privacy_consent_version: 'dev-draft', phone: '010-9999-8888' });
+      expect(done.body.customer).toMatchObject({ consent_required: false, phone_required: false, phone: '010-9999-8888' });
+      expect(await customerByEmail(email)).toMatchObject({ privacy_consent_version: 'dev-draft', phone: '010-9999-8888' });
     });
   });
 
@@ -393,28 +397,28 @@ describeIntegration('customer accounts on a real PostgreSQL', ({ url }) => {
       return request(app).get(`/api/customers/oauth/${provider}/callback`).query({ code: 'abc', state }).set('Cookie', stateCookie);
     };
 
-    it('creates a verified account without a password for a new Google user, who still has to give the consent', async () => {
+    it('creates a verified account without a password for a new Google user, who still has to give the consent and the phone', async () => {
       social({ provider: 'google', providerUserId: 'g-1', email: 'new@example.com', name: 'New User' });
 
       const res = await roundTrip('google');
 
       expect(res.status).toBe(302);
-      expect(res.headers.location).toContain('/login.html?step=consent');
+      expect(res.headers.location).toContain('/login.html?step=complete');
       const row = await customerByEmail('new@example.com');
-      expect(row).toMatchObject({ name: 'New User', password_hash: null, privacy_consent_at: null });
+      expect(row).toMatchObject({ name: 'New User', password_hash: null, privacy_consent_at: null, phone: null });
       expect(row.email_verified_at).toBeInstanceOf(Date);
       const found = await me(sessionCookie(res));
       expect(found.status).toBe(200);
-      expect(found.body.customer).toMatchObject({ has_password: false, providers: ['google'], consent_required: true });
+      expect(found.body.customer).toMatchObject({ has_password: false, providers: ['google'], consent_required: true, phone_required: true });
     });
 
-    it('recognises the same Google user the next time, and does not ask for the consent again once given', async () => {
+    it('recognises the same Google user the next time, and does not ask again once the consent and the phone are given', async () => {
       social({ provider: 'google', providerUserId: 'g-1', email: 'new@example.com', name: 'New User' });
       const first = await roundTrip('google');
       await request(app)
-        .post('/api/customers/me/consent')
+        .post('/api/customers/me/complete')
         .set('Cookie', sessionCookie(first))
-        .send({ privacy_consent: true, privacy_consent_version: 'dev-draft' });
+        .send({ privacy_consent: true, privacy_consent_version: 'dev-draft', phone: '010-1234-5678' });
 
       const second = await roundTrip('google');
 

@@ -47,7 +47,8 @@ const CUSTOMER = {
   customer_type: null,
   has_password: true,
   providers: [],
-  consent_required: false
+  consent_required: false,
+  phone_required: false
 };
 const SIGNUP = {
   email: 'Buyer@Example.com',
@@ -111,7 +112,9 @@ describe('customer accounts API (mocked services)', () => {
       ['a bad e-mail', { email: 'nope' }, 'email'],
       ['a weak password', { password: 'abcdefgh' }, 'password'],
       ['no name', { name: '' }, 'name'],
-      ['a bad phone', { phone: 'x' }, 'phone']
+      ['a bad phone', { phone: 'x' }, 'phone'],
+      ['no phone', { phone: undefined }, 'phone'],
+      ['an empty phone', { phone: '  ' }, 'phone']
     ])('refuses %s and stores nothing', async (_label, change, field) => {
       const res = await request(app).post('/api/customers/signup').send({ ...SIGNUP, ...change });
 
@@ -299,17 +302,64 @@ describe('customer accounts API (mocked services)', () => {
       expect(service.updateProfile).toHaveBeenCalledWith(CUSTOMER.id, expect.objectContaining({ name: 'Lee' }));
     });
 
-    it('POST /me/consent records an accepted version only', async () => {
-      const bad = await request(app).post('/api/customers/me/consent').set('Cookie', `bp_session=${TOKEN}`).send({ privacy_consent: true, privacy_consent_version: 'x' });
-      expect(bad.status).toBe(400);
-      expect(service.recordConsent).not.toHaveBeenCalled();
+    describe('POST /me/complete (the consent and the mobile phone of an account made with Google/Kakao)', () => {
+      const complete = (body: Record<string, unknown>) =>
+        request(app).post('/api/customers/me/complete').set('Cookie', `bp_session=${TOKEN}`).send(body);
+      const missing = (over: Record<string, unknown>) =>
+        mocked(service.findSessionCustomer).mockResolvedValue({ customer: { ...CUSTOMER, ...over }, sessionId: 's1' });
+      const GOOD = { privacy_consent: true, privacy_consent_version: 'dev-draft', phone: '010-1234-5678' };
 
-      const ok = await request(app)
-        .post('/api/customers/me/consent')
-        .set('Cookie', `bp_session=${TOKEN}`)
-        .send({ privacy_consent: true, privacy_consent_version: 'dev-draft' });
-      expect(ok.status).toBe(200);
-      expect(service.recordConsent).toHaveBeenCalledWith(CUSTOMER.id, 'dev-draft');
+      it('needs a session', async () => {
+        expect((await request(app).post('/api/customers/me/complete').send(GOOD)).status).toBe(401);
+      });
+
+      it('records the consent and the phone when both are missing', async () => {
+        missing({ consent_required: true, phone_required: true, phone: null });
+
+        const res = await complete(GOOD);
+
+        expect(res.status).toBe(200);
+        expect(service.recordConsent).toHaveBeenCalledWith(CUSTOMER.id, 'dev-draft');
+        expect(service.updateProfile).toHaveBeenCalledWith(CUSTOMER.id, { phone: '010-1234-5678' });
+      });
+
+      it('asks only for what is missing: the phone alone, the consent alone', async () => {
+        missing({ consent_required: false, phone_required: true, phone: null });
+        expect((await complete({ phone: '010-1234-5678' })).status).toBe(200);
+        expect(service.recordConsent).not.toHaveBeenCalled();
+
+        mocked(service.updateProfile).mockClear();
+        missing({ consent_required: true, phone_required: false });
+        expect((await complete({ privacy_consent: true, privacy_consent_version: 'dev-draft' })).status).toBe(200);
+        expect(service.recordConsent).toHaveBeenCalledTimes(1);
+        expect(service.updateProfile).not.toHaveBeenCalled();
+      });
+
+      it('refuses a missing or wrong phone, or a missing consent, and writes nothing', async () => {
+        missing({ consent_required: true, phone_required: true, phone: null });
+
+        const noPhone = await complete({ privacy_consent: true, privacy_consent_version: 'dev-draft' });
+        const badPhone = await complete({ ...GOOD, phone: 'call me' });
+        const noConsent = await complete({ phone: '010-1234-5678' });
+        const badVersion = await complete({ ...GOOD, privacy_consent_version: 'x' });
+
+        expect(noPhone.status).toBe(400);
+        expect(noPhone.body.details[0].field).toBe('phone');
+        expect(badPhone.status).toBe(400);
+        expect(noConsent.status).toBe(400);
+        expect(noConsent.body.details[0].field).toBe('privacy_consent');
+        expect(badVersion.status).toBe(400);
+        expect(service.recordConsent).not.toHaveBeenCalled();
+        expect(service.updateProfile).not.toHaveBeenCalled();
+      });
+
+      it('writes nothing of the consent when the phone is wrong', async () => {
+        missing({ consent_required: true, phone_required: true, phone: null });
+
+        await complete({ ...GOOD, phone: '12' });
+
+        expect(service.recordConsent).not.toHaveBeenCalled();
+      });
     });
 
     it('logout ends the session and clears the cookie, even without one', async () => {
@@ -430,17 +480,21 @@ describe('customer accounts API (mocked services)', () => {
       expect(cookieOf(res, 'bp_oauth')).toMatch(/Expires=Thu, 01 Jan 1970/);
     });
 
-    it('asks a new Google or Kakao customer for the consent first', async () => {
+    it.each([
+      [{ consent_required: true }],
+      [{ phone_required: true }],
+      [{ consent_required: true, phone_required: true }]
+    ])('asks a new Google or Kakao customer for what is missing first (%j)', async missingParts => {
       enable();
       mocked(fetchSocialProfile).mockResolvedValue({ provider: 'kakao', providerUserId: '9', email: 'buyer@example.com' });
       mocked(service.loginWithSocial).mockResolvedValue({ customerId: CUSTOMER.id, created: true });
-      mocked(service.loadPublicCustomer).mockResolvedValue({ ...CUSTOMER, consent_required: true });
+      mocked(service.loadPublicCustomer).mockResolvedValue({ ...CUSTOMER, ...missingParts });
       const { state, cookie } = await startLogin('kakao');
 
       const res = await request(app).get('/api/customers/oauth/kakao/callback').query({ code: 'abc', state }).set('Cookie', cookie);
 
       expect(res.status).toBe(302);
-      expect(res.headers.location).toBe(`${FRONT}/login.html?step=consent&next=%2Fsunglasses-estimate.html`);
+      expect(res.headers.location).toBe(`${FRONT}/login.html?step=complete&next=%2Fsunglasses-estimate.html`);
     });
 
     it('refuses a callback whose state is not the one the cookie holds, or that has no cookie', async () => {

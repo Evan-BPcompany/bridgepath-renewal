@@ -14,7 +14,7 @@ const API = 'http://localhost:4000/api/customers';
 type Answer = { status: number; body?: unknown };
 type Call = { method: string; path: string; body: any; credentials: string };
 
-const CUSTOMER = { id: 'c1', email: 'buyer@example.com', name: 'Kim', consent_required: false };
+const CUSTOMER = { id: 'c1', email: 'buyer@example.com', name: 'Kim', consent_required: false, phone_required: false };
 const ok = (body: unknown = {}): Answer => ({ status: 200, body });
 const refuse = (status: number, code: string, extra: Record<string, unknown> = {}): Answer => ({ status, body: { code, error: code, ...extra } });
 
@@ -140,25 +140,67 @@ describe('login.html in jsdom (fake API)', () => {
       expect(go).toHaveBeenCalledWith('/estimate.html');
     });
 
-    it('asks a signed-in Google/Kakao customer without consent for it, and sends them on after', async () => {
-      const api = await open({ 'GET /me': ok({ customer: { ...CUSTOMER, consent_required: true } }) }, '?step=consent&next=/estimate.html');
+    it('asks a signed-in Google/Kakao customer for the consent and the phone, and sends them on after', async () => {
+      const api = await open(
+        { 'GET /me': ok({ customer: { ...CUSTOMER, consent_required: true, phone_required: true } }) },
+        '?step=complete&next=/estimate.html'
+      );
 
       expect(go).not.toHaveBeenCalled();
-      expect(visibleSteps()).toEqual(['consent']);
+      expect(visibleSteps()).toEqual(['complete']);
+      expect($('#completePhoneRow').hidden).toBe(false);
+      expect($('#completeConsentRow').hidden).toBe(false);
 
-      submit('#consentForm');
-      expect($('#consentError').hidden).toBe(false);
-      expect(api.calls.some(call => call.path === '/me/consent')).toBe(false);
+      submit('#completeForm');
+      expect($('#completeError').textContent).toBe('휴대폰 번호를 입력해 주세요.');
+      type('#completePhone', 'call me');
+      submit('#completeForm');
+      expect($('#completeError').textContent).toContain('전화번호는 숫자 7~15자리');
+      type('#completePhone', '010-1234-5678');
+      submit('#completeForm');
+      expect($('#completeError').textContent).toBe('개인정보 수집·이용에 동의해 주세요.');
+      expect(api.calls.some(call => call.path === '/me/complete')).toBe(false);
 
-      api.impl.mockClear();
-      g.fetch = fakeApi({ 'POST /me/consent': ok({ customer: CUSTOMER }) }).impl;
-      $('#consentCheck').checked = true;
-      submit('#consentForm');
+      g.fetch = fakeApi({ 'POST /me/complete': ok({ customer: CUSTOMER }) }).impl;
+      $('#completeConsent').checked = true;
+      submit('#completeForm');
       await flush();
 
       expect(g.fetch).toHaveBeenCalledTimes(1);
-      expect(JSON.parse(g.fetch.mock.calls[0][1].body)).toEqual({ privacy_consent: true, privacy_consent_version: 'dev-draft' });
+      expect(JSON.parse(g.fetch.mock.calls[0][1].body)).toEqual({
+        phone: '010-1234-5678', privacy_consent: true, privacy_consent_version: 'dev-draft'
+      });
       expect(go).toHaveBeenCalledWith('/estimate.html');
+    });
+
+    it('asks only for what the account lacks: the phone alone, the consent alone', async () => {
+      await open({ 'GET /me': ok({ customer: { ...CUSTOMER, phone_required: true } }) });
+      expect(visibleSteps()).toEqual(['complete']);
+      expect($('#completePhoneRow').hidden).toBe(false);
+      expect($('#completeConsentRow').hidden).toBe(true);
+
+      type('#completePhone', '010-1234-5678');
+      g.fetch = fakeApi({ 'POST /me/complete': ok({ customer: CUSTOMER }) }).impl;
+      submit('#completeForm');
+      await flush();
+      expect(JSON.parse(g.fetch.mock.calls[0][1].body)).toEqual({ phone: '010-1234-5678' });
+      page?.dispose();
+
+      await open({ 'GET /me': ok({ customer: { ...CUSTOMER, consent_required: true } }) });
+      expect($('#completePhoneRow').hidden).toBe(true);
+      expect($('#completeConsentRow').hidden).toBe(false);
+    });
+
+    it('goes back to the login step when the session ended before the account was completed', async () => {
+      await open({ 'GET /me': ok({ customer: { ...CUSTOMER, phone_required: true } }) });
+      type('#completePhone', '010-1234-5678');
+      g.fetch = fakeApi({ 'POST /me/complete': refuse(401, 'CUSTOMER_AUTH_REQUIRED') }).impl;
+
+      submit('#completeForm');
+      await flush();
+
+      expect(visibleSteps()).toEqual(['login']);
+      expect($('#notice').textContent).toContain('로그인 시간이 지났어요');
     });
   });
 
@@ -240,8 +282,8 @@ describe('login.html in jsdom (fake API)', () => {
       expect($('#notice').textContent).toContain('이메일 인증이 아직 끝나지 않았어요');
     });
 
-    it('asks a Google/Kakao customer without consent for it before going on', async () => {
-      await open({ 'POST /login': ok({ customer: { ...CUSTOMER, consent_required: true } }) });
+    it('asks a Google/Kakao customer without a phone for it before going on', async () => {
+      await open({ 'POST /login': ok({ customer: { ...CUSTOMER, phone_required: true } }) });
 
       type('#loginEmail', 'buyer@example.com');
       type('#loginPassword', 'abcdefg1');
@@ -249,7 +291,7 @@ describe('login.html in jsdom (fake API)', () => {
       await flush();
 
       expect(go).not.toHaveBeenCalled();
-      expect(visibleSteps()).toEqual(['consent']);
+      expect(visibleSteps()).toEqual(['complete']);
     });
 
     it('sends one request at a time while the first has no answer yet', async () => {
@@ -298,6 +340,7 @@ describe('login.html in jsdom (fake API)', () => {
       [{ '#signupPassword': 'abc' }, '비밀번호는 8자 이상으로 입력해 주세요.'],
       [{ '#signupPassword': 'abcdefgh' }, '비밀번호에는 글자와 숫자가 모두 들어가야 해요.'],
       [{ '#signupName': '  ' }, '이름을 입력해 주세요.'],
+      [{ '#signupPhone': '' }, '휴대폰 번호를 입력해 주세요.'],
       [{ '#signupPhone': 'call me' }, '전화번호는 숫자 7~15자리로 입력해 주세요. 숫자, 공백, +, -, ( )만 쓸 수 있어요.']
     ])('refuses %j with a message, asking nothing', async (change, message) => {
       const api = await open();
@@ -352,16 +395,16 @@ describe('login.html in jsdom (fake API)', () => {
       expect($('#codeResend').textContent).toBe('인증코드 재전송');
     });
 
-    it('leaves out the optional fields that are empty', async () => {
+    it('leaves out the company when it is empty (the phone is not optional)', async () => {
       const api = await open({ 'POST /signup': { status: 201, body: { resend_after_seconds: 60 } } });
 
       click('#toSignup');
-      fill({ '#signupPhone': '', '#signupCompany': '' });
+      fill({ '#signupCompany': '' });
       submit('#signupForm');
       await flush();
 
       expect(Object.keys(api.calls.find(call => call.path === '/signup')!.body).sort()).toEqual([
-        'email', 'name', 'password', 'privacy_consent', 'privacy_consent_version'
+        'email', 'name', 'password', 'phone', 'privacy_consent', 'privacy_consent_version'
       ]);
     });
 
@@ -410,6 +453,7 @@ describe('login.html in jsdom (fake API)', () => {
       type('#signupEmail', 'buyer@example.com');
       type('#signupPassword', 'abcdefg1');
       type('#signupName', 'Kim');
+      type('#signupPhone', '010-1234-5678');
       $('#signupConsent').checked = true;
       submit('#signupForm');
       await flush();

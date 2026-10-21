@@ -124,7 +124,7 @@ export function createCustomerAuthRouter(options: CustomerAuthRouterOptions): Ro
       if (passwordError) {
         errors.push(passwordError);
       }
-      const profile = validateProfile(body, { nameRequired: true });
+      const profile = validateProfile(body, { nameRequired: true, phoneRequired: true });
       if (!profile.valid) {
         errors.push(...profile.errors);
       }
@@ -370,17 +370,40 @@ export function createCustomerAuthRouter(options: CustomerAuthRouterOptions): Ro
     }
   });
 
-  // For an account made with Google or Kakao, which has not seen the consent text yet.
-  router.post('/me/consent', requireCustomer, async (req: Request, res: Response) => {
+  // Completes an account that is missing something: the privacy consent and the mobile phone, which
+  // an account made with Google or Kakao does not have yet. Only what is missing is asked for.
+  router.post('/me/complete', requireCustomer, async (req: Request, res: Response) => {
     try {
-      const version = consentVersionOf(res, bodyOf(req));
-      if (!version) {
-        return;
+      const customer = req.customer!;
+      const body = bodyOf(req);
+
+      let version: string | undefined;
+      if (customer.consent_required) {
+        version = consentVersionOf(res, body);
+        if (!version) {
+          return;
+        }
       }
-      await recordConsent(req.customer!.id, version);
-      res.json({ customer: await loadPublicCustomer(req.customer!.id), timestamp: now() });
+
+      let phone: string | undefined;
+      if (customer.phone_required || body.phone !== undefined) {
+        const checked = validateProfile({ phone: body.phone }, { nameRequired: false, phoneRequired: customer.phone_required });
+        if (!checked.valid) {
+          res.status(400).json({ error: 'Invalid phone', code: 'VALIDATION_ERROR', details: checked.errors, timestamp: now() });
+          return;
+        }
+        phone = checked.value.phone;
+      }
+
+      if (version) {
+        await recordConsent(customer.id, version);
+      }
+      if (phone) {
+        await updateProfile(customer.id, { phone });
+      }
+      res.json({ customer: await loadPublicCustomer(customer.id), timestamp: now() });
     } catch (err) {
-      logger.error('Customer consent error', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('Customer account completion error', { error: err instanceof Error ? err.message : String(err) });
       fail(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   });
@@ -470,9 +493,10 @@ export function createCustomerAuthRouter(options: CustomerAuthRouterOptions): Ro
       await startSession(req, res, customerId);
 
       const customer = await loadPublicCustomer(customerId);
-      const target = new URL(customer?.consent_required ? '/login.html' : next, config.frontendBaseUrl);
-      if (customer?.consent_required) {
-        target.searchParams.set('step', 'consent');
+      const incomplete = Boolean(customer?.consent_required || customer?.phone_required);
+      const target = new URL(incomplete ? '/login.html' : next, config.frontendBaseUrl);
+      if (incomplete) {
+        target.searchParams.set('step', 'complete');
         if (next !== '/') {
           target.searchParams.set('next', next);
         }

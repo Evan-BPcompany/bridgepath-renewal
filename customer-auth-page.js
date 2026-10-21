@@ -6,14 +6,14 @@
 
     var COOLDOWN_SECONDS = 60;
 
-    var STEPS = ['login', 'signup', 'code', 'reset-request', 'reset', 'consent'];
+    var STEPS = ['login', 'signup', 'code', 'reset-request', 'reset', 'complete'];
 
     var page = {
         // Replaced by the tests: the browser cannot be sent anywhere inside jsdom.
         go: function (url) {
             window.location.assign(url);
         },
-        state: { email: '', next: '/', cooldownTimer: null, busy: false, step: 'login' }
+        state: { email: '', next: '/', cooldownTimer: null, busy: false, step: 'login', missing: { consent: false, phone: false } }
     };
 
     function Auth() {
@@ -77,11 +77,22 @@
     }
 
     // ------------------------------------------------------------------------------------------
-    // After a sign-in: the consent first when the account has none (Google/Kakao), then on to the page.
+    // After a sign-in: what the account still lacks first (the consent and the mobile phone of an
+    // account made with Google/Kakao), then on to the page.
+    function needsCompletion(customer) {
+        return Boolean(customer && (customer.consent_required || customer.phone_required));
+    }
+
+    function showComplete(customer) {
+        byId('completePhoneRow').hidden = !customer.phone_required;
+        byId('completeConsentRow').hidden = !customer.consent_required;
+        page.state.missing = { consent: Boolean(customer.consent_required), phone: Boolean(customer.phone_required) };
+        show('complete');
+    }
 
     function afterSignIn(customer) {
-        if (customer && customer.consent_required) {
-            show('consent');
+        if (needsCompletion(customer)) {
+            showComplete(customer);
             return;
         }
         page.go(page.state.next);
@@ -244,7 +255,7 @@
         if (!problem && name === '') {
             problem = 'name_required';
         }
-        problem = problem || Auth().checkPhone(phone);
+        problem = problem || Auth().checkPhone(phone, true);
         if (!problem && !byId('signupConsent').checked) {
             problem = 'consent_required';
         }
@@ -262,9 +273,7 @@
                 privacy_consent: true,
                 privacy_consent_version: globalThis.BridgePathConfig.PRIVACY_CONSENT_VERSION
             };
-            if (phone.trim() !== '') {
-                payload.phone = phone.trim();
-            }
+            payload.phone = phone.trim();
             if (company !== '') {
                 payload.company_name = company;
             }
@@ -365,22 +374,37 @@
         }
     }
 
-    async function submitConsent(event) {
+    async function submitComplete(event) {
         event.preventDefault();
         clearErrors();
-        if (!byId('consentCheck').checked) {
-            showError('consentError', Auth().messageFor('consent_required'));
-            return;
+        var missing = page.state.missing;
+        var payload = {};
+        if (missing.phone) {
+            var phone = byId('completePhone').value;
+            var phoneProblem = Auth().checkPhone(phone, true);
+            if (phoneProblem) {
+                showError('completeError', Auth().messageFor(phoneProblem));
+                return;
+            }
+            payload.phone = phone.trim();
         }
-        await busy('consentSubmit', async function () {
-            var result = await Auth().consent(globalThis.BridgePathConfig.PRIVACY_CONSENT_VERSION);
+        if (missing.consent) {
+            if (!byId('completeConsent').checked) {
+                showError('completeError', Auth().messageFor('consent_required'));
+                return;
+            }
+            payload.privacy_consent = true;
+            payload.privacy_consent_version = globalThis.BridgePathConfig.PRIVACY_CONSENT_VERSION;
+        }
+        await busy('completeSubmit', async function () {
+            var result = await Auth().complete(payload);
             if (result.ok) {
                 page.go(page.state.next);
             } else if (result.code === 'CUSTOMER_AUTH_REQUIRED') {
                 show('login');
                 notice('로그인 시간이 지났어요. 다시 로그인해 주세요.');
             } else {
-                showError('consentError', messageOf(result));
+                showError('completeError', messageOf(result));
             }
         });
     }
@@ -414,7 +438,7 @@
         byId('signupForm').addEventListener('submit', submitSignup);
         byId('resetRequestForm').addEventListener('submit', submitResetRequest);
         byId('resetForm').addEventListener('submit', submitReset);
-        byId('consentForm').addEventListener('submit', submitConsent);
+        byId('completeForm').addEventListener('submit', submitComplete);
         byId('toSignup').addEventListener('click', function () { notice(''); show('signup'); });
         byId('signupBack').addEventListener('click', function () { notice(''); show('login'); });
         byId('toReset').addEventListener('click', function () {
@@ -430,7 +454,7 @@
         wireCodeBoxes();
 
         var error = params.get('error');
-        var wantsConsent = params.get('step') === 'consent';
+        var wantsComplete = params.get('step') === 'complete';
         if (params.get('mode') === 'signup') {
             show('signup');
         }
@@ -443,8 +467,8 @@
         // Someone who is already signed in has nothing to do here (unless a step is waiting for them).
         var me = await Auth().me();
         if (me.ok && me.body.customer) {
-            if (me.body.customer.consent_required && (wantsConsent || !error)) {
-                show('consent');
+            if (needsCompletion(me.body.customer) && (wantsComplete || !error)) {
+                showComplete(me.body.customer);
             } else if (!error) {
                 page.go(page.state.next);
             }

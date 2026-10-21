@@ -85,7 +85,7 @@ function text(raw: unknown, field: string, max: number, errors: FieldError[]): s
 
 export function validateProfile(
   input: { name?: unknown; phone?: unknown; company_name?: unknown; customer_type?: unknown },
-  options: { nameRequired: boolean }
+  options: { nameRequired: boolean; phoneRequired?: boolean }
 ): { valid: true; value: Partial<SignupProfile> } | { valid: false; errors: FieldError[] } {
   const errors: FieldError[] = [];
   const name = text(input.name, 'name', CUSTOMER_LIMITS.name, errors);
@@ -94,6 +94,9 @@ export function validateProfile(
 
   if (options.nameRequired && name === undefined && !errors.some(e => e.field === 'name')) {
     errors.push({ field: 'name', message: 'is required' });
+  }
+  if (options.phoneRequired && phone === undefined && !errors.some(e => e.field === 'phone')) {
+    errors.push({ field: 'phone', message: 'is required' });
   }
   if (phone !== undefined) {
     const digits = phone.replace(/\D/g, '').length;

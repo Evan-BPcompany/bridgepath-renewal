@@ -48,6 +48,8 @@ export interface PublicCustomer {
   has_password: boolean;
   providers: string[];
   consent_required: boolean;
+  // The mobile phone is asked at sign-up; an account made with Google/Kakao has none until it is given.
+  phone_required: boolean;
 }
 
 export interface SessionContext {
@@ -78,7 +80,8 @@ export function toPublicCustomer(row: Row, providers: string[] = []): PublicCust
     customer_type: row.customer_type ?? null,
     has_password: Boolean(row.password_hash),
     providers,
-    consent_required: !row.privacy_consent_at
+    consent_required: !row.privacy_consent_at,
+    phone_required: !row.phone
   };
 }
 

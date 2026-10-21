@@ -60,8 +60,9 @@
                     <label class="auth-label" for="signupName">이름</label>
                     <input class="auth-input" id="signupName" type="text" autocomplete="name" maxlength="100" placeholder="이름을 입력해 주세요.">
 
-                    <label class="auth-label" for="signupPhone">전화번호 <span class="auth-optional">(선택)</span></label>
+                    <label class="auth-label" for="signupPhone">휴대폰 번호</label>
                     <input class="auth-input" id="signupPhone" type="tel" autocomplete="tel" maxlength="20" placeholder="010-1234-5678">
+                    <p class="auth-hint">견적 진행 상황을 안내받을 연락처예요.</p>
 
                     <label class="auth-label" for="signupCompany">회사명·브랜드명 <span class="auth-optional">(선택)</span></label>
                     <input class="auth-input" id="signupCompany" type="text" autocomplete="organization" maxlength="100" placeholder="회사명 또는 브랜드명">
@@ -130,19 +131,24 @@
                 <button class="auth-link" id="resetBack" type="button">로그인으로 돌아가기</button>
             </section>
 
-            <!-- Google·카카오로 처음 들어온 고객의 개인정보 동의 -->
-            <section class="auth-step" id="step-consent" data-step="consent" hidden>
-                <h1>개인정보 동의</h1>
-                <p class="auth-lead">서비스를 이용하려면 동의가 필요해요.</p>
+            <!-- Google·카카오로 처음 들어온 고객: 빠진 것(개인정보 동의, 휴대폰 번호)만 묻는다 -->
+            <section class="auth-step" id="step-complete" data-step="complete" hidden>
+                <h1>추가 정보</h1>
+                <p class="auth-lead">서비스를 이용하려면 아래 내용이 필요해요.</p>
 
-                <form id="consentForm" novalidate>
-                    <label class="auth-check">
-                        <input id="consentCheck" type="checkbox">
+                <form id="completeForm" novalidate>
+                    <div id="completePhoneRow" hidden>
+                        <label class="auth-label" for="completePhone">휴대폰 번호</label>
+                        <input class="auth-input" id="completePhone" type="tel" autocomplete="tel" maxlength="20" placeholder="010-1234-5678">
+                        <p class="auth-hint">견적 진행 상황을 안내받을 연락처예요.</p>
+                    </div>
+                    <label class="auth-check" id="completeConsentRow" hidden>
+                        <input id="completeConsent" type="checkbox">
                         <span>개인정보 수집·이용에 동의합니다. <a href="privacy-consent.html" target="_blank" rel="noopener">내용 보기</a></span>
                     </label>
 
-                    <p class="auth-error" id="consentError" role="alert" hidden></p>
-                    <button class="auth-button" id="consentSubmit" type="submit">동의하고 계속</button>
+                    <p class="auth-error" id="completeError" role="alert" hidden></p>
+                    <button class="auth-button" id="completeSubmit" type="submit">계속하기</button>
                 </form>
             </section>
         </div>

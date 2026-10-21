@@ -22,6 +22,7 @@
         password_control: '비밀번호에 사용할 수 없는 문자가 들어 있어요.',
         password_email: '이메일과 같은 비밀번호는 사용할 수 없어요.',
         name_required: '이름을 입력해 주세요.',
+        phone_required: '휴대폰 번호를 입력해 주세요.',
         phone_invalid: '전화번호는 숫자 7~15자리로 입력해 주세요. 숫자, 공백, +, -, ( )만 쓸 수 있어요.',
         consent_required: '개인정보 수집·이용에 동의해 주세요.',
         code_invalid_format: '인증코드 6자리를 모두 입력해 주세요.',
@@ -120,10 +121,11 @@
         return null;
     }
 
-    function checkPhone(raw) {
+    // required: the mobile phone is asked at sign-up, so an empty one is refused there.
+    function checkPhone(raw, required) {
         var phone = typeof raw === 'string' ? raw.trim() : '';
         if (phone === '') {
-            return null;
+            return required ? 'phone_required' : null;
         }
         var digits = phone.replace(/\D/g, '').length;
         return /^[0-9+\-()\s]+$/.test(phone) && digits >= 7 && digits <= 15 ? null : 'phone_invalid';
@@ -210,9 +212,9 @@
         login: function (email, password, fetchImpl) { return call('POST', '/login', { email: email, password: password }, fetchImpl); },
         logout: function (fetchImpl) { return call('POST', '/logout', {}, fetchImpl); },
         providers: function (fetchImpl) { return call('GET', '/oauth/providers', undefined, fetchImpl); },
-        consent: function (version, fetchImpl) {
-            return call('POST', '/me/consent', { privacy_consent: true, privacy_consent_version: version }, fetchImpl);
-        },
+        // Completes an account that lacks the consent and/or the mobile phone (Google/Kakao sign-in).
+        // Only what is given is sent: { privacy_consent, privacy_consent_version, phone }.
+        complete: function (payload, fetchImpl) { return call('POST', '/me/complete', payload, fetchImpl); },
         resetRequest: function (email, fetchImpl) { return call('POST', '/password-reset/request', { email: email }, fetchImpl); },
         resetConfirm: function (email, code, newPassword, fetchImpl) {
             return call('POST', '/password-reset/confirm', { email: email, code: code, new_password: newPassword }, fetchImpl);

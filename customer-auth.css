@@ -234,3 +234,9 @@ a.auth-button {
     text-align: center;
     text-decoration: none;
 }
+
+.auth-hint {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
+    color: #777;
+}
