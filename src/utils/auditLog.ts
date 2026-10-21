@@ -12,6 +12,8 @@ const ALLOWED_KEYS = [
   'estimate_id',
   'file_id',
   'memo_id',
+  'quote_id',
+  'quote_version',
   'from_status',
   'to_status',
   'error_code',

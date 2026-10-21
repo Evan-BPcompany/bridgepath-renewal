@@ -25,6 +25,8 @@ export interface RateLimitSettings {
   customerLogin: RateLimitSetting;
   customerSignup: RateLimitSetting;
   customerCode: RateLimitSetting;
+  // A signed-in customer reading their own requests and quotes: per IP.
+  customerRead: RateLimitSetting;
 }
 
 export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
@@ -38,7 +40,8 @@ export const RATE_LIMIT_DEFAULTS: RateLimitSettings = {
   imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 },
   customerLogin: { windowMs: 15 * 60 * 1000, max: 10 },
   customerSignup: { windowMs: 60 * 60 * 1000, max: 10 },
-  customerCode: { windowMs: 15 * 60 * 1000, max: 20 }
+  customerCode: { windowMs: 15 * 60 * 1000, max: 20 },
+  customerRead: { windowMs: 60 * 1000, max: 60 }
 };
 
 const RATE_LIMIT_WINDOW_MS_RANGE = { min: 1000, max: 24 * 60 * 60 * 1000 };
@@ -211,7 +214,8 @@ export function parseRateLimits(env: NodeJS.ProcessEnv): RateLimitSettings {
     ),
     customerLogin: parseRateLimitSetting('CUSTOMER_LOGIN_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerLogin),
     customerSignup: parseRateLimitSetting('CUSTOMER_SIGNUP_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerSignup),
-    customerCode: parseRateLimitSetting('CUSTOMER_CODE_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerCode)
+    customerCode: parseRateLimitSetting('CUSTOMER_CODE_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerCode),
+    customerRead: parseRateLimitSetting('CUSTOMER_READ_RATE_LIMIT', env, RATE_LIMIT_DEFAULTS.customerRead)
   };
 }
 

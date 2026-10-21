@@ -457,6 +457,313 @@
             return blocks;
         }
 
+
+        // ------------------------------------------------------------------------------------------
+        // The detailed quote of one request: the staff write it here and publish it; the customer then
+        // reads it on the site. The amounts are counted by the server; the screen only shows the sum as
+        // the staff type. Everything is put in with textContent.
+
+        var QUOTE_CURRENCIES = ['USD', 'CNY', 'EUR', 'JPY'];
+        var QUOTE_FIELD_NAMES = {
+            items: '항목', fx_currency: '환율 통화', fx_rate: '적용 환율', valid_until: '견적 유효기간',
+            lead_time: '납기 예상', customer_note: '고객 안내 메모', name: '이름', quantity: '수량', unit_price: '단가'
+        };
+
+        function quoteFieldName(field) {
+            var item = /^items\[(\d+)\]\.(\w+)$/.exec(field);
+            if (item) {
+                return '항목 ' + (Number(item[1]) + 1) + ' ' + (QUOTE_FIELD_NAMES[item[2]] || item[2]);
+            }
+            var whole = /^items\[(\d+)\]$/.exec(field);
+            if (whole) {
+                return '항목 ' + (Number(whole[1]) + 1);
+            }
+            return QUOTE_FIELD_NAMES[field] || field;
+        }
+
+        function quoteStateText(quote) {
+            if (!quote) {
+                return '아직 작성하지 않았어요.';
+            }
+            if (quote.version === 0) {
+                return '임시저장됨 · 고객에게는 아직 보이지 않아요.';
+            }
+            if (quote.has_unpublished_changes) {
+                return 'v' + quote.version + ' 게시됨 · 게시하지 않은 변경이 있어요. 고객에게는 v' + quote.version + '이 보여요.';
+            }
+            return 'v' + quote.version + ' 게시됨 (최신) · 고객에게 보여요.';
+        }
+
+        function loadQuote(id, card) {
+            var mine = turn;
+            api.quote(id).then(function (answer) {
+                if (mine !== turn || !card.isConnected) {
+                    return;
+                }
+                while (card.childNodes.length > 1) {
+                    card.removeChild(card.lastChild);
+                }
+                if (!answer.ok) {
+                    card.appendChild(h('p', { class: 'error', role: 'alert', text: answer.message }));
+                    return;
+                }
+                drawQuote(id, card, answer.data);
+            });
+        }
+
+        function drawQuote(id, card, context) {
+            var quote = context.quote;
+            if (!context.has_account) {
+                card.appendChild(h('p', { class: 'hint', text: '이 접수는 로그인하지 않고 보낸 접수라, 고객이 사이트에서 견적을 볼 수 없어요. 상세견적은 회원이 요청한 접수에만 쓸 수 있어요. 견적은 고객에게 이메일이나 전화로 따로 전해 주세요.' }));
+                return;
+            }
+
+            card.appendChild(h('p', { id: 'quoteState', class: 'quote-state', text: quoteStateText(quote) }));
+            card.appendChild(h('p', { class: 'hint', text: '여기 적은 내용은 게시하면 고객에게 그대로 보여요. 원가, 공장 정보 같은 내부 내용은 쓰지 말고 아래 내부 메모에 남겨 주세요.' }));
+
+            var editSeq = quote ? quote.edit_seq : null; // the save this screen was made from
+            var rows = h('tbody', { id: 'quoteRows' });
+            var totalCell = h('strong', { id: 'quoteTotal' });
+            var formError = h('p', { id: 'quoteError', class: 'error', role: 'alert', hidden: true });
+            var dirty = !quote;
+
+            function number(value) {
+                var text = String(value).trim();
+                return /^\d+$/.test(text) ? Number(text) : NaN;
+            }
+
+            function recount() {
+                var total = 0;
+                Array.prototype.forEach.call(rows.children, function (row) {
+                    var quantity = number(row.querySelector('.q-quantity').value);
+                    var price = number(row.querySelector('.q-price').value);
+                    var amount = isFinite(quantity) && isFinite(price) ? quantity * price : null;
+                    row.querySelector('.q-amount').textContent = amount === null ? '-' : labels.formatWon(amount);
+                    total += amount || 0;
+                });
+                totalCell.textContent = labels.formatWon(total);
+            }
+
+            function markDirty() {
+                dirty = true;
+                recount();
+            }
+
+            function addRow(item) {
+                var name = h('input', { type: 'text', class: 'q-name', maxlength: '200', 'aria-label': '항목 이름', value: item ? item.name : '' });
+                var quantity = h('input', { type: 'number', class: 'q-quantity', min: '1', step: '1', inputmode: 'numeric', 'aria-label': '수량', value: item ? String(item.quantity) : '' });
+                var price = h('input', { type: 'number', class: 'q-price', min: '0', step: '1', inputmode: 'numeric', 'aria-label': '단가(원)', value: item ? String(item.unit_price) : '' });
+                var remove = h('button', { type: 'button', class: 'q-remove', text: '삭제', 'aria-label': '이 항목 삭제' });
+                var row = h('tr', {}, [
+                    h('td', {}, [name]), h('td', {}, [quantity]), h('td', {}, [price]),
+                    h('td', { class: 'q-amount num', text: '-' }), h('td', {}, [remove])
+                ]);
+                [name, quantity, price].forEach(function (input) { input.addEventListener('input', markDirty); });
+                remove.addEventListener('click', function () {
+                    rows.removeChild(row);
+                    markDirty();
+                });
+                rows.appendChild(row);
+            }
+
+            (quote && quote.items.length > 0 ? quote.items : [null]).forEach(addRow);
+
+            var addButton = h('button', { type: 'button', id: 'quoteAddRow', text: '+ 항목 추가' });
+            addButton.addEventListener('click', function () {
+                if (rows.children.length >= 30) {
+                    return;
+                }
+                addRow(null);
+                markDirty();
+            });
+
+            var currency = h('select', { id: 'quoteCurrency' }, [h('option', { value: '', text: '없음' })].concat(
+                QUOTE_CURRENCIES.map(function (code) { return h('option', { value: code, text: code }); })
+            ));
+            currency.value = quote && quote.fx_currency ? quote.fx_currency : '';
+            var rate = h('input', { id: 'quoteRate', type: 'number', step: '0.0001', min: '0', inputmode: 'decimal', value: quote && quote.fx_rate ? String(quote.fx_rate) : '' });
+            var validUntil = h('input', { id: 'quoteValidUntil', type: 'date', value: quote && quote.valid_until ? quote.valid_until : '' });
+            var leadTime = h('input', { id: 'quoteLeadTime', type: 'text', maxlength: '200', value: quote && quote.lead_time ? quote.lead_time : '' });
+            var note = h('textarea', { id: 'quoteNote', rows: '4', maxlength: '2000' });
+            note.value = quote && quote.customer_note ? quote.customer_note : '';
+            [currency, rate, validUntil, leadTime, note].forEach(function (control) {
+                control.addEventListener('input', markDirty);
+                control.addEventListener('change', markDirty);
+            });
+
+            var saveButton = h('button', { type: 'submit', id: 'quoteSave', text: '임시저장' });
+            var publishButton = h('button', { type: 'button', id: 'quotePublish', class: 'primary', text: '고객에게 게시' });
+            var confirmBox = h('div', { id: 'quoteConfirm', class: 'quote-confirm', role: 'alert', hidden: true });
+            var form = h('form', { id: 'quoteForm', novalidate: true }, [
+                h('div', { class: 'table-wrap' }, [h('table', { class: 'list quote-items' }, [
+                    h('thead', {}, [h('tr', {}, ['항목', '수량', '단가(원)', '금액', ''].map(function (name) { return h('th', { scope: 'col', text: name }); }))]),
+                    rows,
+                    h('tfoot', {}, [h('tr', {}, [h('th', { scope: 'row', colspan: '3', text: '합계' }), h('td', { class: 'num' }, [totalCell]), h('td')])])
+                ])]),
+                addButton,
+                h('p', { class: 'hint', text: '금액과 합계는 저장할 때 서버가 수량 × 단가로 다시 계산해요. 원 단위 정수만 쓸 수 있어요.' }),
+                h('div', { class: 'quote-grid' }, [
+                    labeled('적용 환율 통화', currency), labeled('적용 환율 (1 통화 = ? 원)', rate), labeled('견적 유효기간', validUntil),
+                    labeled('납기 예상', leadTime, '예: 주문 후 약 6주')
+                ]),
+                labeled('고객 안내 메모', note, '고객에게 그대로 보여요. (2,000자까지)'),
+                formError,
+                h('div', { class: 'actions' }, [saveButton, publishButton]),
+                confirmBox
+            ]);
+            card.appendChild(form);
+            recount();
+
+            // What the form holds, as the API wants it; or the message of what is wrong.
+            function collect() {
+                var items = [];
+                var problem = '';
+                Array.prototype.forEach.call(rows.children, function (row, index) {
+                    var name = row.querySelector('.q-name').value.trim();
+                    var quantity = number(row.querySelector('.q-quantity').value);
+                    var price = number(row.querySelector('.q-price').value);
+                    if (!name) {
+                        problem = problem || '항목 ' + (index + 1) + '의 이름을 적어 주세요.';
+                    } else if (!isFinite(quantity) || quantity < 1) {
+                        problem = problem || '항목 ' + (index + 1) + '의 수량은 1 이상의 정수로 적어 주세요.';
+                    } else if (!isFinite(price)) {
+                        problem = problem || '항목 ' + (index + 1) + '의 단가는 0 이상의 정수(원)로 적어 주세요.';
+                    }
+                    items.push({ name: name, quantity: quantity, unit_price: price });
+                });
+                if (items.length === 0) {
+                    problem = '항목을 1개 이상 넣어 주세요.';
+                }
+                var body = { items: items };
+                if (currency.value || rate.value.trim()) {
+                    if (!currency.value || !rate.value.trim() || !(Number(rate.value) > 0)) {
+                        problem = problem || '환율은 통화와 환율을 함께 적어 주세요.';
+                    } else {
+                        body.fx_currency = currency.value;
+                        body.fx_rate = Number(rate.value);
+                    }
+                }
+                if (validUntil.value) {
+                    body.valid_until = validUntil.value;
+                }
+                if (leadTime.value.trim()) {
+                    body.lead_time = leadTime.value.trim();
+                }
+                if (note.value.trim()) {
+                    body.customer_note = note.value.trim();
+                }
+                if (editSeq !== null) {
+                    body.expected_edit_seq = editSeq;
+                }
+                return { body: body, problem: problem };
+            }
+
+            function showProblem(result) {
+                var text = result.message;
+                if (Array.isArray(result.details) && result.details.length > 0) {
+                    text += ' (' + result.details.map(function (detail) { return quoteFieldName(detail.field); }).join(', ') + ')';
+                }
+                formError.textContent = text;
+                formError.hidden = false;
+                if (result.code === 'QUOTE_CONFLICT') {
+                    say(result.message, 'warning');
+                }
+            }
+
+            function busy(on) {
+                saveButton.disabled = on;
+                publishButton.disabled = on;
+            }
+
+            // Saves what is on the screen; answers with the saved quote, or null after showing why not.
+            function save() {
+                formError.hidden = true;
+                var collected = collect();
+                if (collected.problem) {
+                    formError.textContent = collected.problem;
+                    formError.hidden = false;
+                    return Promise.resolve(null);
+                }
+                return api.saveQuote(id, collected.body).then(function (result) {
+                    if (!result.ok) {
+                        showProblem(result);
+                        return null;
+                    }
+                    editSeq = result.data.edit_seq;
+                    dirty = false;
+                    return result.data;
+                });
+            }
+
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                busy(true);
+                confirmBox.hidden = true;
+                save().then(function (saved) {
+                    busy(false);
+                    if (saved) {
+                        say('견적을 임시저장했어요. 게시하기 전에는 고객에게 보이지 않아요.', 'success');
+                        loadQuote(id, card);
+                    }
+                });
+            });
+
+            // Publishing is asked twice: it is the moment the customer can see it.
+            publishButton.addEventListener('click', function () {
+                formError.hidden = true;
+                var collected = collect();
+                if (collected.problem) {
+                    formError.textContent = collected.problem;
+                    formError.hidden = false;
+                    return;
+                }
+                clear(confirmBox);
+                var yes = h('button', { type: 'button', id: 'quotePublishYes', class: 'primary', text: '게시하기' });
+                var no = h('button', { type: 'button', id: 'quotePublishNo', text: '취소' });
+                confirmBox.appendChild(h('p', { text: '게시하면 고객이 내 견적에서 이 견적을 바로 볼 수 있어요. 합계는 ' + totalCell.textContent + '이에요. 게시할까요?' }));
+                confirmBox.appendChild(h('div', { class: 'actions' }, [yes, no]));
+                confirmBox.hidden = false;
+                no.addEventListener('click', function () { confirmBox.hidden = true; });
+                yes.addEventListener('click', function () {
+                    busy(true);
+                    yes.disabled = true;
+                    // What is on the screen is saved first when it differs from the saved copy.
+                    var ready = dirty || !quote ? save() : Promise.resolve(quote);
+                    ready.then(function (saved) {
+                        if (!saved) {
+                            busy(false);
+                            yes.disabled = false;
+                            return null;
+                        }
+                        return api.publishQuote(id, saved.edit_seq).then(function (result) {
+                            busy(false);
+                            if (!result.ok) {
+                                yes.disabled = false;
+                                showProblem(result);
+                                if (result.code === 'NOTHING_TO_PUBLISH') {
+                                    // Somebody published it meanwhile: the section is drawn again, so the notice carries the words.
+                                    say(result.message, 'warning');
+                                    loadQuote(id, card);
+                                }
+                                return;
+                            }
+                            say('견적을 고객에게 게시했어요 (v' + result.data.version + '). 접수 상태를 바꾸려면 아래 상태 변경을 써 주세요.', 'success');
+                            loadQuote(id, card);
+                        });
+                    });
+                });
+            });
+
+            // The publications so far.
+            var revisions = context.revisions || [];
+            if (revisions.length > 0) {
+                card.appendChild(h('h4', { text: '게시 이력' }));
+                card.appendChild(h('ul', { class: 'quote-revisions' }, revisions.map(function (revision) {
+                    return h('li', { text: 'v' + revision.version + ' · ' + labels.formatDateTime(revision.published_at) + (revision.published_by ? ' · ' + revision.published_by.username : '') });
+                })));
+            }
+        }
+
         function viewDetail(id) {
             var mine = ++turn;
             var holder = h('div', { id: 'detailBody', 'aria-live': 'polite' }, [h('p', { class: 'hint', text: '불러오는 중…' })]);
@@ -531,6 +838,10 @@
                     fileNodes.push(h('p', { class: 'hint', text: '첨부 파일 열람은 바이러스 검사를 도입하기 전이라 막혀 있어요. 파일이 필요하면 고객에게 이메일로 요청해 주세요.' }));
                 }
                 section('첨부 파일 (' + files.length + ')', fileNodes, 'secFiles');
+
+                // ---- the detailed quote (for the customer to read on the site)
+                var quoteCard = section('담당자 상세견적', [h('p', { class: 'hint', text: '불러오는 중…' })], 'secQuote');
+                loadQuote(id, quoteCard);
 
                 // status change
                 var allowed = data.allowed_transitions || [];

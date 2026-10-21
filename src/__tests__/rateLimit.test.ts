@@ -42,6 +42,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   customerLogin: BIG,
   customerSignup: BIG,
   customerCode: BIG,
+  customerRead: BIG,
   ...overrides
 });
 
@@ -58,7 +59,8 @@ describe('Rate limit configuration', () => {
       imageAnalysis: { windowMs: 60 * 60 * 1000, max: 10 },
       customerLogin: { windowMs: 15 * 60 * 1000, max: 10 },
       customerSignup: { windowMs: 60 * 60 * 1000, max: 10 },
-      customerCode: { windowMs: 15 * 60 * 1000, max: 20 }
+      customerCode: { windowMs: 15 * 60 * 1000, max: 20 },
+      customerRead: { windowMs: 60 * 1000, max: 60 }
     });
     expect(parseRateLimits({})).toEqual(RATE_LIMIT_DEFAULTS);
     expect(parseTrustProxy(undefined)).toBe(0);
@@ -122,6 +124,7 @@ describe('Rate limit configuration', () => {
       'api',
       'customerCode',
       'customerLogin',
+      'customerRead',
       'customerSignup',
       'estimateCreate',
       'estimatePreview',

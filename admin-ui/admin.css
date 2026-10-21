@@ -425,3 +425,42 @@ ul.memos p {
     background: #e8efff;
     color: #1d3a8a;
 }
+
+.quote-state {
+    margin: 0 0 8px;
+    font-weight: 700;
+}
+
+.quote-items input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.quote-items .q-quantity,
+.quote-items .q-price {
+    max-width: 9rem;
+    text-align: right;
+}
+
+.quote-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0 16px;
+}
+
+.quote-confirm {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border: 1px solid #f0c36d;
+    border-radius: 8px;
+    background: #fff8e6;
+}
+
+.quote-confirm[hidden] {
+    display: none;
+}
+
+.quote-revisions {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}

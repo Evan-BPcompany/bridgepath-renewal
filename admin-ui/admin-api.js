@@ -29,6 +29,11 @@
         REASON_REQUIRED: '이 상태로 바꾸려면 사유를 적어 주세요.',
         MEMO_TOO_LONG: '메모는 5,000자까지 쓸 수 있어요.',
         ESTIMATE_NOT_FOUND: '접수를 찾을 수 없어요.',
+        NO_CUSTOMER_ACCOUNT: '로그인하지 않고 보낸 접수라 고객이 사이트에서 견적을 볼 수 없어요.',
+        QUOTE_CONFLICT: '다른 담당자가 먼저 견적을 고쳤어요. 화면을 새로 고친 뒤 다시 시도해 주세요.',
+        NO_QUOTE: '게시할 견적이 아직 저장되지 않았어요.',
+        QUOTE_INCOMPLETE: '게시하려면 항목이 1개 이상, 합계가 0원보다 커야 하고 견적 유효기간이 지나지 않아야 해요.',
+        NOTHING_TO_PUBLISH: '게시한 뒤로 바뀐 내용이 없어요.',
         PASSWORD_POLICY_VIOLATION: '새 비밀번호가 규칙에 맞지 않아요.',
         PASSWORD_TOO_LONG: '새 비밀번호가 너무 길어요. (72바이트까지)',
         PASSWORD_SAME_AS_CURRENT: '새 비밀번호는 지금 비밀번호와 달라야 해요.',
@@ -219,6 +224,14 @@
             detail: function (id) { return request('GET', '/estimates/' + encodeURIComponent(id)); },
             changeStatus: function (id, body) {
                 return request('PATCH', '/estimates/' + encodeURIComponent(id) + '/status', { json: body });
+            },
+            // The detailed quote of one request: the working copy, saving it, and publishing it to the customer.
+            quote: function (id) { return request('GET', '/estimates/' + encodeURIComponent(id) + '/quote'); },
+            saveQuote: function (id, body) {
+                return request('PUT', '/estimates/' + encodeURIComponent(id) + '/quote', { json: body });
+            },
+            publishQuote: function (id, expectedEditSeq) {
+                return request('POST', '/estimates/' + encodeURIComponent(id) + '/quote/publish', { json: { expected_edit_seq: expectedEditSeq } });
             },
             addMemo: function (id, content) {
                 return request('POST', '/estimates/' + encodeURIComponent(id) + '/memos', { json: { content: content } });

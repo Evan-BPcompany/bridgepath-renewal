@@ -48,7 +48,8 @@ export function createTestApp(): Express {
       imageAnalysis: unlimited,
       customerLogin: unlimited,
       customerSignup: unlimited,
-      customerCode: unlimited
+      customerCode: unlimited,
+      customerRead: unlimited
     }
   });
 }

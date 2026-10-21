@@ -35,7 +35,8 @@ const ALL_MIGRATIONS = [
   '013_align_estimate_statuses.ts',
   '014_sunglasses_base_prices.ts',
   '015_customer_accounts.ts',
-  '016_estimate_customer_link.ts'
+  '016_estimate_customer_link.ts',
+  '017_detailed_quotes.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -1154,7 +1155,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
   // Migration 016: a request can belong to a signed-in customer and be a detailed quote request.
   describe('016 (estimate: customer and kind of request)', () => {
     beforeEach(async () => {
-      await migrateEverything(suite().db);
+      await migrateTo(16);
     });
 
     afterEach(async () => {
@@ -1168,8 +1169,8 @@ describeIntegration('migrations 001-013', ({ url }) => {
       return row.id;
     };
 
-    it('is the last migration, and every request so far is a simple one without an account', async () => {
-      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+    it('is applied after 015, and every request so far is a simple one without an account', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 16));
       const { id } = await insertEstimate(suite().db);
 
       expect(await suite().db('estimates').where({ id }).first()).toMatchObject({ request_kind: 'simple', customer_id: null });
@@ -1209,6 +1210,94 @@ describeIntegration('migrations 001-013', ({ url }) => {
         `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = 'estimates' AND column_name IN ('customer_id','request_kind')`,
         [suite().schema]
       ).then((r: { rows: unknown[] }) => r.rows)).toEqual([]);
+
+      await migrateTo(16);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+    });
+  });
+
+  // Migration 017: the detailed quote (working copy and revisions).
+  describe('017 (detailed quotes)', () => {
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    const newQuote = async (estimateId: string, extra: Record<string, unknown> = {}): Promise<string> => {
+      const [row] = await suite().db('detailed_quotes').insert({ estimate_id: estimateId, ...extra }).returning('id');
+      return row.id;
+    };
+
+    it('is the last migration and creates the two tables', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+      const names = await tableNames();
+      expect(names).toContain('detailed_quotes');
+      expect(names).toContain('detailed_quote_revisions');
+    });
+
+    it('starts a quote as a copy that was never published and has changes', async () => {
+      const { id } = await insertEstimate(suite().db);
+
+      const quote = await suite().db('detailed_quotes').where({ id: await newQuote(id) }).first();
+
+      expect(quote).toMatchObject({ items: [], version: 0, edit_seq: 1, has_unpublished_changes: true, published_at: null, fx_rate: null });
+      expect(Number(quote.total_amount)).toBe(0);
+    });
+
+    it('keeps one quote per estimate', async () => {
+      const { id } = await insertEstimate(suite().db);
+      await newQuote(id);
+
+      await expect(newQuote(id)).rejects.toMatchObject({ code: UNIQUE });
+    });
+
+    it('keeps the exchange rate and its currency together, and the rate above 0', async () => {
+      const a = await insertEstimate(suite().db);
+      const b = await insertEstimate(suite().db);
+      const c = await insertEstimate(suite().db);
+
+      await expect(newQuote(a.id, { fx_currency: 'USD' })).rejects.toMatchObject({ code: CHECK });
+      await expect(newQuote(a.id, { fx_rate: 1330.79 })).rejects.toMatchObject({ code: CHECK });
+      await expect(newQuote(a.id, { fx_currency: 'USD', fx_rate: 0 })).rejects.toMatchObject({ code: CHECK });
+      await expect(newQuote(b.id, { fx_currency: 'USD', fx_rate: 1330.79 })).resolves.toBeTruthy();
+      expect(Number((await suite().db('detailed_quotes').where({ estimate_id: b.id }).first()).fx_rate)).toBe(1330.79);
+      await expect(newQuote(c.id)).resolves.toBeTruthy();
+    });
+
+    it('refuses a negative total, a negative version and an edit counter below 1', async () => {
+      const a = await insertEstimate(suite().db);
+      await expect(newQuote(a.id, { total_amount: -1 })).rejects.toMatchObject({ code: CHECK });
+      await expect(newQuote(a.id, { version: -1 })).rejects.toMatchObject({ code: CHECK });
+      await expect(newQuote(a.id, { edit_seq: 0 })).rejects.toMatchObject({ code: CHECK });
+    });
+
+    it('keeps one revision per version, and removes quotes and revisions with the estimate', async () => {
+      const { id } = await insertEstimate(suite().db);
+      const quoteId = await newQuote(id);
+      const revision = { quote_id: quoteId, version: 1, snapshot: JSON.stringify({ total_amount: 1 }) };
+      await suite().db('detailed_quote_revisions').insert(revision);
+
+      await expect(suite().db('detailed_quote_revisions').insert(revision)).rejects.toMatchObject({ code: UNIQUE });
+      await expect(suite().db('detailed_quote_revisions').insert({ ...revision, version: 0 })).rejects.toMatchObject({ code: CHECK });
+
+      await suite().db('estimates').where({ id }).del();
+
+      for (const table of ['detailed_quotes', 'detailed_quote_revisions']) {
+        expect(await suite().db(table).count({ n: '*' }).first()).toMatchObject({ n: '0' });
+      }
+    });
+
+    it('rolls back to the schema of 016, and applies again to the same schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+
+      await migrateDownOne(suite().db);
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 16));
+      expect(await tableNames()).not.toContain('detailed_quotes');
 
       await migrateEverything(suite().db);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);

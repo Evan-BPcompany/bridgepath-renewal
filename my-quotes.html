@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>내 견적 - Bridge Path</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="customer-auth.css">
+    <link rel="stylesheet" href="my-quotes.css">
+</head>
+
+<body data-auth-page="my-quotes">
+    <header class="auth-header">
+        <a class="auth-logo" href="index.html">Bridge Path</a>
+        <div class="mq-header-actions">
+            <span class="mq-who" id="whoName" hidden></span>
+            <button class="mq-logout" id="logoutBtn" type="button" hidden>로그아웃</button>
+            <a class="auth-header-link" href="estimate.html">AI 가상견적 받기</a>
+        </div>
+    </header>
+
+    <main class="mq-main" id="main" aria-live="polite">
+        <p class="mq-loading" id="loading">불러오는 중…</p>
+
+        <!-- 목록 -->
+        <section id="viewList" hidden>
+            <h1>내 견적</h1>
+            <p class="mq-lead">요청한 견적과 담당자 상세견적을 확인할 수 있어요.</p>
+            <p class="mq-empty" id="listEmpty" hidden>아직 요청한 견적이 없어요. <a href="estimate.html">AI 가상견적 받으러 가기</a></p>
+            <ul class="mq-list" id="list"></ul>
+        </section>
+
+        <!-- 한 건 -->
+        <section id="viewDetail" hidden>
+            <p><a class="mq-back" href="my-quotes.html">← 내 견적 목록</a></p>
+            <h1 id="detailTitle"></h1>
+            <p class="mq-lead" id="detailMeta"></p>
+
+            <div class="mq-waiting" id="waiting" hidden>
+                <h2>담당자가 확인하고 있어요</h2>
+                <p>담당자 상세견적은 업무일 기준 2~3일 정도 걸릴 수 있어요. 작성되면 이 화면에서 확인할 수 있어요.</p>
+            </div>
+
+            <article class="mq-quote" id="quote" hidden>
+                <div class="mq-quote-head">
+                    <h2>담당자 상세견적</h2>
+                    <span class="mq-badge mq-expired" id="expired" hidden>유효기간이 지났어요</span>
+                </div>
+                <p class="mq-lead" id="quoteMeta"></p>
+
+                <div class="mq-table-wrap">
+                    <table class="mq-table">
+                        <caption class="sr-only">견적 항목</caption>
+                        <thead>
+                            <tr><th scope="col">항목</th><th scope="col" class="num">수량</th><th scope="col" class="num">단가</th><th scope="col" class="num">금액</th></tr>
+                        </thead>
+                        <tbody id="quoteItems"></tbody>
+                        <tfoot>
+                            <tr><th scope="row" colspan="3">합계</th><td class="num"><strong id="quoteTotal"></strong></td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <dl class="mq-facts" id="quoteFacts"></dl>
+
+                <section class="mq-note" id="noteBox" hidden>
+                    <h3>담당자 안내</h3>
+                    <p id="quoteNote"></p>
+                </section>
+
+                <p class="mq-help">궁금한 점은 접수번호 <strong id="helpReceipt"></strong>를 알려 주시면 빠르게 확인할 수 있어요.</p>
+            </article>
+        </section>
+
+        <p class="mq-error" id="error" role="alert" hidden></p>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="customer-auth.js"></script>
+    <script src="my-quotes.js"></script>
+</body>
+</html>

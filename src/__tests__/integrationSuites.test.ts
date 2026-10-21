@@ -11,6 +11,7 @@ const EXPECTED_SUITES = [
   'adminAuth',
   'adminEstimates',
   'customerAccounts',
+  'detailedQuotes',
   'emailOutbox',
   'estimates',
   'estimatesFiles',
@@ -22,7 +23,7 @@ const EXPECTED_SUITES = [
 ];
 
 describe('integration suites: what they may and may not do (no database needed)', () => {
-  it('there are the eleven expected suites', () => {
+  it('there are the twelve expected suites', () => {
     expect(suites.map(file => file.replace('.int.test.ts', '')).sort()).toEqual(EXPECTED_SUITES);
   });
 

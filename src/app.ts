@@ -11,6 +11,8 @@ import adminAuthRouter from './routes/adminAuth';
 import { createAdminAccountRouter } from './routes/adminAccount';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
 import { createCustomerAuthRouter } from './routes/customerAuth';
+import { createCustomerEstimatesRouter } from './routes/customerEstimates';
+import { requireCustomer } from './middleware/customerAuth';
 import estimatesRouter from './routes/estimates';
 import estimatePreviewRouter from './routes/estimatePreview';
 import estimateImageAnalysisRouter from './routes/estimateImageAnalysis';
@@ -102,6 +104,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
     '/admin/estimates',
     createAdminEstimatesRouter({ mutationLimiter: limiters.mutation })
   );
+
+  // The signed-in customer's own requests and the detailed quotes published for them.
+  app.use('/api/customers/me/estimates', limiters.customerRead, requireCustomer, createCustomerEstimatesRouter());
 
   // Customer accounts: sign-up with an e-mail code, login, Google/Kakao. The limiters sit on the
   // routes themselves (they count only what each route needs to count).

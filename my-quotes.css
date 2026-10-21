@@ -1,0 +1,237 @@
+/* The "내 견적" page (my-quotes.html). Shares the header of the account pages (customer-auth.css). */
+.mq-main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 16px 80px;
+}
+
+.mq-main h1 {
+    margin: 0 0 8px;
+    font-size: 1.5rem;
+}
+
+.mq-lead {
+    margin: 0 0 20px;
+    font-size: 0.88rem;
+    color: #444;
+    line-height: 1.5;
+}
+
+.mq-loading,
+.mq-empty {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.mq-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mq-who {
+    font-size: 0.82rem;
+    color: #444;
+}
+
+.mq-logout {
+    border: 1px solid #bdbdbd;
+    background: #fff;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.mq-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.mq-card {
+    display: block;
+    padding: 16px 18px;
+    border: 1px solid #e1e1e1;
+    border-radius: 12px;
+    color: #111;
+    text-decoration: none;
+}
+
+.mq-card:hover {
+    border-color: #151515;
+}
+
+.mq-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.mq-card-meta {
+    margin: 6px 0 0;
+    font-size: 0.82rem;
+    color: #666;
+}
+
+.mq-card-state {
+    margin: 8px 0 0;
+    font-size: 0.88rem;
+    color: #444;
+}
+
+.mq-card-state.mq-ready {
+    color: #0b7a3b;
+    font-weight: 700;
+}
+
+.mq-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #f0f0f0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.mq-badge.mq-detailed {
+    background: #e8efff;
+    color: #1d3a8a;
+}
+
+.mq-badge.mq-expired {
+    background: #fde8e8;
+    color: #b00020;
+}
+
+.mq-back {
+    font-size: 0.85rem;
+    color: #333;
+}
+
+.mq-waiting {
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: #f3f6ff;
+}
+
+.mq-waiting h2 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+}
+
+.mq-waiting p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.mq-quote {
+    margin-top: 8px;
+    padding: 20px;
+    border: 1px solid #d7deef;
+    border-radius: 12px;
+}
+
+.mq-quote-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.mq-quote-head h2 {
+    margin: 0 0 6px;
+    font-size: 1.1rem;
+}
+
+.mq-table-wrap {
+    overflow-x: auto;
+}
+
+.mq-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.mq-table th,
+.mq-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #ececec;
+    text-align: left;
+}
+
+.mq-table .num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.mq-table tfoot th,
+.mq-table tfoot td {
+    border-bottom: 0;
+    font-size: 1rem;
+}
+
+.mq-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    margin: 18px 0 0;
+    font-size: 0.88rem;
+}
+
+.mq-facts dt {
+    color: #666;
+}
+
+.mq-facts dd {
+    margin: 0;
+}
+
+.mq-note {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f7f7f7;
+}
+
+.mq-note h3 {
+    margin: 0 0 6px;
+    font-size: 0.9rem;
+}
+
+.mq-note p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.mq-help {
+    margin: 18px 0 0;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.mq-error {
+    margin: 16px 0 0;
+    color: #d6001c;
+    font-size: 0.88rem;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
+
+[hidden] {
+    display: none !important;
+}

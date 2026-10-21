@@ -215,6 +215,11 @@
         // Completes an account that lacks the consent and/or the mobile phone (Google/Kakao sign-in).
         // Only what is given is sent: { privacy_consent, privacy_consent_version, phone }.
         complete: function (payload, fetchImpl) { return call('POST', '/me/complete', payload, fetchImpl); },
+        // The requests of the signed-in customer, and one of them with the quote published for it.
+        myEstimates: function (fetchImpl) { return call('GET', '/me/estimates', undefined, fetchImpl); },
+        myEstimate: function (receiptId, fetchImpl) {
+            return call('GET', '/me/estimates/' + encodeURIComponent(receiptId), undefined, fetchImpl);
+        },
         resetRequest: function (email, fetchImpl) { return call('POST', '/password-reset/request', { email: email }, fetchImpl); },
         resetConfirm: function (email, code, newPassword, fetchImpl) {
             return call('POST', '/password-reset/confirm', { email: email, code: code, new_password: newPassword }, fetchImpl);

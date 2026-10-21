@@ -112,7 +112,8 @@ beforeEach(() => {
     'POST /admin/token/refresh': () => ({ status: 401, body: { error: 'No refresh token provided' } }),
     'GET /admin/me': () => ({ status: 401, body: { error: 'No access token provided' } }),
     'GET /admin/estimates': () => ({ status: 200, body: { success: true, data: [item()], pagination: { page: 1, limit: 20, total: 1, total_pages: 1 } } }),
-    [`GET /admin/estimates/${ID}`]: () => ({ status: 200, body: detail() })
+    [`GET /admin/estimates/${ID}`]: () => ({ status: 200, body: detail() }),
+    [`GET /admin/estimates/${ID}/quote`]: () => ({ status: 200, body: { success: true, data: { estimate_id: ID, has_account: true, quote: null, revisions: [] } } })
   };
   g.fetch = fakeFetch();
   g.scrollTo = jest.fn();
@@ -483,7 +484,7 @@ describe('one request', () => {
 
     expect($('#screenTitle').textContent).toBe('접수 BP20261021001');
     expect($$('#detailBody h3').map(h => h.textContent)).toEqual([
-      '고객 정보', '제품 사양', '첨부 파일 (1)', '상태 변경', '상태 이력', '내부 메모 (1)'
+      '고객 정보', '제품 사양', '첨부 파일 (1)', '담당자 상세견적', '상태 변경', '상태 이력', '내부 메모 (1)'
     ]);
     const customer = section('secCustomer').textContent;
     expect(customer).toContain('Kim');
@@ -817,5 +818,289 @@ describe('the parts of the address', () => {
     expect(app.parseHash('')).toEqual({ name: 'list', query: {} });
     expect(app.buildHash({ status: 'quoted', q: '', page: '' })).toBe('#/estimates?status=quoted');
     expect(app.buildHash({})).toBe('#/estimates');
+  });
+});
+
+
+// The detailed quote section of one request: written here, shown to the customer once published.
+describe('the detailed quote of a request', () => {
+  const QUOTE = {
+    id: 'q1', items: [{ name: '아세테이트 프레임', quantity: 500, unit_price: 12000, amount: 6000000 }], total_amount: 6000000, currency: 'KRW',
+    fx_currency: 'USD', fx_rate: 1330.79, valid_until: '2099-12-31', lead_time: '주문 후 약 6주', customer_note: '샘플 확인 후 확정',
+    version: 0, edit_seq: 1, has_unpublished_changes: true, created_at: '2026-10-21T03:00:00.000Z', updated_at: '2026-10-21T03:00:00.000Z',
+    published_at: null, updated_by: { id: 'u1', username: 'master' }
+  };
+  const quoteRoute = (quote: unknown, extra: Record<string, unknown> = {}) => {
+    routes[`GET /admin/estimates/${ID}/quote`] = () => ({
+      status: 200, body: { success: true, data: { estimate_id: ID, has_account: true, quote, revisions: [], ...extra } }
+    });
+  };
+  const QUOTE_URL = `/admin/estimates/${ID}/quote`;
+  const card = (): any => section('secQuote');
+  const fillRow = (row: any, name: string, quantity: string, price: string): void => {
+    type(row.querySelector('.q-name'), name);
+    type(row.querySelector('.q-quantity'), quantity);
+    type(row.querySelector('.q-price'), price);
+  };
+  const rowsOf = (): any[] => $$('#quoteRows tr');
+  const click = (element: any): void => element.dispatchEvent(new g.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  beforeEach(() => signedIn());
+
+  it('starts empty: nothing written yet, one blank row, and the total 0', async () => {
+    await open(`#/estimates/${ID}`);
+
+    expect($('#quoteState').textContent).toBe('아직 작성하지 않았어요.');
+    expect(rowsOf()).toHaveLength(1);
+    expect($('#quoteTotal').textContent).toBe('0원');
+    expect(card().textContent).toContain('원가, 공장 정보 같은 내부 내용은 쓰지 말고');
+  });
+
+  it('counts the total as the amounts are typed, and adds and removes rows', async () => {
+    await open(`#/estimates/${ID}`);
+    fillRow(rowsOf()[0], '프레임', '500', '12000');
+    click($('#quoteAddRow'));
+    fillRow(rowsOf()[1], '케이스', '500', '800');
+
+    expect(rowsOf()[0].querySelector('.q-amount').textContent).toBe('6,000,000원');
+    expect($('#quoteTotal').textContent).toBe('6,400,000원');
+
+    click(rowsOf()[0].querySelector('.q-remove'));
+    expect(rowsOf()).toHaveLength(1);
+    expect($('#quoteTotal').textContent).toBe('400,000원');
+  });
+
+  it('stops at 30 rows', async () => {
+    await open(`#/estimates/${ID}`);
+    for (let i = 0; i < 40; i += 1) {
+      click($('#quoteAddRow'));
+    }
+    expect(rowsOf()).toHaveLength(30);
+  });
+
+  it('says what is wrong before it sends anything', async () => {
+    await open(`#/estimates/${ID}`);
+
+    submit($('#quoteForm'));
+    await settle();
+    expect($('#quoteError').textContent).toBe('항목 1의 이름을 적어 주세요.');
+
+    fillRow(rowsOf()[0], '프레임', '0', '12000');
+    submit($('#quoteForm'));
+    expect($('#quoteError').textContent).toBe('항목 1의 수량은 1 이상의 정수로 적어 주세요.');
+
+    fillRow(rowsOf()[0], '프레임', '5', '12.5');
+    submit($('#quoteForm'));
+    expect($('#quoteError').textContent).toContain('단가는 0 이상의 정수');
+
+    fillRow(rowsOf()[0], '프레임', '5', '100');
+    choose($('#quoteCurrency'), 'USD');
+    submit($('#quoteForm'));
+    expect($('#quoteError').textContent).toBe('환율은 통화와 환율을 함께 적어 주세요.');
+    expect(callsTo('PUT', QUOTE_URL)).toHaveLength(0);
+  });
+
+  it('saves a first draft with the items and the optional parts, and no counter', async () => {
+    routes[`PUT ${QUOTE_URL}`] = () => ({ status: 200, body: { success: true, data: QUOTE } });
+    await open(`#/estimates/${ID}`);
+    fillRow(rowsOf()[0], '아세테이트 프레임', '500', '12000');
+    choose($('#quoteCurrency'), 'USD');
+    type($('#quoteRate'), '1330.79');
+    type($('#quoteValidUntil'), '2099-12-31');
+    type($('#quoteLeadTime'), '주문 후 약 6주');
+    type($('#quoteNote'), '샘플 확인 후 확정');
+
+    submit($('#quoteForm'));
+    await settle();
+
+    expect(callsTo('PUT', QUOTE_URL)[0].body).toEqual({
+      items: [{ name: '아세테이트 프레임', quantity: 500, unit_price: 12000 }],
+      fx_currency: 'USD', fx_rate: 1330.79, valid_until: '2099-12-31', lead_time: '주문 후 약 6주', customer_note: '샘플 확인 후 확정'
+    });
+    expect($('#notice').textContent).toContain('임시저장했어요');
+    // The section is drawn again from the server.
+    expect(callsTo('GET', QUOTE_URL).length).toBeGreaterThan(1);
+  });
+
+  it('shows a saved draft, and sends the counter of the save it was made from', async () => {
+    quoteRoute(QUOTE);
+    routes[`PUT ${QUOTE_URL}`] = () => ({ status: 200, body: { success: true, data: { ...QUOTE, edit_seq: 2 } } });
+    await open(`#/estimates/${ID}`);
+
+    expect($('#quoteState').textContent).toBe('임시저장됨 · 고객에게는 아직 보이지 않아요.');
+    expect(rowsOf()[0].querySelector('.q-name').value).toBe('아세테이트 프레임');
+    expect(rowsOf()[0].querySelector('.q-amount').textContent).toBe('6,000,000원');
+    expect($('#quoteCurrency').value).toBe('USD');
+    expect($('#quoteRate').value).toBe('1330.79');
+    expect($('#quoteValidUntil').value).toBe('2099-12-31');
+    expect($('#quoteNote').value).toBe('샘플 확인 후 확정');
+
+    type($('#quoteLeadTime'), '주문 후 약 8주');
+    submit($('#quoteForm'));
+    await settle();
+
+    expect(callsTo('PUT', QUOTE_URL)[0].body).toMatchObject({ expected_edit_seq: 1, lead_time: '주문 후 약 8주' });
+  });
+
+  it('tells a published quote from one with changes, and lists the publications', async () => {
+    quoteRoute(
+      { ...QUOTE, version: 2, has_unpublished_changes: true },
+      {
+        revisions: [
+          { version: 2, published_at: '2026-10-22T05:00:00.000Z', published_by: { id: 'u1', username: 'master' } },
+          { version: 1, published_at: '2026-10-21T05:00:00.000Z', published_by: null }
+        ]
+      }
+    );
+    await open(`#/estimates/${ID}`);
+
+    expect($('#quoteState').textContent).toBe('v2 게시됨 · 게시하지 않은 변경이 있어요. 고객에게는 v2이 보여요.');
+    expect($$('.quote-revisions li').map(li => li.textContent)).toEqual(['v2 · 2026-10-22 14:00 · master', 'v1 · 2026-10-21 14:00']);
+  });
+
+  it('says "latest" for a quote that was published and not changed since', async () => {
+    quoteRoute({ ...QUOTE, version: 1, has_unpublished_changes: false });
+    await open(`#/estimates/${ID}`);
+
+    expect($('#quoteState').textContent).toBe('v1 게시됨 (최신) · 고객에게 보여요.');
+  });
+
+  it('puts what the staff wrote in as text only', async () => {
+    quoteRoute({ ...QUOTE, items: [{ name: '<img src=x onerror=alert(1)>', quantity: 1, unit_price: 1, amount: 1 }], customer_note: '<script>alert(2)</script>' });
+    await open(`#/estimates/${ID}`);
+
+    expect(rowsOf()[0].querySelector('.q-name').value).toBe('<img src=x onerror=alert(1)>');
+    expect(card().querySelector('img')).toBeNull();
+    expect(card().querySelector('script')).toBeNull();
+  });
+
+  it('explains that a request without an account cannot be quoted on the site, and shows no form', async () => {
+    quoteRoute(null, { has_account: false });
+    await open(`#/estimates/${ID}`);
+
+    expect(card().textContent).toContain('로그인하지 않고 보낸 접수');
+    expect($('#quoteForm')).toBeNull();
+  });
+
+  it('shows the answer of the server when saving fails, with the fields named in Korean', async () => {
+    routes[`PUT ${QUOTE_URL}`] = () => ({
+      status: 400,
+      body: { code: 'VALIDATION_ERROR', error: 'Invalid quote', details: [{ field: 'items[1].unit_price', message: 'x' }, { field: 'valid_until', message: 'y' }] }
+    });
+    await open(`#/estimates/${ID}`);
+    fillRow(rowsOf()[0], '프레임', '5', '100');
+
+    submit($('#quoteForm'));
+    await settle();
+
+    expect($('#quoteError').textContent).toBe('입력한 내용을 확인해 주세요. (항목 2 단가, 견적 유효기간)');
+    expect($('#quoteError').hidden).toBe(false);
+  });
+
+  it('warns when a colleague saved first, and keeps what is typed', async () => {
+    quoteRoute(QUOTE);
+    routes[`PUT ${QUOTE_URL}`] = () => ({ status: 409, body: { code: 'QUOTE_CONFLICT', error: 'x' } });
+    await open(`#/estimates/${ID}`);
+    type($('#quoteLeadTime'), '내가 쓴 값');
+
+    submit($('#quoteForm'));
+    await settle();
+
+    expect($('#quoteError').textContent).toContain('다른 담당자가 먼저 견적을 고쳤어요');
+    expect($('#notice').className).toContain('warning');
+    expect($('#quoteLeadTime').value).toBe('내가 쓴 값');
+  });
+
+  describe('publishing', () => {
+    it('asks first, with the total, and does nothing when it is cancelled', async () => {
+      quoteRoute(QUOTE);
+      await open(`#/estimates/${ID}`);
+
+      click($('#quotePublish'));
+      expect($('#quoteConfirm').hidden).toBe(false);
+      expect($('#quoteConfirm').textContent).toContain('6,000,000원');
+      expect($('#quoteConfirm').textContent).toContain('고객이 내 견적에서 이 견적을 바로 볼 수 있어요');
+
+      click($('#quotePublishNo'));
+      expect($('#quoteConfirm').hidden).toBe(true);
+      expect(callsTo('POST', `${QUOTE_URL}/publish`)).toHaveLength(0);
+      expect(callsTo('PUT', QUOTE_URL)).toHaveLength(0);
+    });
+
+    it('publishes a saved copy as it is: no save in between, the save it publishes is named', async () => {
+      quoteRoute(QUOTE);
+      routes[`POST ${QUOTE_URL}/publish`] = () => ({ status: 200, body: { success: true, data: { ...QUOTE, version: 1, has_unpublished_changes: false } } });
+      await open(`#/estimates/${ID}`);
+
+      click($('#quotePublish'));
+      click($('#quotePublishYes'));
+      await settle();
+
+      expect(callsTo('PUT', QUOTE_URL)).toHaveLength(0);
+      expect(callsTo('POST', `${QUOTE_URL}/publish`)[0].body).toEqual({ expected_edit_seq: 1 });
+      expect($('#notice').textContent).toContain('고객에게 게시했어요 (v1)');
+    });
+
+    it('saves what was changed first, then publishes that save', async () => {
+      quoteRoute(QUOTE);
+      routes[`PUT ${QUOTE_URL}`] = () => ({ status: 200, body: { success: true, data: { ...QUOTE, edit_seq: 2 } } });
+      routes[`POST ${QUOTE_URL}/publish`] = () => ({ status: 200, body: { success: true, data: { ...QUOTE, edit_seq: 2, version: 1, has_unpublished_changes: false } } });
+      await open(`#/estimates/${ID}`);
+      type($('#quoteLeadTime'), '주문 후 약 8주');
+
+      click($('#quotePublish'));
+      click($('#quotePublishYes'));
+      await settle();
+
+      expect(callsTo('PUT', QUOTE_URL)[0].body).toMatchObject({ expected_edit_seq: 1, lead_time: '주문 후 약 8주' });
+      expect(callsTo('POST', `${QUOTE_URL}/publish`)[0].body).toEqual({ expected_edit_seq: 2 });
+    });
+
+    it('does not publish what is not valid, and says why', async () => {
+      await open(`#/estimates/${ID}`);
+
+      click($('#quotePublish'));
+
+      expect($('#quoteError').textContent).toBe('항목 1의 이름을 적어 주세요.');
+      expect($('#quoteConfirm').hidden).toBe(true);
+    });
+
+    it.each([
+      ['QUOTE_INCOMPLETE', 400, '게시하려면 항목이 1개 이상'],
+      ['QUOTE_CONFLICT', 409, '다른 담당자가 먼저 견적을 고쳤어요']
+    ])('shows %s and lets the staff try again', async (code, status, text) => {
+      quoteRoute(QUOTE);
+      routes[`POST ${QUOTE_URL}/publish`] = () => ({ status, body: { code, error: 'x' } });
+      await open(`#/estimates/${ID}`);
+
+      click($('#quotePublish'));
+      click($('#quotePublishYes'));
+      await settle();
+
+      expect($('#quoteError').textContent).toContain(text);
+      expect($('#quoteSave').disabled).toBe(false);
+    });
+  });
+
+  it('says so in the notice, and draws the section again, when it was published meanwhile', async () => {
+    quoteRoute(QUOTE);
+    routes[`POST ${QUOTE_URL}/publish`] = () => ({ status: 409, body: { code: 'NOTHING_TO_PUBLISH', error: 'x' } });
+    await open(`#/estimates/${ID}`);
+    const before = callsTo('GET', QUOTE_URL).length;
+
+    click($('#quotePublish'));
+    click($('#quotePublishYes'));
+    await settle();
+
+    expect($('#notice').textContent).toContain('게시한 뒤로 바뀐 내용이 없어요');
+    expect(callsTo('GET', QUOTE_URL).length).toBe(before + 1);
+  });
+
+  it('says why the quote cannot be loaded', async () => {
+    routes[`GET /admin/estimates/${ID}/quote`] = () => ({ status: 500, body: { error: 'x' } });
+    await open(`#/estimates/${ID}`);
+
+    expect(card().querySelector('.error').textContent).toContain('서버에 문제가 생겼어요');
+    expect($('#quoteForm')).toBeNull();
   });
 });
