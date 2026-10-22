@@ -216,6 +216,7 @@ describe('Admin estimates API (mocked database)', () => {
           'customer_type',
           'file_count',
           'id',
+          'open_inquiries',
           'receipt_id',
           'request_kind',
           'status',

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { isUuid, requireJson, sendError } from '../middleware/adminValidation';
-import { QuoteError, getQuoteContext, publishQuote, saveQuote } from '../services/adminQuoteService';
+import { QuoteError, getContactDefaults, getQuoteContext, publishQuote, saveQuote } from '../services/adminQuoteService';
 import { parseQuoteInput } from '../utils/detailedQuote';
 import { logAdminAudit } from '../utils/auditLog';
 import logger from '../utils/logger';
@@ -17,7 +17,10 @@ const MESSAGES: Record<string, { http: number; message: string }> = {
   },
   QUOTE_CONFLICT: { http: 409, message: 'The quote was changed by someone else since it was loaded' },
   NO_QUOTE: { http: 404, message: 'There is no quote to publish for this estimate' },
-  QUOTE_INCOMPLETE: { http: 400, message: 'The quote needs at least one item, a total above 0 and a validity date that is not past' },
+  QUOTE_INCOMPLETE: {
+    http: 400,
+    message: 'The quote needs at least one item, a total above 0, the name, e-mail and phone of the staff member, and a validity date that is not past'
+  },
   NOTHING_TO_PUBLISH: { http: 409, message: 'The quote has not changed since it was published' }
 };
 
@@ -44,7 +47,8 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       sendError(res, 404, 'ESTIMATE_NOT_FOUND', 'Estimate not found');
       return;
     }
-    res.json({ success: true, data: context });
+    const contact_defaults = await getContactDefaults(req.admin!);
+    res.json({ success: true, data: { ...context, contact_defaults } });
   } catch (err) {
     answerError(res, err, 'quote.read', { admin_id: req.admin!.id, role: req.admin!.role, estimate_id: String(id), ip: req.ip });
   }

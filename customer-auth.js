@@ -220,6 +220,10 @@
         myEstimate: function (receiptId, fetchImpl) {
             return call('GET', '/me/estimates/' + encodeURIComponent(receiptId), undefined, fetchImpl);
         },
+        // A question (300 characters) or a request for a consultation about the quote of one request.
+        sendInquiry: function (receiptId, payload, fetchImpl) {
+            return call('POST', '/me/estimates/' + encodeURIComponent(receiptId) + '/inquiries', payload, fetchImpl);
+        },
         resetRequest: function (email, fetchImpl) { return call('POST', '/password-reset/request', { email: email }, fetchImpl); },
         resetConfirm: function (email, code, newPassword, fetchImpl) {
             return call('POST', '/password-reset/confirm', { email: email, code: code, new_password: newPassword }, fetchImpl);

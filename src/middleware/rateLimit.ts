@@ -77,6 +77,8 @@ export interface RateLimiters {
   customerCode: RequestHandler;
   // GET /api/customers/me/estimates...: per client IP.
   customerRead: RequestHandler;
+  // POST /api/customers/me/estimates/:receipt_id/inquiries: per client IP.
+  customerInquiry: RequestHandler;
 }
 
 export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
@@ -98,6 +100,7 @@ export function createRateLimiters(settings: RateLimitSettings): RateLimiters {
     customerLogin: build(settings.customerLogin, { keyGenerator: clientKey, skipSuccessfulRequests: true }),
     customerSignup: build(settings.customerSignup, { keyGenerator: clientKey }),
     customerCode: build(settings.customerCode, { keyGenerator: clientKey }),
-    customerRead: build(settings.customerRead, { keyGenerator: clientKey })
+    customerRead: build(settings.customerRead, { keyGenerator: clientKey }),
+    customerInquiry: build(settings.customerInquiry, { keyGenerator: clientKey })
   };
 }

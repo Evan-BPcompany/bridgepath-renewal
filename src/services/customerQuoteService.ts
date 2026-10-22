@@ -1,5 +1,6 @@
 import { getPool } from '../config/database';
 import { todayInKorea } from '../utils/detailedQuote';
+import { OwnInquiry, listOwnInquiries } from './quoteInquiryService';
 
 // What a signed-in customer may read about their own requests and the detailed quote the staff
 // published for them. Never the internal status, the staff's memos, files or who wrote the quote:
@@ -27,11 +28,15 @@ export interface PublishedQuote {
   expired: boolean;
   lead_time: string | null;
   customer_note: string | null;
+  // The staff member the customer can ask: written on the quote by the staff.
+  contact: { name: string | null; email: string | null; phone: string | null };
 }
 
 export interface OwnEstimateDetail {
   estimate: { receipt_id: string; category: string; request_kind: string; created_at: string; quantity: number | null };
   quote: PublishedQuote | null;
+  // What the customer asked about the quote, and the answers.
+  inquiries: OwnInquiry[];
 }
 
 type Row = Record<string, any>;
@@ -76,7 +81,12 @@ function toPublishedQuote(row: Row, today: string): PublishedQuote {
     valid_until: validUntil,
     expired: validUntil !== null && validUntil < today,
     lead_time: snapshot.lead_time ?? null,
-    customer_note: snapshot.customer_note ?? null
+    customer_note: snapshot.customer_note ?? null,
+    contact: {
+      name: snapshot.contact_name ?? null,
+      email: snapshot.contact_email ?? null,
+      phone: snapshot.contact_phone ?? null
+    }
   };
 }
 
@@ -110,6 +120,7 @@ export async function getOwnEstimate(customerId: string, receiptId: string, now:
       created_at: iso(estimate.created_at),
       quantity: estimate.quantity === null || estimate.quantity === undefined ? null : Number(estimate.quantity)
     },
-    quote: revision.rows[0] ? toPublishedQuote(revision.rows[0], todayInKorea(now)) : null
+    quote: revision.rows[0] ? toPublishedQuote(revision.rows[0], todayInKorea(now)) : null,
+    inquiries: await listOwnInquiries(customerId, estimate.id)
   };
 }

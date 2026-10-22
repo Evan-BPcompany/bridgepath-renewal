@@ -369,7 +369,9 @@
                 items.forEach(function (item) {
                     body.appendChild(h('tr', {}, [
                         h('td', {}, [h('a', { href: '#/estimates/' + encodeURIComponent(item.id), text: item.receipt_id })].concat(
-                            item.request_kind === 'detailed' ? [h('span', { class: 'tag tag-detailed', text: '상세견적' })] : []
+                            (item.request_kind === 'detailed' ? [h('span', { class: 'tag tag-detailed', text: '상세견적' })] : []).concat(
+                                item.open_inquiries > 0 ? [h('span', { class: 'tag tag-inquiry', text: '문의 ' + item.open_inquiries })] : []
+                            )
                         )),
                         h('td', { text: labels.formatDateTime(item.created_at) }),
                         h('td', {}, [badge(item.status)]),
@@ -525,6 +527,7 @@
             var rows = h('tbody', { id: 'quoteRows' });
             var totalCell = h('strong', { id: 'quoteTotal' });
             var formError = h('p', { id: 'quoteError', class: 'error', role: 'alert', hidden: true });
+            var usedDefault = false;
             var dirty = !quote;
 
             function number(value) {
@@ -584,9 +587,26 @@
             var rate = h('input', { id: 'quoteRate', type: 'number', step: '0.0001', min: '0', inputmode: 'decimal', value: quote && quote.fx_rate ? String(quote.fx_rate) : '' });
             var validUntil = h('input', { id: 'quoteValidUntil', type: 'date', value: quote && quote.valid_until ? quote.valid_until : '' });
             var leadTime = h('input', { id: 'quoteLeadTime', type: 'text', maxlength: '200', value: quote && quote.lead_time ? quote.lead_time : '' });
+
+            // The staff member the customer can ask: shown with the quote. It starts from what this staff member
+            // used last time (the screen has to save it before publishing when it comes from there).
+            var defaults = context.contact_defaults || {};
+            function contactValue(own, fallback) {
+                if (quote && quote[own]) {
+                    return quote[own];
+                }
+                if (fallback) {
+                    usedDefault = true;
+                }
+                return fallback || '';
+            }
+            var contactName = h('input', { id: 'quoteContactName', type: 'text', maxlength: '50', autocomplete: 'off', value: contactValue('contact_name', defaults.name) });
+            var contactEmail = h('input', { id: 'quoteContactEmail', type: 'email', maxlength: '100', autocomplete: 'off', value: contactValue('contact_email', defaults.email) });
+            var contactPhone = h('input', { id: 'quoteContactPhone', type: 'tel', maxlength: '20', autocomplete: 'off', value: contactValue('contact_phone', defaults.phone) });
+            dirty = dirty || usedDefault;
             var note = h('textarea', { id: 'quoteNote', rows: '4', maxlength: '2000' });
             note.value = quote && quote.customer_note ? quote.customer_note : '';
-            [currency, rate, validUntil, leadTime, note].forEach(function (control) {
+            [currency, rate, validUntil, leadTime, note, contactName, contactEmail, contactPhone].forEach(function (control) {
                 control.addEventListener('input', markDirty);
                 control.addEventListener('change', markDirty);
             });
@@ -607,6 +627,9 @@
                     labeled('납기 예상', leadTime, '예: 주문 후 약 6주')
                 ]),
                 labeled('고객 안내 메모', note, '고객에게 그대로 보여요. (2,000자까지)'),
+                h('h4', { text: '담당자 연락처' }),
+                h('p', { class: 'hint', text: '견적과 함께 고객에게 보여요. 고객이 질문하거나 전화를 요청하면 이 담당자가 답해요. 게시하려면 세 가지 모두 필요해요.' }),
+                h('div', { class: 'quote-grid' }, [labeled('이름', contactName), labeled('이메일', contactEmail), labeled('전화', contactPhone)]),
                 formError,
                 h('div', { class: 'actions' }, [saveButton, publishButton]),
                 confirmBox
@@ -651,6 +674,15 @@
                 }
                 if (note.value.trim()) {
                     body.customer_note = note.value.trim();
+                }
+                if (contactName.value.trim()) {
+                    body.contact_name = contactName.value.trim();
+                }
+                if (contactEmail.value.trim()) {
+                    body.contact_email = contactEmail.value.trim();
+                }
+                if (contactPhone.value.trim()) {
+                    body.contact_phone = contactPhone.value.trim();
                 }
                 if (editSeq !== null) {
                     body.expected_edit_seq = editSeq;
@@ -717,6 +749,11 @@
                     formError.hidden = false;
                     return;
                 }
+                if (!collected.body.contact_name || !collected.body.contact_email || !collected.body.contact_phone) {
+                    formError.textContent = '고객이 연락할 담당자의 이름, 이메일, 전화를 모두 적어 주세요.';
+                    formError.hidden = false;
+                    return;
+                }
                 clear(confirmBox);
                 var yes = h('button', { type: 'button', id: 'quotePublishYes', class: 'primary', text: '게시하기' });
                 var no = h('button', { type: 'button', id: 'quotePublishNo', text: '취소' });
@@ -764,6 +801,127 @@
                     return h('li', { text: 'v' + revision.version + ' · ' + labels.formatDateTime(revision.published_at) + (revision.published_by ? ' · ' + revision.published_by.username : '') });
                 })));
             }
+        }
+
+
+        // ------------------------------------------------------------------------------------------
+        // What the customer asked about the published quote: short questions (the staff answer in
+        // writing) and requests for a consultation (the staff phone the customer).
+
+        var INQUIRY_ANSWER_MAX = 500;
+        var INQUIRY_NOTE_MAX = 300;
+
+        function inquiryStatusText(inquiry) {
+            if (inquiry.status === 'open') {
+                return inquiry.kind === 'consultation' ? '전화 대기' : '답변 대기';
+            }
+            return inquiry.kind === 'consultation' ? '통화 완료' : '답변 완료';
+        }
+
+        function loadInquiries(id, card, heading) {
+            var mine = turn;
+            api.inquiries(id).then(function (answer) {
+                if (mine !== turn || !card.isConnected) {
+                    return;
+                }
+                while (card.childNodes.length > 1) {
+                    card.removeChild(card.lastChild);
+                }
+                if (!answer.ok) {
+                    card.appendChild(h('p', { class: 'error', role: 'alert', text: answer.message }));
+                    return;
+                }
+                var items = answer.data || [];
+                var open = items.filter(function (item) { return item.status === 'open'; }).length;
+                heading.textContent = '고객 문의 (' + items.length + (open > 0 ? ' · 처리 대기 ' + open : '') + ')';
+                if (items.length === 0) {
+                    card.appendChild(h('p', { class: 'empty', text: '고객이 남긴 질문이나 심층상담 요청이 아직 없어요.' }));
+                    return;
+                }
+                var list = h('ul', { class: 'inquiries' });
+                items.forEach(function (item) { list.appendChild(drawInquiry(id, card, heading, item)); });
+                card.appendChild(list);
+            });
+        }
+
+        function drawInquiry(id, card, heading, inquiry) {
+            var isConsultation = inquiry.kind === 'consultation';
+            var top = h('p', { class: 'inquiry-top' }, [
+                h('span', { class: 'badge badge-' + (inquiry.status === 'open' ? 'new' : 'done'), text: inquiryStatusText(inquiry) }),
+                h('strong', { text: isConsultation ? '심층상담 요청' : '질문' }),
+                h('span', { class: 'muted', text: labels.formatDateTime(inquiry.created_at) + ' · 견적 v' + inquiry.quote_version + '을 보고 남김' })
+            ]);
+            var body = h('li', { class: 'inquiry' + (inquiry.status === 'open' ? ' inquiry-open' : '') }, [top]);
+
+            if (isConsultation) {
+                body.appendChild(definitionList([
+                    ['전화할 번호', inquiry.phone, 'inquiry-phone'],
+                    ['편한 시간', labels.pick(labels.PREFERRED_TIME, inquiry.preferred_time || 'any', inquiry.preferred_time)],
+                    ['고객 메모', inquiry.body, 'long']
+                ]));
+            } else {
+                body.appendChild(h('p', { class: 'long inquiry-text', text: inquiry.body }));
+            }
+
+            if (inquiry.status !== 'open') {
+                var who = (inquiry.handled_by ? inquiry.handled_by.username : '') + (inquiry.handled_at ? ' · ' + labels.formatDateTime(inquiry.handled_at) : '');
+                if (inquiry.answer) {
+                    body.appendChild(h('p', { class: 'muted', text: (isConsultation ? '통화 메모' : '답변') + ' · ' + who }));
+                    body.appendChild(h('p', { class: 'long inquiry-answer', text: inquiry.answer }));
+                } else {
+                    body.appendChild(h('p', { class: 'muted', text: who }));
+                }
+                return body;
+            }
+
+            // Open: the staff answer, or say that they phoned.
+            var field = h(isConsultation ? 'input' : 'textarea', Object.assign(
+                { id: 'inquiryAnswer-' + inquiry.id, maxlength: String(isConsultation ? INQUIRY_NOTE_MAX : INQUIRY_ANSWER_MAX) },
+                isConsultation ? { type: 'text' } : { rows: '3' }
+            ));
+            var error = h('p', { class: 'error', role: 'alert', hidden: true });
+            var button = h('button', {
+                type: 'submit', class: 'primary', text: isConsultation ? '통화 완료로 표시' : '답변 남기기'
+            });
+            var form = h('form', { class: 'inquiry-form', novalidate: true }, [
+                labeled(
+                    isConsultation ? '통화 메모 (선택)' : '답변',
+                    field,
+                    isConsultation
+                        ? '고객에게 전화한 뒤 눌러 주세요. 메모는 고객에게도 보여요. (' + INQUIRY_NOTE_MAX + '자까지)'
+                        : '고객이 "내 견적"에서 보고, 이메일로도 알림이 가요. (' + INQUIRY_ANSWER_MAX + '자까지)'
+                ),
+                error,
+                button
+            ]);
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                var text = field.value.trim();
+                if (!isConsultation && !text) {
+                    error.textContent = '답변을 적어 주세요.';
+                    error.hidden = false;
+                    field.focus();
+                    return;
+                }
+                button.disabled = true;
+                error.hidden = true;
+                var call = isConsultation ? api.doneInquiry(id, inquiry.id, text) : api.answerInquiry(id, inquiry.id, text);
+                call.then(function (result) {
+                    button.disabled = false;
+                    if (!result.ok) {
+                        error.textContent = result.message;
+                        error.hidden = false;
+                        if (result.code === 'ALREADY_HANDLED') {
+                            loadInquiries(id, card, heading);
+                        }
+                        return;
+                    }
+                    say(isConsultation ? '통화 완료로 표시했어요.' : '답변을 남겼어요. 고객에게 이메일로 알려요.', 'success');
+                    loadInquiries(id, card, heading);
+                });
+            });
+            body.appendChild(form);
+            return body;
         }
 
         function viewDetail(id) {
@@ -844,6 +1002,10 @@
                 // ---- the detailed quote (for the customer to read on the site)
                 var quoteCard = section('담당자 상세견적', [h('p', { class: 'hint', text: '불러오는 중…' })], 'secQuote');
                 loadQuote(id, quoteCard);
+
+                // ---- what the customer asked about it
+                var inquiryCard = section('고객 문의', [h('p', { class: 'hint', text: '불러오는 중…' })], 'secInquiries');
+                loadInquiries(id, inquiryCard, inquiryCard.querySelector('h3'));
 
                 // status change
                 var allowed = data.allowed_transitions || [];

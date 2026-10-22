@@ -1,4 +1,4 @@
-import { buildQuotePublishedEmail, quoteLink } from '../utils/quoteEmail';
+import { buildAdminInquiryEmail, buildInquiryAnsweredEmail, buildQuotePublishedEmail, quoteLink } from '../utils/quoteEmail';
 
 const LINK = 'https://www.example.com/my-quotes.html?r=BP20261021001';
 const input = (over: Record<string, unknown> = {}) => ({ receiptId: 'BP20261021001', version: 1, link: LINK, ...over });
@@ -51,5 +51,48 @@ describe('buildQuotePublishedEmail', () => {
     expect(body).not.toContain('<b>');
     expect(body).toContain('&lt;img src=x onerror=alert(1)&gt;');
     expect(body).toContain('href="https://x.test/?a=&quot;b&quot;&amp;c=&lt;d&gt;"');
+  });
+});
+
+
+describe('buildInquiryAnsweredEmail', () => {
+  const input = (over: Record<string, unknown> = {}) => ({ receiptId: 'BP20261021001', link: LINK, ...over });
+
+  it('tells the customer that an answer is there, with a link, and not the answer', () => {
+    const { subject, body } = buildInquiryAnsweredEmail(input());
+
+    expect(subject).toBe('[Bridge Path] 남기신 질문에 답변이 달렸어요 (접수번호 BP20261021001)');
+    expect(body).toContain(`href="${LINK}"`);
+    expect(body).toContain('로그인한 뒤 확인할 수 있어요');
+    expect(body).not.toContain('문의사항');
+  });
+
+  it('escapes what goes into the page, and puts the support address in when there is one', () => {
+    const { body } = buildInquiryAnsweredEmail(input({ receiptId: '<img src=x>', supportEmail: 'help@example.com' }));
+
+    expect(body).not.toContain('<img');
+    expect(body).toContain('help@example.com로 연락주세요');
+  });
+});
+
+describe('buildAdminInquiryEmail', () => {
+  it('tells the staff that a question came in, without a word of it', () => {
+    const { subject, body } = buildAdminInquiryEmail({ receiptId: 'BP20261021001', kind: 'question' });
+
+    expect(subject).toBe('[Bridge Path] 새 질문: BP20261021001');
+    expect(body).toContain('고객의 질문이 들어왔습니다');
+    expect(body).not.toContain('전화해 주세요');
+  });
+
+  it('asks the staff to phone for a consultation, without the number', () => {
+    const { subject, body } = buildAdminInquiryEmail({ receiptId: 'BP20261021001', kind: 'consultation' });
+
+    expect(subject).toBe('[Bridge Path] 새 심층상담 요청: BP20261021001');
+    expect(body).toContain('담당자가 고객에게 전화해 주세요');
+    expect(body).not.toMatch(/010|\d{3}-\d{4}/);
+  });
+
+  it('escapes the receipt number', () => {
+    expect(buildAdminInquiryEmail({ receiptId: '<b>x</b>', kind: 'question' }).body).not.toContain('<b>');
   });
 });

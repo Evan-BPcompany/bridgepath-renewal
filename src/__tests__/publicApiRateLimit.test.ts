@@ -65,6 +65,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   customerSignup: BIG,
   customerCode: BIG,
   customerRead: BIG,
+  customerInquiry: BIG,
   ...overrides
 });
 

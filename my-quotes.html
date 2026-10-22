@@ -69,8 +69,54 @@
                     <p id="quoteNote"></p>
                 </section>
 
+                <section class="mq-contact" id="contactBox" hidden>
+                    <h3>담당자 연락처</h3>
+                    <dl class="mq-facts" id="contactFacts"></dl>
+                </section>
+
                 <p class="mq-help">궁금한 점은 접수번호 <strong id="helpReceipt"></strong>를 알려 주시면 빠르게 확인할 수 있어요.</p>
             </article>
+
+            <!-- 견적을 본 뒤: 간단한 질문, 심층상담 요청 -->
+            <section class="mq-ask" id="askBox" hidden>
+                <h2>견적에 대해 궁금한 점이 있으세요?</h2>
+
+                <div class="mq-ask-block">
+                    <h3>간단한 질문 남기기</h3>
+                    <p class="mq-hint">300자 이내로 남겨 주세요. 담당자가 확인해서 이 화면에 답변을 남기고, 이메일로도 알려 드려요. 길게 설명이 필요하면 아래 심층상담을 요청해 주세요.</p>
+                    <form id="questionForm" novalidate>
+                        <label class="sr-only" for="questionText">질문</label>
+                        <textarea id="questionText" rows="4" maxlength="300" placeholder="예: 납기를 2주 줄일 수 있나요?"></textarea>
+                        <p class="mq-counter" id="questionCounter" aria-live="off">0 / 300</p>
+                        <p class="mq-form-error" id="questionError" role="alert" hidden></p>
+                        <button class="auth-button" id="questionSubmit" type="submit">질문 남기기</button>
+                    </form>
+                    <p class="mq-hint" id="questionWaiting" hidden>남긴 질문에 답변을 기다리고 있어요. 답변이 달리면 새 질문을 남길 수 있어요.</p>
+                    <ul class="mq-thread" id="thread"></ul>
+                </div>
+
+                <div class="mq-ask-block">
+                    <h3>심층상담 요청하기</h3>
+                    <p class="mq-hint">담당자가 직접 전화해서 상세견적을 자세히 설명해 드려요. 요청하면 담당자가 확인한 뒤 전화드려요.</p>
+                    <div class="mq-consult-state" id="consultState" hidden></div>
+                    <button class="auth-button" id="consultOpen" type="button">심층상담 요청하기</button>
+                    <form id="consultForm" novalidate hidden>
+                        <label class="auth-label" for="consultPhone">전화받을 번호</label>
+                        <input class="auth-input" id="consultPhone" type="tel" autocomplete="tel" maxlength="20" placeholder="010-1234-5678">
+                        <label class="auth-label" for="consultTime">편한 시간</label>
+                        <select class="auth-input" id="consultTime">
+                            <option value="any">아무 때나</option>
+                            <option value="weekday_am">평일 오전</option>
+                            <option value="weekday_pm">평일 오후</option>
+                        </select>
+                        <label class="auth-label" for="consultNote">상담에서 이야기하고 싶은 것 <span class="auth-optional">(선택, 300자 이내)</span></label>
+                        <textarea id="consultNote" rows="3" maxlength="300"></textarea>
+                        <p class="mq-form-error" id="consultError" role="alert" hidden></p>
+                        <button class="auth-button" id="consultSubmit" type="submit">전화 요청하기</button>
+                        <button class="auth-link" id="consultCancel" type="button">취소</button>
+                    </form>
+                </div>
+            </section>
         </section>
 
         <p class="mq-error" id="error" role="alert" hidden></p>

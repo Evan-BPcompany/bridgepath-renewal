@@ -14,6 +14,7 @@ const ALLOWED_KEYS = [
   'memo_id',
   'quote_id',
   'quote_version',
+  'inquiry_id',
   'from_status',
   'to_status',
   'error_code',

@@ -421,6 +421,11 @@ ul.memos p {
     vertical-align: middle;
 }
 
+.tag-inquiry {
+    background: #fff1d6;
+    color: #8a4b00;
+}
+
 .tag-detailed {
     background: #e8efff;
     color: #1d3a8a;
@@ -463,4 +468,46 @@ ul.memos p {
 .quote-revisions {
     margin: 4px 0 0;
     padding-left: 18px;
+}
+
+.inquiries {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.inquiry {
+    padding: 12px 14px;
+    border: 1px solid #e4e4e4;
+    border-radius: 8px;
+}
+
+.inquiry-open {
+    border-color: #f0c36d;
+    background: #fffaf0;
+}
+
+.inquiry-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+}
+
+.inquiry-text,
+.inquiry-answer {
+    margin: 0 0 8px;
+    white-space: pre-wrap;
+}
+
+.inquiry-phone {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.inquiry-form {
+    margin-top: 10px;
 }

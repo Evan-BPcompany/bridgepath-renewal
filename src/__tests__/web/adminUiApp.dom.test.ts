@@ -113,7 +113,8 @@ beforeEach(() => {
     'GET /admin/me': () => ({ status: 401, body: { error: 'No access token provided' } }),
     'GET /admin/estimates': () => ({ status: 200, body: { success: true, data: [item()], pagination: { page: 1, limit: 20, total: 1, total_pages: 1 } } }),
     [`GET /admin/estimates/${ID}`]: () => ({ status: 200, body: detail() }),
-    [`GET /admin/estimates/${ID}/quote`]: () => ({ status: 200, body: { success: true, data: { estimate_id: ID, has_account: true, quote: null, revisions: [] } } })
+    [`GET /admin/estimates/${ID}/quote`]: () => ({ status: 200, body: { success: true, data: { estimate_id: ID, has_account: true, quote: null, revisions: [] } } }),
+    [`GET /admin/estimates/${ID}/inquiries`]: () => ({ status: 200, body: { success: true, data: [] } })
   };
   g.fetch = fakeFetch();
   g.scrollTo = jest.fn();
@@ -484,7 +485,7 @@ describe('one request', () => {
 
     expect($('#screenTitle').textContent).toBe('접수 BP20261021001');
     expect($$('#detailBody h3').map(h => h.textContent)).toEqual([
-      '고객 정보', '제품 사양', '첨부 파일 (1)', '담당자 상세견적', '상태 변경', '상태 이력', '내부 메모 (1)'
+      '고객 정보', '제품 사양', '첨부 파일 (1)', '담당자 상세견적', '고객 문의 (0)', '상태 변경', '상태 이력', '내부 메모 (1)'
     ]);
     const customer = section('secCustomer').textContent;
     expect(customer).toContain('Kim');
@@ -828,6 +829,7 @@ describe('the detailed quote of a request', () => {
     id: 'q1', items: [{ name: '아세테이트 프레임', quantity: 500, unit_price: 12000, amount: 6000000 }], total_amount: 6000000, currency: 'KRW',
     fx_currency: 'USD', fx_rate: 1330.79, valid_until: '2099-12-31', lead_time: '주문 후 약 6주', customer_note: '샘플 확인 후 확정',
     version: 0, edit_seq: 1, has_unpublished_changes: true, created_at: '2026-10-21T03:00:00.000Z', updated_at: '2026-10-21T03:00:00.000Z',
+    contact_name: '김담당', contact_email: 'staff@bridgepath.co.kr', contact_phone: '010-1234-5678',
     published_at: null, updated_by: { id: 'u1', username: 'master' }
   };
   const quoteRoute = (quote: unknown, extra: Record<string, unknown> = {}) => {
@@ -1126,5 +1128,227 @@ describe('the detailed quote of a request', () => {
 
     expect(card().querySelector('.error').textContent).toContain('서버에 문제가 생겼어요');
     expect($('#quoteForm')).toBeNull();
+  });
+});
+
+
+// The contact of the staff member on the quote, and what the customer asked about it.
+describe('the contact of the staff member on the quote', () => {
+  const QUOTE_URL = `/admin/estimates/${ID}/quote`;
+  const baseQuote = {
+    id: 'q1', items: [{ name: '프레임', quantity: 5, unit_price: 100, amount: 500 }], total_amount: 500, currency: 'KRW', fx_currency: null, fx_rate: null,
+    valid_until: null, lead_time: null, customer_note: null, contact_name: null, contact_email: null, contact_phone: null, version: 0, edit_seq: 1,
+    has_unpublished_changes: true, created_at: '2026-10-21T03:00:00.000Z', updated_at: '2026-10-21T03:00:00.000Z', published_at: null, updated_by: null
+  };
+  const route = (quote: unknown, defaults?: Record<string, unknown>) => {
+    routes[`GET /admin/estimates/${ID}/quote`] = () => ({
+      status: 200, body: { success: true, data: { estimate_id: ID, has_account: true, quote, revisions: [], ...(defaults ? { contact_defaults: defaults } : {}) } }
+    });
+  };
+  const click = (element: any): void => element.dispatchEvent(new g.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  beforeEach(() => signedIn());
+
+  it('starts from what the staff member used last time: name, own e-mail and phone', async () => {
+    route(null, { name: '김담당', email: 'staff@bridgepath.co.kr', phone: '010-1234-5678' });
+    await open(`#/estimates/${ID}`);
+
+    expect($('#quoteContactName').value).toBe('김담당');
+    expect($('#quoteContactEmail').value).toBe('staff@bridgepath.co.kr');
+    expect($('#quoteContactPhone').value).toBe('010-1234-5678');
+    expect(section('secQuote').textContent).toContain('견적과 함께 고객에게 보여요');
+  });
+
+  it('sends the contact with a save, and leaves out what is empty', async () => {
+    route(null);
+    routes[`PUT ${QUOTE_URL}`] = () => ({ status: 200, body: { success: true, data: baseQuote } });
+    await open(`#/estimates/${ID}`);
+    type($('#quoteRows .q-name'), '프레임');
+    type($('#quoteRows .q-quantity'), '5');
+    type($('#quoteRows .q-price'), '100');
+    type($('#quoteContactName'), '김담당');
+    type($('#quoteContactPhone'), '010-1234-5678');
+
+    submit($('#quoteForm'));
+    await settle();
+
+    expect(callsTo('PUT', QUOTE_URL)[0].body).toEqual({
+      items: [{ name: '프레임', quantity: 5, unit_price: 100 }], contact_name: '김담당', contact_phone: '010-1234-5678'
+    });
+  });
+
+  it('does not ask for a confirmation to publish until all three are there, and says so', async () => {
+    route({ ...baseQuote, contact_name: '김담당', contact_phone: '010-1234-5678' });
+    await open(`#/estimates/${ID}`);
+
+    click($('#quotePublish'));
+
+    expect($('#quoteError').textContent).toBe('고객이 연락할 담당자의 이름, 이메일, 전화를 모두 적어 주세요.');
+    expect($('#quoteConfirm').hidden).toBe(true);
+    expect(callsTo('POST', `${QUOTE_URL}/publish`)).toHaveLength(0);
+  });
+
+  it('saves a contact that only came from the defaults before it publishes', async () => {
+    route({ ...baseQuote, version: 0 }, { name: '김담당', email: 'staff@bridgepath.co.kr', phone: '010-1234-5678' });
+    routes[`PUT ${QUOTE_URL}`] = () => ({ status: 200, body: { success: true, data: { ...baseQuote, edit_seq: 2, contact_name: '김담당', contact_email: 'staff@bridgepath.co.kr', contact_phone: '010-1234-5678' } } });
+    routes[`POST ${QUOTE_URL}/publish`] = () => ({ status: 200, body: { success: true, data: { ...baseQuote, edit_seq: 2, version: 1, has_unpublished_changes: false, notification_queued: true } } });
+    await open(`#/estimates/${ID}`);
+
+    click($('#quotePublish'));
+    click($('#quotePublishYes'));
+    await settle();
+
+    expect(callsTo('PUT', QUOTE_URL)[0].body).toMatchObject({ expected_edit_seq: 1, contact_email: 'staff@bridgepath.co.kr' });
+    expect(callsTo('POST', `${QUOTE_URL}/publish`)[0].body).toEqual({ expected_edit_seq: 2 });
+  });
+
+  it('shows the contact that is on the saved quote, not the defaults', async () => {
+    route({ ...baseQuote, contact_name: '박담당', contact_email: 'park@bridgepath.co.kr', contact_phone: '02-123-4567' }, { name: '김담당', email: 'staff@bridgepath.co.kr', phone: '010-1' });
+    await open(`#/estimates/${ID}`);
+
+    expect($('#quoteContactName').value).toBe('박담당');
+    expect($('#quoteContactEmail').value).toBe('park@bridgepath.co.kr');
+    expect($('#quoteContactPhone').value).toBe('02-123-4567');
+  });
+});
+
+describe('what the customer asked about the quote', () => {
+  const INQUIRIES_URL = `/admin/estimates/${ID}/inquiries`;
+  const INQ = '6a000000-0000-4000-8000-000000000001';
+  const inquiry = (over: Record<string, unknown> = {}) => ({
+    id: INQ, kind: 'question', quote_version: 1, body: '납기를 2주 줄일 수 있나요?', phone: null, preferred_time: null, status: 'open', answer: null,
+    created_at: '2026-10-22T05:00:00.000Z', handled_at: null, handled_by: null, ...over
+  });
+  const route = (items: unknown[]) => {
+    routes[`GET ${INQUIRIES_URL}`] = () => ({ status: 200, body: { success: true, data: items } });
+  };
+  const card = (): any => section('secInquiries');
+
+  beforeEach(() => signedIn());
+
+  it('says that there is nothing yet', async () => {
+    await open(`#/estimates/${ID}`);
+
+    expect(card().querySelector('h3').textContent).toBe('고객 문의 (0)');
+    expect(card().textContent).toContain('아직 없어요');
+  });
+
+  it('shows a waiting question first, with the count in the title, and a place to answer', async () => {
+    route([inquiry({ id: 'x2', status: 'answered', answer: '가능합니다.', handled_at: '2026-10-22T06:00:00.000Z', handled_by: { id: 'u1', username: 'master' }, body: '이전 질문' }), inquiry()]);
+    await open(`#/estimates/${ID}`);
+
+    expect(card().querySelector('h3').textContent).toBe('고객 문의 (2 · 처리 대기 1)');
+    expect($$('.inquiry')).toHaveLength(2);
+    expect($('.inquiry-open .inquiry-text').textContent).toBe('납기를 2주 줄일 수 있나요?');
+    expect($('.inquiry-open .badge').textContent).toBe('답변 대기');
+    expect($('.inquiry-open .inquiry-top').textContent).toContain('견적 v1을 보고 남김');
+    expect($(`#inquiryAnswer-${INQ}`).getAttribute('maxlength')).toBe('500');
+    expect(card().textContent).toContain('가능합니다.');
+    expect(card().textContent).toContain('master');
+  });
+
+  it('puts what the customer wrote in as text only', async () => {
+    route([inquiry({ body: '<img src=x onerror=alert(1)>' })]);
+    await open(`#/estimates/${ID}`);
+
+    expect(card().querySelector('img')).toBeNull();
+    expect($('.inquiry-text').textContent).toBe('<img src=x onerror=alert(1)>');
+  });
+
+  it('answers a question, and draws the list again', async () => {
+    route([inquiry()]);
+    routes[`POST ${INQUIRIES_URL}/${INQ}/answer`] = () => ({ status: 200, body: { success: true, data: inquiry({ status: 'answered', answer: '가능합니다.' }) } });
+    await open(`#/estimates/${ID}`);
+    const before = callsTo('GET', INQUIRIES_URL).length;
+
+    type($(`#inquiryAnswer-${INQ}`), '  가능합니다.  ');
+    submit($('.inquiry-form'));
+    await settle();
+
+    expect(callsTo('POST', `${INQUIRIES_URL}/${INQ}/answer`)[0].body).toEqual({ answer: '가능합니다.' });
+    expect($('#notice').textContent).toContain('고객에게 이메일로 알려요');
+    expect(callsTo('GET', INQUIRIES_URL).length).toBe(before + 1);
+  });
+
+  it('wants a written answer', async () => {
+    route([inquiry()]);
+    await open(`#/estimates/${ID}`);
+
+    submit($('.inquiry-form'));
+    await settle();
+
+    expect($('.inquiry-form .error').textContent).toBe('답변을 적어 주세요.');
+    expect(callsTo('POST', `${INQUIRIES_URL}/${INQ}/answer`)).toHaveLength(0);
+  });
+
+  it('shows a request for a consultation with the number to call, the time and the note', async () => {
+    route([inquiry({ kind: 'consultation', body: '납기 이야기', phone: '010-1234-5678', preferred_time: 'weekday_pm' })]);
+    await open(`#/estimates/${ID}`);
+
+    expect($('.inquiry-open .badge').textContent).toBe('전화 대기');
+    expect($('.inquiry-top strong').textContent).toBe('심층상담 요청');
+    expect($('.inquiry-phone').textContent).toBe('010-1234-5678');
+    expect(card().textContent).toContain('평일 오후');
+    expect(card().textContent).toContain('납기 이야기');
+    expect($('.inquiry-form button').textContent).toBe('통화 완료로 표시');
+  });
+
+  it('marks a consultation done, with the note if there is one', async () => {
+    route([inquiry({ kind: 'consultation', body: null, phone: '010-1234-5678', preferred_time: 'any' })]);
+    routes[`POST ${INQUIRIES_URL}/${INQ}/done`] = () => ({ status: 200, body: { success: true, data: inquiry({ kind: 'consultation', status: 'done' }) } });
+    await open(`#/estimates/${ID}`);
+
+    type($(`#inquiryAnswer-${INQ}`), '내일 다시 통화');
+    submit($('.inquiry-form'));
+    await settle();
+
+    expect(callsTo('POST', `${INQUIRIES_URL}/${INQ}/done`)[0].body).toEqual({ note: '내일 다시 통화' });
+    expect($('#notice').textContent).toContain('통화 완료로 표시했어요');
+  });
+
+  it('marks it done with no note at all', async () => {
+    route([inquiry({ kind: 'consultation', body: null, phone: '010-1234-5678', preferred_time: 'any' })]);
+    routes[`POST ${INQUIRIES_URL}/${INQ}/done`] = () => ({ status: 200, body: { success: true, data: inquiry({ kind: 'consultation', status: 'done' }) } });
+    await open(`#/estimates/${ID}`);
+
+    submit($('.inquiry-form'));
+    await settle();
+
+    expect(callsTo('POST', `${INQUIRIES_URL}/${INQ}/done`)[0].body).toEqual({});
+  });
+
+  it('says so, and draws the list again, when a colleague handled it first', async () => {
+    route([inquiry()]);
+    routes[`POST ${INQUIRIES_URL}/${INQ}/answer`] = () => ({ status: 409, body: { code: 'ALREADY_HANDLED', error: 'x' } });
+    await open(`#/estimates/${ID}`);
+    const before = callsTo('GET', INQUIRIES_URL).length;
+
+    type($(`#inquiryAnswer-${INQ}`), '답변');
+    submit($('.inquiry-form'));
+    await settle();
+
+    expect(callsTo('GET', INQUIRIES_URL).length).toBe(before + 1);
+  });
+
+  it('marks the request in the list when there is something waiting', async () => {
+    routes['GET /admin/estimates'] = () => ({
+      status: 200,
+      body: {
+        success: true,
+        data: [item({ id: 'a', receipt_id: 'BP1', open_inquiries: 2 }), item({ id: 'b', receipt_id: 'BP2', open_inquiries: 0 }), item({ id: 'c', receipt_id: 'BP3' })],
+        pagination: { page: 1, total: 3, total_pages: 1 }
+      }
+    });
+    await open();
+
+    expect($$('table.list tbody tr').map(row => row.querySelector('td').textContent)).toEqual(['BP1문의 2', 'BP2', 'BP3']);
+    expect($$('table.list .tag-inquiry')).toHaveLength(1);
+  });
+
+  it('says why the questions cannot be loaded', async () => {
+    routes[`GET ${INQUIRIES_URL}`] = () => ({ status: 500, body: { error: 'x' } });
+    await open(`#/estimates/${ID}`);
+
+    expect(card().querySelector('.error').textContent).toContain('서버에 문제가 생겼어요');
   });
 });

@@ -95,7 +95,10 @@ describe('Admin detailed quote API (mocked service)', () => {
       const res = await request(app).get(URL).set('Cookie', authCookie('manager'));
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ success: true, data: context });
+      expect(res.body).toEqual({
+        success: true,
+        data: { ...context, contact_defaults: { name: 'staff', email: 'staff@bridgepath.local', phone: null } }
+      });
     });
 
     it('is 404 for an estimate that does not exist and 400 for an id that is not a UUID', async () => {

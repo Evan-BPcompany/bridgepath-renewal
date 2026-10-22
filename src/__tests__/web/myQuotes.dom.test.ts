@@ -32,6 +32,7 @@ const ESTIMATE = { receipt_id: RECEIPT, category: 'eyewear', request_kind: 'deta
 let loaded: LoadedPage | undefined;
 let routes: Record<string, Answer>;
 let calls: string[];
+let bodies: Array<{ key: string; body: any }>;
 let go: jest.Mock;
 
 const flush = async (): Promise<void> => {
@@ -45,6 +46,7 @@ async function open(search = ''): Promise<void> {
   g.fetch = jest.fn(async (url: string, init: any) => {
     const key = `${init.method} ${String(url).replace('http://localhost:4000/api/customers', '')}`;
     calls.push(key);
+    bodies.push({ key, body: init.body ? JSON.parse(init.body) : undefined });
     const answer = routes[key] ?? refuse(404, 'NO_ROUTE');
     return { ok: answer.status >= 200 && answer.status < 300, status: answer.status, json: async () => answer.body };
   });
@@ -56,6 +58,7 @@ async function open(search = ''): Promise<void> {
 
 beforeEach(() => {
   calls = [];
+  bodies = [];
   routes = { 'GET /me': ok({ customer: CUSTOMER }), 'GET /me/estimates': ok({ estimates: [] }) };
 });
 
@@ -291,6 +294,301 @@ describe('signing out', () => {
 
     expect(calls).toContain('POST /logout');
     expect(go).toHaveBeenCalledWith('index.html');
+  });
+});
+
+// The staff member's contact, the short questions and the request for a consultation.
+describe('asking about the quote', () => {
+  const QUOTE_WITH_CONTACT = { ...QUOTE, contact: { name: '김담당', email: 'staff@bridgepath.co.kr', phone: '010-1234-5678' } };
+  const INQ = (over: Record<string, unknown> = {}) => ({
+    id: 'i1', kind: 'question', quote_version: 2, body: '납기를 2주 줄일 수 있나요?', phone: null, preferred_time: null, status: 'open',
+    answer: null, created_at: '2026-10-22T05:00:00.000Z', handled_at: null, ...over
+  });
+  const detail = (quote: unknown, inquiries: unknown[] = []) => ok({ estimate: ESTIMATE, quote, inquiries });
+  const bodiesOf = (key: string): any[] => bodies.filter(item => item.key === key).map(item => item.body);
+  const PATH = `GET /me/estimates/${RECEIPT}`;
+  const POST = `POST /me/estimates/${RECEIPT}/inquiries`;
+  const type = (selector: string, value: string): void => {
+    const element = $(selector);
+    element.value = value;
+    element.dispatchEvent(new g.Event('input', { bubbles: true }));
+  };
+  const submit = (selector: string): void => $(selector).dispatchEvent(new g.Event('submit', { bubbles: true, cancelable: true }));
+
+  describe('the contact', () => {
+    it('shows the staff member with a link to write and to call, from the quote', async () => {
+      routes[PATH] = detail(QUOTE_WITH_CONTACT);
+
+      await open(`?r=${RECEIPT}`);
+
+      expect($('#contactBox').hidden).toBe(false);
+      expect($$('#contactFacts dt').map(dt => dt.textContent)).toEqual(['이름', '이메일', '전화']);
+      expect($('#contactFacts a[href^="mailto:"]').getAttribute('href')).toBe('mailto:staff@bridgepath.co.kr');
+      expect($('#contactFacts a[href^="tel:"]').getAttribute('href')).toBe('tel:01012345678');
+      expect($('#contactFacts dd').textContent).toBe('김담당');
+    });
+
+    it('is not shown for a quote published before it had a contact', async () => {
+      routes[PATH] = detail(QUOTE);
+
+      await open(`?r=${RECEIPT}`);
+
+      expect($('#contactBox').hidden).toBe(true);
+    });
+
+    it('makes a link only of what looks like an address or a number, and puts the rest in as text', async () => {
+      routes[PATH] = detail({ ...QUOTE, contact: { name: '<b>김</b>', email: 'javascript:alert(1)', phone: '<img src=x>' } });
+
+      await open(`?r=${RECEIPT}`);
+
+      expect($('#contactFacts a')).toBeNull();
+      expect($('#contactFacts b')).toBeNull();
+      expect($('#contactFacts img')).toBeNull();
+      expect($$('#contactFacts dd').map(dd => dd.textContent)).toEqual(['<b>김</b>', 'javascript:alert(1)', '<img src=x>']);
+    });
+  });
+
+  describe('who can ask', () => {
+    it('is shown under a published quote, and not before one', async () => {
+      routes[PATH] = detail(null);
+      await open(`?r=${RECEIPT}`);
+      expect($('#askBox').hidden).toBe(true);
+      loaded?.dispose();
+
+      routes[PATH] = detail(QUOTE_WITH_CONTACT);
+      await open(`?r=${RECEIPT}`);
+      expect($('#askBox').hidden).toBe(false);
+      expect($('#questionForm').hidden).toBe(false);
+      expect($('#questionText').getAttribute('maxlength')).toBe('300');
+      expect($('#questionCounter').textContent).toBe('0 / 300');
+    });
+  });
+
+  describe('a short question', () => {
+    beforeEach(() => {
+      routes[PATH] = detail(QUOTE_WITH_CONTACT);
+    });
+
+    it('counts the characters as they are typed, a Korean letter as one', async () => {
+      await open(`?r=${RECEIPT}`);
+
+      type('#questionText', '납기를 줄일 수 있나요?');
+
+      expect($('#questionCounter').textContent).toBe('13 / 300');
+    });
+
+    it('asks for a text before it sends anything', async () => {
+      await open(`?r=${RECEIPT}`);
+
+      submit('#questionForm');
+      await flush();
+
+      expect($('#questionError').textContent).toBe('질문을 적어 주세요.');
+      expect(bodiesOf(POST)).toEqual([]);
+    });
+
+    it('refuses 301 characters (the page stops at 300, the check is for a pasted text)', async () => {
+      await open(`?r=${RECEIPT}`);
+      $('#questionText').removeAttribute('maxlength');
+
+      type('#questionText', '가'.repeat(301));
+      submit('#questionForm');
+      await flush();
+
+      expect($('#questionError').textContent).toBe('300자 이내로 적어 주세요.');
+      expect(bodiesOf(POST)).toEqual([]);
+    });
+
+    it('sends the question, empties the box and shows it with "waiting for an answer"', async () => {
+      routes[POST] = { status: 201, body: { inquiry: INQ() } };
+      await open(`?r=${RECEIPT}`);
+      routes[PATH] = detail(QUOTE_WITH_CONTACT, [INQ()]);
+
+      type('#questionText', '  납기를 2주 줄일 수 있나요?  ');
+      submit('#questionForm');
+      await flush();
+
+      expect(bodiesOf(POST)).toEqual([{ kind: 'question', body: '납기를 2주 줄일 수 있나요?' }]);
+      expect($('#questionText').value).toBe('');
+      expect($$('.mq-thread-item')).toHaveLength(1);
+      expect($('.mq-thread-item .mq-text').textContent).toBe('납기를 2주 줄일 수 있나요?');
+      expect($('.mq-thread-item .mq-pending').textContent).toBe('답변을 기다리고 있어요');
+      expect($('#questionForm').hidden).toBe(true);
+      expect($('#questionWaiting').hidden).toBe(false);
+    });
+
+    it('shows the answer of the staff, and lets the customer ask again', async () => {
+      routes[PATH] = detail(QUOTE_WITH_CONTACT, [
+        INQ({ status: 'answered', answer: '가능합니다.\n수량이 500개 이상이면요.', handled_at: '2026-10-23T01:00:00.000Z' })
+      ]);
+
+      await open(`?r=${RECEIPT}`);
+
+      expect($('.mq-thread-item').textContent).toContain('담당자 답변 · 2026-10-23');
+      expect($('.mq-answer').textContent).toBe('가능합니다.\n수량이 500개 이상이면요.');
+      expect($('.mq-pending')).toBeNull();
+      expect($('#questionForm').hidden).toBe(false);
+      expect($('#questionWaiting').hidden).toBe(true);
+    });
+
+    it('lists the questions newest first, as text only', async () => {
+      routes[PATH] = detail(QUOTE_WITH_CONTACT, [
+        INQ({ id: 'a', body: '첫 질문', status: 'answered', answer: '<script>alert(1)</script>', handled_at: '2026-10-22T06:00:00.000Z' }),
+        INQ({ id: 'b', body: '<img src=x onerror=alert(2)>', created_at: '2026-10-23T05:00:00.000Z' })
+      ]);
+
+      await open(`?r=${RECEIPT}`);
+
+      expect($$('.mq-thread-item .mq-text').map(item => item.textContent)).toEqual(['<img src=x onerror=alert(2)>', '첫 질문', '<script>alert(1)</script>']);
+      expect($('.mq-thread img')).toBeNull();
+      expect($('.mq-thread script')).toBeNull();
+    });
+
+    it.each([
+      ['ALREADY_OPEN', 409, '앞서 남기신 것이 아직 처리되지 않았어요'],
+      ['TOO_MANY', 429, '더 이상 남길 수 없어요'],
+      ['NO_QUOTE', 409, '게시된 뒤에 남길 수 있어요']
+    ])('says why with %s, and keeps what was typed', async (code, status, text) => {
+      routes[POST] = refuse(status, code);
+      await open(`?r=${RECEIPT}`);
+
+      type('#questionText', '질문입니다');
+      submit('#questionForm');
+      await flush();
+
+      expect($('#questionError').textContent).toContain(text);
+      expect($('#questionText').value).toBe('질문입니다');
+      expect($('#questionSubmit').disabled).toBe(false);
+    });
+
+    it('sends one at a time', async () => {
+      let release!: () => void;
+      routes[POST] = { status: 201, body: { inquiry: INQ() } };
+      await open(`?r=${RECEIPT}`);
+      const original = g.fetch;
+      g.fetch = jest.fn(
+        (url: string, init: any) => (init.method === 'POST' ? new Promise(resolve => { release = () => resolve({ ok: true, status: 201, json: async () => ({ inquiry: INQ() }) }); }) : original(url, init))
+      );
+
+      type('#questionText', '질문입니다');
+      submit('#questionForm');
+      submit('#questionForm');
+      await flush();
+
+      expect(g.fetch.mock.calls.filter((call: any[]) => call[1].method === 'POST')).toHaveLength(1);
+      expect($('#questionSubmit').disabled).toBe(true);
+      release();
+      await flush();
+    });
+  });
+
+  describe('a request for a consultation', () => {
+    beforeEach(() => {
+      routes[PATH] = detail(QUOTE_WITH_CONTACT);
+    });
+
+    it('opens a form with the phone of the account, and closes it again', async () => {
+      routes['GET /me'] = ok({ customer: { ...CUSTOMER, phone: '010-1234-5678' } });
+      await open(`?r=${RECEIPT}`);
+      expect($('#consultForm').hidden).toBe(true);
+
+      $('#consultOpen').click();
+
+      expect($('#consultForm').hidden).toBe(false);
+      expect($('#consultOpen').hidden).toBe(true);
+      expect($('#consultPhone').value).toBe('010-1234-5678');
+
+      $('#consultCancel').click();
+      expect($('#consultForm').hidden).toBe(true);
+      expect($('#consultOpen').hidden).toBe(false);
+    });
+
+    it('checks the phone before it sends', async () => {
+      await open(`?r=${RECEIPT}`);
+      $('#consultOpen').click();
+
+      type('#consultPhone', '');
+      submit('#consultForm');
+      expect($('#consultError').textContent).toBe('휴대폰 번호를 입력해 주세요.');
+      type('#consultPhone', 'call me');
+      submit('#consultForm');
+      expect($('#consultError').textContent).toContain('전화번호는 숫자 7~15자리');
+      expect(bodiesOf(POST)).toEqual([]);
+    });
+
+    it('sends the phone, the time and the note, and shows that the staff will call', async () => {
+      routes[POST] = { status: 201, body: { inquiry: INQ({ kind: 'consultation' }) } };
+      await open(`?r=${RECEIPT}`);
+      routes[PATH] = detail(QUOTE_WITH_CONTACT, [
+        INQ({ kind: 'consultation', body: '납기 이야기', phone: '010-9999-8888', preferred_time: 'weekday_pm' })
+      ]);
+      $('#consultOpen').click();
+
+      type('#consultPhone', ' 010-9999-8888 ');
+      $('#consultTime').value = 'weekday_pm';
+      type('#consultNote', ' 납기 이야기 ');
+      submit('#consultForm');
+      await flush();
+
+      expect(bodiesOf(POST)).toEqual([{ kind: 'consultation', phone: '010-9999-8888', preferred_time: 'weekday_pm', body: '납기 이야기' }]);
+      expect($('#consultState').hidden).toBe(false);
+      expect($('#consultState').textContent).toContain('심층상담을 요청했어요');
+      expect($('#consultState').textContent).toContain('010-9999-8888');
+      expect($('#consultState').textContent).toContain('평일 오후');
+      expect($('#consultState').textContent).toContain('납기 이야기');
+      expect($('#consultOpen').hidden).toBe(true);
+      expect($('#consultForm').hidden).toBe(true);
+    });
+
+    it('leaves the note out when there is none', async () => {
+      routes[POST] = { status: 201, body: { inquiry: INQ({ kind: 'consultation' }) } };
+      await open(`?r=${RECEIPT}`);
+      $('#consultOpen').click();
+
+      type('#consultPhone', '010-1234-5678');
+      submit('#consultForm');
+      await flush();
+
+      expect(bodiesOf(POST)).toEqual([{ kind: 'consultation', phone: '010-1234-5678', preferred_time: 'any' }]);
+    });
+
+    it('says "done" for a consultation that is over, and lets the customer ask for another', async () => {
+      routes[PATH] = detail(QUOTE_WITH_CONTACT, [
+        INQ({ kind: 'consultation', status: 'done', body: null, phone: '010-1234-5678', preferred_time: 'any', answer: '다음 주에 샘플 보내기로 함', handled_at: '2026-10-24T02:00:00.000Z' })
+      ]);
+
+      await open(`?r=${RECEIPT}`);
+
+      expect($('#consultState').textContent).toContain('지난 심층상담이 끝났어요 · 2026-10-24');
+      expect($('#consultState').textContent).toContain('다음 주에 샘플 보내기로 함');
+      expect($('#consultOpen').hidden).toBe(false);
+    });
+
+    it('says why with ALREADY_OPEN and keeps the form', async () => {
+      routes[POST] = refuse(409, 'ALREADY_OPEN');
+      await open(`?r=${RECEIPT}`);
+      $('#consultOpen').click();
+
+      type('#consultPhone', '010-1234-5678');
+      submit('#consultForm');
+      await flush();
+
+      expect($('#consultError').textContent).toContain('아직 처리되지 않았어요');
+      expect($('#consultForm').hidden).toBe(false);
+    });
+
+    it('refuses a note over 300 characters', async () => {
+      await open(`?r=${RECEIPT}`);
+      $('#consultOpen').click();
+      $('#consultNote').removeAttribute('maxlength');
+
+      type('#consultPhone', '010-1234-5678');
+      type('#consultNote', '가'.repeat(301));
+      submit('#consultForm');
+
+      expect($('#consultError').textContent).toBe('메모는 300자 이내로 적어 주세요.');
+      expect(bodiesOf(POST)).toEqual([]);
+    });
   });
 });
 

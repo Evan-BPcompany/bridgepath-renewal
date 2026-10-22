@@ -94,6 +94,8 @@ export interface EstimateListItem {
   created_at: string;
   updated_at: string;
   file_count: number;
+  // Questions and consultation requests of the customer that nobody has handled yet.
+  open_inquiries: number;
 }
 
 export async function listEstimates(
@@ -110,7 +112,8 @@ export async function listEstimates(
   const listSql = `
     SELECT e.id, e.receipt_id, e.category, e.status, e.company_name, e.customer_name,
            e.customer_type, e.request_kind, e.created_at, e.updated_at,
-           (SELECT COUNT(*)::int FROM files f WHERE f.estimate_id = e.id) AS file_count
+           (SELECT COUNT(*)::int FROM files f WHERE f.estimate_id = e.id) AS file_count,
+           (SELECT COUNT(*)::int FROM quote_inquiries qi WHERE qi.estimate_id = e.id AND qi.status = 'open') AS open_inquiries
     FROM estimates e
     ${clause}
     ORDER BY ${sortColumn} ${direction}, e.id ASC
@@ -135,7 +138,8 @@ export async function listEstimates(
       request_kind: row.request_kind ?? 'simple',
       created_at: iso(row.created_at),
       updated_at: iso(row.updated_at),
-      file_count: row.file_count
+      file_count: row.file_count,
+      open_inquiries: row.open_inquiries ?? 0
     }))
   };
 }

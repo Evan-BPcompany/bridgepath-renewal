@@ -1,4 +1,4 @@
-import { QUOTE_LIMITS, isRealDate, parseQuoteInput, priceItems, todayInKorea } from '../utils/detailedQuote';
+import { QUOTE_LIMITS, isRealDate, missingContact, parseQuoteInput, priceItems, todayInKorea } from '../utils/detailedQuote';
 
 const TODAY = '2026-10-21';
 const good = (over: Record<string, unknown> = {}) => ({
@@ -8,6 +8,9 @@ const good = (over: Record<string, unknown> = {}) => ({
   valid_until: '2026-11-20',
   lead_time: '주문 후 약 6주',
   customer_note: '샘플 확인 후 확정해 주세요.\n문의는 담당자에게 연락해 주세요.',
+  contact_name: '김담당',
+  contact_email: 'Staff@Bridgepath.co.kr',
+  contact_phone: '010-1234-5678',
   ...over
 });
 const errorsOf = (body: unknown): string[] => {
@@ -47,6 +50,9 @@ describe('parseQuoteInput', () => {
         valid_until: '2026-11-20',
         lead_time: '주문 후 약 6주',
         customer_note: '샘플 확인 후 확정해 주세요.\n문의는 담당자에게 연락해 주세요.',
+        contact_name: '김담당',
+        contact_email: 'staff@bridgepath.co.kr',
+        contact_phone: '010-1234-5678',
         expected_edit_seq: 3
       }
     });
@@ -59,7 +65,8 @@ describe('parseQuoteInput', () => {
       valid: true,
       value: {
         items: [{ name: 'a', quantity: 1, unit_price: 100 }],
-        fx_currency: null, fx_rate: null, valid_until: null, lead_time: null, customer_note: null, expected_edit_seq: null
+        fx_currency: null, fx_rate: null, valid_until: null, lead_time: null, customer_note: null,
+        contact_name: null, contact_email: null, contact_phone: null, expected_edit_seq: null
       }
     });
   });
@@ -147,6 +154,25 @@ describe('parseQuoteInput', () => {
     expect(errorsOf(good({ customer_note: 'a\u0007b' }))).toEqual(['customer_note']);
     expect(errorsOf(good({ customer_note: 7 }))).toEqual(['customer_note']);
     expect(errorsOf(good({ customer_note: '  ' }))).toEqual([]);
+  });
+
+  it('checks the contact of the staff member: a name, an e-mail (kept in lowercase) and a phone', () => {
+    expect(errorsOf(good())).toEqual([]);
+    expect(errorsOf(good({ contact_name: 'x'.repeat(QUOTE_LIMITS.contactNameLength + 1) }))).toEqual(['contact_name']);
+    expect(errorsOf(good({ contact_name: 5 }))).toEqual(['contact_name']);
+    expect(errorsOf(good({ contact_email: 'nope' }))).toEqual(['contact_email']);
+    expect(errorsOf(good({ contact_email: 'a@b' }))).toEqual(['contact_email']);
+    expect(errorsOf(good({ contact_email: `${'x'.repeat(100)}@b.co` }))).toEqual(['contact_email']);
+    expect(errorsOf(good({ contact_phone: 'call me' }))).toEqual(['contact_phone']);
+    expect(errorsOf(good({ contact_phone: '12' }))).toEqual(['contact_phone']);
+    expect(errorsOf(good({ contact_phone: '+82 2-123-4567' }))).toEqual([]);
+  });
+
+  it('lets a draft lack the contact, and says what a quote lacks before it is published', () => {
+    expect(errorsOf(good({ contact_name: null, contact_email: '', contact_phone: undefined }))).toEqual([]);
+    expect(missingContact({ contact_name: null, contact_email: null, contact_phone: null })).toEqual(['contact_name', 'contact_email', 'contact_phone']);
+    expect(missingContact({ contact_name: '김', contact_email: 'a@b.co', contact_phone: null })).toEqual(['contact_phone']);
+    expect(missingContact({ contact_name: '김', contact_email: 'a@b.co', contact_phone: '010-1234-5678' })).toEqual([]);
   });
 
   it('wants a whole number for the save it was made from', () => {

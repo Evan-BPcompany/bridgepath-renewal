@@ -10,7 +10,10 @@ export const QUOTE_LIMITS = {
   unitPriceMax: 100_000_000,
   leadTimeLength: 200,
   noteLength: 2000,
-  fxRateMax: 1_000_000
+  fxRateMax: 1_000_000,
+  contactNameLength: 50,
+  contactEmailLength: 100,
+  contactPhoneLength: 20
 } as const;
 
 export interface QuoteItem {
@@ -30,6 +33,10 @@ export interface QuoteInput {
   valid_until: string | null;
   lead_time: string | null;
   customer_note: string | null;
+  // The staff member who answers for the quote, shown to the customer with it. All three are needed to publish.
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
   // The edit_seq of the working copy this save was made from; null for the first save.
   expected_edit_seq: number | null;
 }
@@ -48,6 +55,8 @@ const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS_NO_NEWLINE = /[\u0000-\u001F\u007F]/;
 const CURRENCY = /^[A-Z]{3}$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_CHARS = /^[0-9+\-()\s]+$/;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export function priceItems(items: QuoteItem[]): { items: PricedQuoteItem[]; total: number } {
@@ -172,6 +181,23 @@ export function parseQuoteInput(body: unknown, today: string = todayInKorea()): 
   const leadTime = optionalText(input.lead_time, 'lead_time', QUOTE_LIMITS.leadTimeLength, false, errors);
   const note = optionalText(input.customer_note, 'customer_note', QUOTE_LIMITS.noteLength, true, errors);
 
+  // ---- the contact: a name, an e-mail and a phone (a draft may lack them; publishing needs all three)
+  const contactName = optionalText(input.contact_name, 'contact_name', QUOTE_LIMITS.contactNameLength, false, errors);
+  let contactEmail = optionalText(input.contact_email, 'contact_email', QUOTE_LIMITS.contactEmailLength, false, errors);
+  if (contactEmail !== null) {
+    contactEmail = contactEmail.toLowerCase();
+    if (!EMAIL.test(contactEmail)) {
+      errors.push({ field: 'contact_email', message: 'must be a valid e-mail address' });
+    }
+  }
+  const contactPhone = optionalText(input.contact_phone, 'contact_phone', QUOTE_LIMITS.contactPhoneLength, false, errors);
+  if (contactPhone !== null) {
+    const digits = contactPhone.replace(/\D/g, '').length;
+    if (!PHONE_CHARS.test(contactPhone) || digits < 7 || digits > 15) {
+      errors.push({ field: 'contact_phone', message: 'must contain 7-15 digits and only digits, spaces, +, -, ( )' });
+    }
+  }
+
   // ---- which copy this save was made from
   let expected: number | null = null;
   if (input.expected_edit_seq !== undefined && input.expected_edit_seq !== null) {
@@ -195,6 +221,18 @@ export function parseQuoteInput(body: unknown, today: string = todayInKorea()): 
   }
   return {
     valid: true,
-    value: { items, fx_currency: fxCurrency, fx_rate: fxRate, valid_until: validUntil, lead_time: leadTime, customer_note: note, expected_edit_seq: expected }
+    value: {
+      items, fx_currency: fxCurrency, fx_rate: fxRate, valid_until: validUntil, lead_time: leadTime, customer_note: note,
+      contact_name: contactName, contact_email: contactEmail, contact_phone: contactPhone, expected_edit_seq: expected
+    }
   };
+}
+
+// What a quote still lacks before it can be published: the staff member the customer can ask.
+export function missingContact(quote: { contact_name: string | null; contact_email: string | null; contact_phone: string | null }): string[] {
+  const missing: string[] = [];
+  if (!quote.contact_name) missing.push('contact_name');
+  if (!quote.contact_email) missing.push('contact_email');
+  if (!quote.contact_phone) missing.push('contact_phone');
+  return missing;
 }

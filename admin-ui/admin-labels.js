@@ -48,6 +48,9 @@
         detailed: '담당자 상세견적 요청'
     });
 
+    // When a customer would like the staff to phone.
+    var PREFERRED_TIME = Object.freeze({ any: '아무 때나', weekday_am: '평일 오전', weekday_pm: '평일 오후' });
+
     var FILE_STATUS = Object.freeze({
         quarantine: '격리 (검사 전)',
         pending_scan: '검사 대기',
@@ -181,7 +184,7 @@
     }
 
     var api = Object.freeze({
-        STATUS: STATUS, STATUS_ORDER: STATUS_ORDER, CATEGORY: CATEGORY, CUSTOMER_TYPE: CUSTOMER_TYPE, REQUEST_KIND: REQUEST_KIND,
+        STATUS: STATUS, STATUS_ORDER: STATUS_ORDER, CATEGORY: CATEGORY, CUSTOMER_TYPE: CUSTOMER_TYPE, REQUEST_KIND: REQUEST_KIND, PREFERRED_TIME: PREFERRED_TIME,
         FILE_STATUS: FILE_STATUS, SCAN_STATUS: SCAN_STATUS, ROLE: ROLE, SPEC_KEY: SPEC_KEY, AI: AI,
         pick: pick, statusLabel: statusLabel, statusTone: statusTone, formatDateTime: formatDateTime,
         formatWon: formatWon, formatBytes: formatBytes, specValue: specValue

@@ -1,6 +1,6 @@
 import { getPool } from '../config/database';
 import { config } from '../config/env';
-import { PricedQuoteItem, QuoteInput, priceItems, todayInKorea } from '../utils/detailedQuote';
+import { PricedQuoteItem, QuoteInput, missingContact, priceItems, todayInKorea } from '../utils/detailedQuote';
 import { buildQuotePublishedEmail, quoteLink } from '../utils/quoteEmail';
 import { queueEmailInTransaction } from './emailService';
 
@@ -29,6 +29,9 @@ export interface WorkingQuote {
   valid_until: string | null;
   lead_time: string | null;
   customer_note: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
   // The number of the last publication (0: never published), the save this copy is, and whether it
   // has been changed since it was published.
   version: number;
@@ -59,7 +62,8 @@ type Row = Record<string, any>;
 const iso = (value: unknown): string => new Date(value as string | number | Date).toISOString();
 
 const QUOTE_COLUMNS = `q.id, q.items, q.total_amount, q.fx_currency, q.fx_rate,
-  to_char(q.valid_until, 'YYYY-MM-DD') AS valid_until, q.lead_time, q.customer_note, q.version, q.edit_seq,
+  to_char(q.valid_until, 'YYYY-MM-DD') AS valid_until, q.lead_time, q.customer_note,
+  q.contact_name, q.contact_email, q.contact_phone, q.version, q.edit_seq,
   q.has_unpublished_changes, q.created_at, q.updated_at, q.published_at, q.updated_by,
   u.username AS updated_by_username`;
 
@@ -74,6 +78,9 @@ function toWorkingQuote(row: Row): WorkingQuote {
     valid_until: row.valid_until ?? null,
     lead_time: row.lead_time ?? null,
     customer_note: row.customer_note ?? null,
+    contact_name: row.contact_name ?? null,
+    contact_email: row.contact_email ?? null,
+    contact_phone: row.contact_phone ?? null,
     version: row.version,
     edit_seq: row.edit_seq,
     has_unpublished_changes: row.has_unpublished_changes === true,
@@ -125,6 +132,24 @@ export async function getQuoteContext(estimateId: string): Promise<QuoteContext 
   };
 }
 
+// What the contact fields of a new quote start with, so a staff member does not type the same thing
+// every time: the name and phone of their latest quote, and their own e-mail.
+export async function getContactDefaults(
+  admin: { id: string; username: string; email: string }
+): Promise<{ name: string; email: string; phone: string | null }> {
+  const last = await getPool().query(
+    `SELECT contact_name, contact_phone FROM detailed_quotes
+     WHERE updated_by = $1 AND contact_phone IS NOT NULL
+     ORDER BY updated_at DESC LIMIT 1`,
+    [admin.id]
+  );
+  return {
+    name: last.rows[0]?.contact_name ?? admin.username,
+    email: admin.email,
+    phone: last.rows[0]?.contact_phone ?? null
+  };
+}
+
 // Saves the working copy. The first save creates it (no expected_edit_seq); every later save has to
 // name the save it was made from, so a change by a colleague is noticed instead of overwritten.
 // The amounts and the total are counted here, from the quantities and unit prices.
@@ -147,15 +172,18 @@ export async function saveQuote(estimateId: string, adminId: string, input: Quot
     input.fx_rate,
     input.valid_until,
     input.lead_time,
-    input.customer_note
+    input.customer_note,
+    input.contact_name,
+    input.contact_email,
+    input.contact_phone
   ];
 
   let saved;
   if (input.expected_edit_seq === null) {
     saved = await pool.query(
       `INSERT INTO detailed_quotes (estimate_id, items, total_amount, fx_currency, fx_rate, valid_until, lead_time,
-                                    customer_note, created_by, updated_by)
-       VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8, $9, $9)
+                                    customer_note, contact_name, contact_email, contact_phone, created_by, updated_by)
+       VALUES ($1, $2::jsonb, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)
        ON CONFLICT (estimate_id) DO NOTHING
        RETURNING id`,
       [estimateId, ...values, adminId]
@@ -164,9 +192,9 @@ export async function saveQuote(estimateId: string, adminId: string, input: Quot
     saved = await pool.query(
       `UPDATE detailed_quotes
        SET items = $2::jsonb, total_amount = $3, fx_currency = $4, fx_rate = $5, valid_until = $6, lead_time = $7,
-           customer_note = $8, updated_by = $9, edit_seq = edit_seq + 1, has_unpublished_changes = true,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE estimate_id = $1 AND edit_seq = $10
+           customer_note = $8, contact_name = $9, contact_email = $10, contact_phone = $11, updated_by = $12,
+           edit_seq = edit_seq + 1, has_unpublished_changes = true, updated_at = CURRENT_TIMESTAMP
+       WHERE estimate_id = $1 AND edit_seq = $13
        RETURNING id`,
       [estimateId, ...values, adminId, input.expected_edit_seq]
     );
@@ -201,7 +229,7 @@ export async function publishQuote(estimateId: string, adminId: string, expected
 
     const found = await client.query(
       `SELECT id, items, total_amount, fx_currency, fx_rate, to_char(valid_until, 'YYYY-MM-DD') AS valid_until,
-              lead_time, customer_note, version, edit_seq, has_unpublished_changes
+              lead_time, customer_note, contact_name, contact_email, contact_phone, version, edit_seq, has_unpublished_changes
        FROM detailed_quotes WHERE estimate_id = $1 FOR UPDATE`,
       [estimateId]
     );
@@ -221,6 +249,7 @@ export async function publishQuote(estimateId: string, adminId: string, expected
       !Array.isArray(row.items) ||
       row.items.length === 0 ||
       Number(row.total_amount) <= 0 ||
+      missingContact(row).length > 0 ||
       (row.valid_until && row.valid_until < todayInKorea())
     ) {
       throw new QuoteError('QUOTE_INCOMPLETE');
@@ -235,7 +264,10 @@ export async function publishQuote(estimateId: string, adminId: string, expected
       fx_rate: row.fx_rate === null ? null : Number(row.fx_rate),
       valid_until: row.valid_until ?? null,
       lead_time: row.lead_time ?? null,
-      customer_note: row.customer_note ?? null
+      customer_note: row.customer_note ?? null,
+      contact_name: row.contact_name,
+      contact_email: row.contact_email,
+      contact_phone: row.contact_phone
     };
 
     await client.query(

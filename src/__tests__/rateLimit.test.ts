@@ -43,6 +43,7 @@ const limits = (overrides: Partial<RateLimitSettings>): RateLimitSettings => ({
   customerSignup: BIG,
   customerCode: BIG,
   customerRead: BIG,
+  customerInquiry: BIG,
   ...overrides
 });
 
@@ -60,7 +61,8 @@ describe('Rate limit configuration', () => {
       customerLogin: { windowMs: 15 * 60 * 1000, max: 10 },
       customerSignup: { windowMs: 60 * 60 * 1000, max: 10 },
       customerCode: { windowMs: 15 * 60 * 1000, max: 20 },
-      customerRead: { windowMs: 60 * 1000, max: 60 }
+      customerRead: { windowMs: 60 * 1000, max: 60 },
+      customerInquiry: { windowMs: 60 * 60 * 1000, max: 20 }
     });
     expect(parseRateLimits({})).toEqual(RATE_LIMIT_DEFAULTS);
     expect(parseTrustProxy(undefined)).toBe(0);
@@ -123,6 +125,7 @@ describe('Rate limit configuration', () => {
     expect(Object.keys(config.rateLimits).sort()).toEqual([
       'api',
       'customerCode',
+      'customerInquiry',
       'customerLogin',
       'customerRead',
       'customerSignup',

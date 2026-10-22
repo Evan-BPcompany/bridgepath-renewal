@@ -49,7 +49,8 @@ export function createTestApp(): Express {
       customerLogin: unlimited,
       customerSignup: unlimited,
       customerCode: unlimited,
-      customerRead: unlimited
+      customerRead: unlimited,
+      customerInquiry: unlimited
     }
   });
 }

@@ -36,7 +36,8 @@ const ALL_MIGRATIONS = [
   '014_sunglasses_base_prices.ts',
   '015_customer_accounts.ts',
   '016_estimate_customer_link.ts',
-  '017_detailed_quotes.ts'
+  '017_detailed_quotes.ts',
+  '018_quote_contact_and_inquiries.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -1219,7 +1220,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
   // Migration 017: the detailed quote (working copy and revisions).
   describe('017 (detailed quotes)', () => {
     beforeEach(async () => {
-      await migrateEverything(suite().db);
+      await migrateTo(17);
     });
 
     afterEach(async () => {
@@ -1233,8 +1234,8 @@ describeIntegration('migrations 001-013', ({ url }) => {
       return row.id;
     };
 
-    it('is the last migration and creates the two tables', async () => {
-      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+    it('is applied after 016 and creates the two tables', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 17));
       const names = await tableNames();
       expect(names).toContain('detailed_quotes');
       expect(names).toContain('detailed_quote_revisions');
@@ -1298,6 +1299,133 @@ describeIntegration('migrations 001-013', ({ url }) => {
       await migrateDownOne(suite().db);
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 16));
       expect(await tableNames()).not.toContain('detailed_quotes');
+
+      await migrateTo(17);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+    });
+  });
+
+  // Migration 018: the contact of the staff member on a quote, and the questions and consultation
+  // requests of the customer about it.
+  describe('018 (quote contact and inquiries)', () => {
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    const setup = async (): Promise<{ estimateId: string; customerId: string }> => {
+      const [customer] = await suite().db('customers').insert({ email: `c${Math.random().toString(36).slice(2)}@example.com` }).returning('id');
+      const { id } = await insertEstimate(suite().db, { customer_id: customer.id });
+      return { estimateId: id, customerId: customer.id };
+    };
+    const inquiry = (estimateId: string, extra: Record<string, unknown> = {}) =>
+      suite().db('quote_inquiries').insert({ estimate_id: estimateId, quote_version: 1, kind: 'question', body: '질문', ...extra }).returning('id');
+    const handled = { status: 'answered', answer: '답변', handled_at: new Date() };
+
+    it('is the last migration: the contact columns on the quote and the table of inquiries', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+      expect(await tableNames()).toContain('quote_inquiries');
+      const columns = await suite().db.raw(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = 'detailed_quotes' AND column_name LIKE 'contact_%' ORDER BY 1`,
+        [suite().schema]
+      );
+      expect(columns.rows.map((row: { column_name: string }) => row.column_name)).toEqual(['contact_email', 'contact_name', 'contact_phone']);
+    });
+
+    it('starts an inquiry open, and a question needs a text and takes no phone', async () => {
+      const { estimateId } = await setup();
+
+      const [{ id }] = await inquiry(estimateId);
+      expect(await suite().db('quote_inquiries').where({ id }).first()).toMatchObject({ status: 'open', handled_at: null, answer: null, kind: 'question' });
+
+      await expect(inquiry(estimateId, { body: null })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { phone: '010-1234-5678', status: 'answered', answer: 'x', handled_at: new Date() })).rejects.toMatchObject({ code: CHECK });
+    });
+
+    it('needs a phone for a consultation, and takes only the three times', async () => {
+      const { estimateId } = await setup();
+      const consultation = { kind: 'consultation', body: null };
+
+      await expect(inquiry(estimateId, consultation)).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { ...consultation, phone: '010-1234-5678', preferred_time: 'night' })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { ...consultation, phone: '010-1234-5678', preferred_time: 'weekday_am' })).resolves.toBeTruthy();
+    });
+
+    it('refuses a kind, a status and a version that do not exist, and a text of 301 characters', async () => {
+      const { estimateId } = await setup();
+
+      await expect(inquiry(estimateId, { kind: 'complaint' })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { status: 'closed' })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { quote_version: 0 })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { body: '가'.repeat(301) })).rejects.toMatchObject({ code: '22001' });
+      await expect(inquiry(estimateId, { body: '가'.repeat(300) })).resolves.toBeTruthy();
+    });
+
+    it('keeps the status in line with the kind and with the time it was handled', async () => {
+      const { estimateId } = await setup();
+
+      // A question is answered, never "done"; a consultation is done, never "answered".
+      await expect(inquiry(estimateId, { status: 'done', answer: 'x', handled_at: new Date() })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { kind: 'consultation', body: null, phone: '010-1234-5678', ...handled })).rejects.toMatchObject({ code: CHECK });
+      // An answered question has an answer; an open one has no time of handling, a handled one has.
+      await expect(inquiry(estimateId, { status: 'answered', answer: null, handled_at: new Date() })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { status: 'answered', answer: 'x', handled_at: null })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, { handled_at: new Date() })).rejects.toMatchObject({ code: CHECK });
+      await expect(inquiry(estimateId, handled)).resolves.toBeTruthy();
+      await expect(inquiry(estimateId, { kind: 'consultation', body: null, phone: '010-1234-5678', status: 'done', handled_at: new Date() })).resolves.toBeTruthy();
+    });
+
+    it('allows one open question and one open consultation per request, and any number of handled ones', async () => {
+      const a = await setup();
+      const b = await setup();
+      const consultation = { kind: 'consultation', body: null, phone: '010-1234-5678' };
+
+      await inquiry(a.estimateId);
+      await expect(inquiry(a.estimateId)).rejects.toMatchObject({ code: UNIQUE });
+      await expect(inquiry(a.estimateId, consultation)).resolves.toBeTruthy();
+      await expect(inquiry(a.estimateId, consultation)).rejects.toMatchObject({ code: UNIQUE });
+      await expect(inquiry(b.estimateId)).resolves.toBeTruthy();
+
+      await inquiry(b.estimateId, handled);
+      await inquiry(b.estimateId, handled);
+      expect(await suite().db('quote_inquiries').where({ estimate_id: b.estimateId }).count({ n: '*' }).first()).toMatchObject({ n: '3' });
+    });
+
+    it('removes the inquiries with the request, and keeps them without the link when the account goes', async () => {
+      const { estimateId, customerId } = await setup();
+      await inquiry(estimateId, { customer_id: customerId });
+
+      await suite().db('customers').where({ id: customerId }).del();
+      expect(await suite().db('quote_inquiries').where({ estimate_id: estimateId }).first()).toMatchObject({ customer_id: null });
+
+      await suite().db('estimates').where({ id: estimateId }).del();
+      expect(await suite().db('quote_inquiries').count({ n: '*' }).first()).toMatchObject({ n: '0' });
+    });
+
+    it('stores the contact of the quote', async () => {
+      const { estimateId } = await setup();
+
+      const [row] = await suite().db('detailed_quotes').insert({
+        estimate_id: estimateId, contact_name: '김담당', contact_email: 'staff@bridgepath.co.kr', contact_phone: '010-1234-5678'
+      }).returning('*');
+
+      expect(row).toMatchObject({ contact_name: '김담당', contact_email: 'staff@bridgepath.co.kr', contact_phone: '010-1234-5678' });
+      await expect(
+        suite().db('detailed_quotes').insert({ estimate_id: (await setup()).estimateId, contact_name: 'x'.repeat(51) })
+      ).rejects.toMatchObject({ code: '22001' });
+    });
+
+    it('rolls back to the schema of 017, and applies again to the same schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+
+      await migrateDownOne(suite().db);
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 17));
+      expect(await tableNames()).not.toContain('quote_inquiries');
 
       await migrateEverything(suite().db);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);

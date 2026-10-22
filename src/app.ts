@@ -106,7 +106,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   );
 
   // The signed-in customer's own requests and the detailed quotes published for them.
-  app.use('/api/customers/me/estimates', limiters.customerRead, requireCustomer, createCustomerEstimatesRouter());
+  app.use('/api/customers/me/estimates', limiters.customerRead, requireCustomer, createCustomerEstimatesRouter({ inquiryLimiter: limiters.customerInquiry }));
 
   // Customer accounts: sign-up with an e-mail code, login, Google/Kakao. The limiters sit on the
   // routes themselves (they count only what each route needs to count).

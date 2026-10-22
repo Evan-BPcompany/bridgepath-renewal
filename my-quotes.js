@@ -14,7 +14,9 @@
         // Replaced by the tests: the browser cannot be sent anywhere inside jsdom.
         go: function (url) {
             window.location.assign(url);
-        }
+        },
+        // The signed-in customer and the receipt number that is shown.
+        state: { customer: null, receipt: null }
     };
 
     function Auth() {
@@ -144,8 +146,228 @@
             byId('noteBox').hidden = !quote.customer_note;
             byId('quoteNote').textContent = quote.customer_note || '';
             byId('helpReceipt').textContent = estimate.receipt_id;
+            drawContact(quote.contact);
         }
+        drawAsk(data);
         show('detail');
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The staff member the customer can ask, and what the customer asked about the quote.
+
+    var QUESTION_MAX = 300;
+
+    var INQUIRY_ERRORS = Object.freeze({
+        ALREADY_OPEN: '앞서 남기신 것이 아직 처리되지 않았어요. 처리된 뒤에 다시 남겨 주세요.',
+        NO_QUOTE: '담당자 상세견적이 게시된 뒤에 남길 수 있어요.',
+        TOO_MANY: '이 견적에는 더 이상 남길 수 없어요. 아래 담당자 연락처로 직접 연락해 주세요.',
+        ESTIMATE_NOT_FOUND: '찾을 수 없는 견적이에요.'
+    });
+
+    function inquiryMessage(result) {
+        if (result.code === 'VALIDATION_ERROR' && result.body && Array.isArray(result.body.details) && result.body.details[0]) {
+            var field = result.body.details[0].field;
+            if (field === 'body') {
+                return '내용을 확인해 주세요. 300자 이내로 적어 주세요.';
+            }
+            if (field === 'phone') {
+                return Auth().messageFor('phone_invalid');
+            }
+        }
+        return Object.prototype.hasOwnProperty.call(INQUIRY_ERRORS, result.code) ? INQUIRY_ERRORS[result.code] : Auth().messageFor(result.code);
+    }
+
+    var PREFERRED = Object.freeze({ any: '아무 때나', weekday_am: '평일 오전', weekday_pm: '평일 오후' });
+
+    // Only a plain e-mail address or phone number becomes a link; anything else stays text.
+    function contactLink(kind, value) {
+        var plain = kind === 'mail' ? /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/ : /^[0-9+\-()\s]{7,20}$/;
+        if (!plain.test(value)) {
+            return el('span', '', value);
+        }
+        var link = el('a', '', value);
+        link.setAttribute('href', (kind === 'mail' ? 'mailto:' : 'tel:') + (kind === 'mail' ? value : value.replace(/[^0-9+]/g, '')));
+        return link;
+    }
+
+    function drawContact(contact) {
+        var facts = byId('contactFacts');
+        clear(facts);
+        var any = contact && (contact.name || contact.email || contact.phone);
+        byId('contactBox').hidden = !any;
+        if (!any) {
+            return;
+        }
+        [['이름', contact.name, null], ['이메일', contact.email, 'mail'], ['전화', contact.phone, 'tel']].forEach(function (row) {
+            if (!row[1]) {
+                return;
+            }
+            facts.appendChild(el('dt', '', row[0]));
+            var value = el('dd');
+            value.appendChild(row[2] ? contactLink(row[2], row[1]) : document.createTextNode(row[1]));
+            facts.appendChild(value);
+        });
+    }
+
+    function showFormError(id, text) {
+        var box = byId(id);
+        box.textContent = text;
+        box.hidden = false;
+    }
+
+    function drawAsk(data) {
+        var box = byId('askBox');
+        box.hidden = !data.quote;
+        if (!data.quote) {
+            return;
+        }
+        var inquiries = Array.isArray(data.inquiries) ? data.inquiries : [];
+        var questions = inquiries.filter(function (item) { return item.kind === 'question'; });
+        var consults = inquiries.filter(function (item) { return item.kind === 'consultation'; });
+
+        // The questions and the answers, newest first.
+        var thread = byId('thread');
+        clear(thread);
+        questions.slice().reverse().forEach(function (item) {
+            var row = el('li', 'mq-thread-item');
+            row.appendChild(el('p', 'mq-meta', '내 질문 · ' + dateOf(item.created_at)));
+            row.appendChild(el('p', 'mq-text', item.body));
+            if (item.status === 'answered' && item.answer) {
+                row.appendChild(el('p', 'mq-meta', '담당자 답변 · ' + dateOf(item.handled_at)));
+                row.appendChild(el('p', 'mq-text mq-answer', item.answer));
+            } else {
+                row.appendChild(el('p', 'mq-meta mq-pending', '답변을 기다리고 있어요'));
+            }
+            thread.appendChild(row);
+        });
+        var waiting = questions.some(function (item) { return item.status === 'open'; });
+        byId('questionForm').hidden = waiting;
+        byId('questionWaiting').hidden = !waiting;
+
+        // The consultation: asked and waiting for the call, or done, or not asked yet.
+        var state = byId('consultState');
+        clear(state);
+        var open = consults.filter(function (item) { return item.status === 'open'; })[0];
+        var done = consults.filter(function (item) { return item.status === 'done'; }).pop();
+        state.hidden = !open && !done;
+        byId('consultOpen').hidden = Boolean(open);
+        byId('consultForm').hidden = true;
+        if (open) {
+            state.appendChild(el('strong', '', '심층상담을 요청했어요'));
+            state.appendChild(el('p', '', '담당자가 확인한 뒤 ' + open.phone + '(으)로 전화드려요. · 편한 시간: ' + (PREFERRED[open.preferred_time] || '아무 때나')));
+            if (open.body) {
+                state.appendChild(el('p', 'mq-meta', '남기신 메모: ' + open.body));
+            }
+        } else if (done) {
+            state.appendChild(el('strong', '', '지난 심층상담이 끝났어요 · ' + dateOf(done.handled_at)));
+            if (done.answer) {
+                state.appendChild(el('p', 'mq-meta', '담당자 메모: ' + done.answer));
+            }
+        }
+    }
+
+    // The same page again from the server, after something was sent.
+    async function reload() {
+        var one = await Auth().myEstimate(page.state.receipt);
+        if (one.ok) {
+            drawDetail(one.body);
+        } else {
+            showError(Auth().messageFor(one.code));
+        }
+    }
+
+    function wireAsk() {
+        var auth = Auth();
+        var busy = false;
+
+        byId('questionText').addEventListener('input', function () {
+            byId('questionCounter').textContent = Array.from(byId('questionText').value).length + ' / ' + QUESTION_MAX;
+        });
+
+        byId('questionForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            byId('questionError').hidden = true;
+            var text = byId('questionText').value.trim();
+            if (text === '') {
+                showFormError('questionError', '질문을 적어 주세요.');
+                return;
+            }
+            if (Array.from(text).length > QUESTION_MAX) {
+                showFormError('questionError', '300자 이내로 적어 주세요.');
+                return;
+            }
+            if (busy) {
+                return;
+            }
+            busy = true;
+            byId('questionSubmit').disabled = true;
+            try {
+                var result = await auth.sendInquiry(page.state.receipt, { kind: 'question', body: text });
+                if (result.ok) {
+                    byId('questionText').value = '';
+                    byId('questionCounter').textContent = '0 / ' + QUESTION_MAX;
+                    await reload();
+                } else {
+                    showFormError('questionError', inquiryMessage(result));
+                }
+            } finally {
+                busy = false;
+                byId('questionSubmit').disabled = false;
+            }
+        });
+
+        byId('consultOpen').addEventListener('click', function () {
+            var customer = page.state.customer || {};
+            if (byId('consultPhone').value === '' && customer.phone) {
+                byId('consultPhone').value = customer.phone;
+            }
+            byId('consultOpen').hidden = true;
+            byId('consultForm').hidden = false;
+            byId('consultPhone').focus();
+        });
+
+        byId('consultCancel').addEventListener('click', function () {
+            byId('consultForm').hidden = true;
+            byId('consultOpen').hidden = false;
+            byId('consultError').hidden = true;
+        });
+
+        byId('consultForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            byId('consultError').hidden = true;
+            var phone = byId('consultPhone').value;
+            var problem = auth.checkPhone(phone, true);
+            if (problem) {
+                showFormError('consultError', auth.messageFor(problem));
+                return;
+            }
+            var note = byId('consultNote').value.trim();
+            if (Array.from(note).length > QUESTION_MAX) {
+                showFormError('consultError', '메모는 300자 이내로 적어 주세요.');
+                return;
+            }
+            if (busy) {
+                return;
+            }
+            busy = true;
+            byId('consultSubmit').disabled = true;
+            try {
+                var payload = { kind: 'consultation', phone: phone.trim(), preferred_time: byId('consultTime').value };
+                if (note !== '') {
+                    payload.body = note;
+                }
+                var result = await auth.sendInquiry(page.state.receipt, payload);
+                if (result.ok) {
+                    byId('consultNote').value = '';
+                    await reload();
+                } else {
+                    showFormError('consultError', inquiryMessage(result));
+                }
+            } finally {
+                busy = false;
+                byId('consultSubmit').disabled = false;
+            }
+        });
     }
 
     async function init() {
@@ -165,6 +387,8 @@
             page.go('login.html?step=complete&next=' + encodeURIComponent(auth.safeNext(here)));
             return;
         }
+        page.state.customer = customer;
+        page.state.receipt = receipt;
         byId('whoName').textContent = customer.name || customer.email;
         byId('whoName').hidden = false;
         byId('logoutBtn').hidden = false;
@@ -175,6 +399,7 @@
         });
 
         if (receipt) {
+            wireAsk();
             var one = await auth.myEstimate(receipt);
             if (one.ok) {
                 drawDetail(one.body);

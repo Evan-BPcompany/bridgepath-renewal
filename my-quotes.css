@@ -232,6 +232,121 @@
     clip: rect(0 0 0 0);
 }
 
+.mq-contact {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f3f6ff;
+}
+
+.mq-contact h3 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+}
+
+.mq-contact .mq-facts {
+    margin: 0;
+}
+
+.mq-ask {
+    margin-top: 28px;
+}
+
+.mq-ask h2 {
+    margin: 0 0 14px;
+    font-size: 1.1rem;
+}
+
+.mq-ask-block {
+    margin-bottom: 18px;
+    padding: 18px 20px;
+    border: 1px solid #e1e1e1;
+    border-radius: 12px;
+}
+
+.mq-ask-block h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+}
+
+.mq-hint {
+    margin: 0 0 12px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #555;
+}
+
+.mq-ask textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #bdbdbd;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.mq-counter {
+    margin: 4px 0 0;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #777;
+}
+
+.mq-form-error {
+    margin: 8px 0 0;
+    color: #d6001c;
+    font-size: 0.82rem;
+}
+
+.mq-thread {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+}
+
+.mq-thread-item {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f7f7f7;
+}
+
+.mq-meta {
+    margin: 0 0 4px;
+    font-size: 0.75rem;
+    color: #777;
+}
+
+.mq-meta.mq-pending {
+    color: #8a4b00;
+}
+
+.mq-text {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+}
+
+.mq-answer {
+    color: #0b3d91;
+}
+
+.mq-consult-state {
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #f3f6ff;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.mq-consult-state p {
+    margin: 4px 0 0;
+}
+
 [hidden] {
     display: none !important;
 }
