@@ -321,6 +321,102 @@ describeIntegration('detailed quotes on a real PostgreSQL', ({ url }) => {
     });
   });
 
+  describe('the e-mail that tells the customer', () => {
+    const emails = () => suite().db('email_events').where({ email_type: 'quotation' }).orderBy('created_at');
+
+    it('is queued in the same transaction as the publication, to the e-mail of the account, without any amount', async () => {
+      const cookie = await customer('buyer@example.com');
+      const receipt = await sendRequest(cookie);
+      const id = await estimateId(receipt);
+      await adminSave(id, QUOTE);
+      expect(await emails()).toHaveLength(0);
+
+      const published = await adminPublish(id, 1);
+
+      expect(published.body.data.notification_queued).toBe(true);
+      const rows = await emails();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        recipient_email: 'buyer@example.com', email_type: 'quotation', status: 'pending', estimate_id: id
+      });
+      expect(rows[0].subject).toBe(`[Bridge Path] 담당자 상세견적이 도착했어요 (접수번호 ${receipt})`);
+      expect(rows[0].body).toContain(`/my-quotes.html?r=${receipt}`);
+      expect(`${rows[0].subject} ${rows[0].body}`).not.toMatch(/6,400,000|6400000|12000|아세테이트|샘플/);
+      expect(rows[0].idempotency_key).toMatch(/^quote-published-[0-9a-f-]{36}-v1$/);
+    });
+
+    it('goes to the account, not to whatever e-mail was typed on the request', async () => {
+      const cookie = await customer('buyer@example.com');
+      const receipt = await sendRequest(cookie);
+      await suite().db('estimates').where({ receipt_id: receipt }).update({ customer_email: 'typed-elsewhere@example.com' });
+      const id = await estimateId(receipt);
+      await adminSave(id, QUOTE);
+
+      await adminPublish(id, 1);
+
+      expect((await emails()).map(row => row.recipient_email)).toEqual(['buyer@example.com']);
+    });
+
+    it('says "changed" for the next publication, and makes one mail for each', async () => {
+      const cookie = await customer('buyer@example.com');
+      const id = await estimateId(await sendRequest(cookie));
+      await adminSave(id, QUOTE);
+      await adminPublish(id, 1);
+      await adminSave(id, { ...QUOTE, lead_time: '주문 후 약 8주', expected_edit_seq: 1 });
+
+      await adminPublish(id, 2);
+
+      const rows = await emails();
+      expect(rows).toHaveLength(2);
+      expect(rows[1].subject).toContain('수정되었어요');
+      expect(rows[1].idempotency_key).toMatch(/-v2$/);
+    });
+
+    it('is not made for a publication that is refused, and not twice for two parallel ones', async () => {
+      const cookie = await customer('buyer@example.com');
+      const id = await estimateId(await sendRequest(cookie));
+      await adminSave(id, QUOTE);
+      await adminSave(id, { ...QUOTE, lead_time: 'x', expected_edit_seq: 1 });
+
+      expect((await adminPublish(id, 1)).status).toBe(409);
+      expect(await emails()).toHaveLength(0);
+
+      await Promise.all([adminPublish(id, 2), adminPublish(id, 2)]);
+      expect(await emails()).toHaveLength(1);
+    });
+
+    it('is not made when the mail cannot be queued: the publication is undone with it', async () => {
+      const cookie = await customer('buyer@example.com');
+      const id = await estimateId(await sendRequest(cookie));
+      await adminSave(id, QUOTE);
+      // Queuing fails inside the transaction (a rule that refuses every row of the outbox, for this test only).
+      await suite().db.raw('ALTER TABLE email_events ADD CONSTRAINT never_ok CHECK (false) NOT VALID');
+      try {
+        const res = await adminPublish(id, 1);
+
+        expect(res.status).toBe(500);
+      } finally {
+        await suite().db.raw('ALTER TABLE email_events DROP CONSTRAINT never_ok');
+      }
+
+      expect(await suite().db('detailed_quote_revisions').count({ n: '*' }).first()).toMatchObject({ n: '0' });
+      expect((await suite().db('detailed_quotes').first()).version).toBe(0);
+    });
+
+    it('is not made, and the publication still works, when the request has no active account any more', async () => {
+      const cookie = await customer('buyer@example.com');
+      const id = await estimateId(await sendRequest(cookie));
+      await adminSave(id, QUOTE);
+      await suite().db('customers').update({ is_active: false });
+
+      const res = await adminPublish(id, 1);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.notification_queued).toBe(false);
+      expect(await emails()).toHaveLength(0);
+    });
+  });
+
   describe('who can read it', () => {
     it('is the customer who sent the request only: anyone else gets a plain 404', async () => {
       const owner = await customer('buyer@example.com');

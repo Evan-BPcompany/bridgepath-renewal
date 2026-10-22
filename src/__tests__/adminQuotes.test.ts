@@ -48,7 +48,7 @@ describe('Admin detailed quote API (mocked service)', () => {
     warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => logger);
     jest.spyOn(logger, 'error').mockImplementation(() => logger);
     mocked(service.saveQuote).mockResolvedValue(QUOTE);
-    mocked(service.publishQuote).mockResolvedValue({ ...QUOTE, version: 1, has_unpublished_changes: false });
+    mocked(service.publishQuote).mockResolvedValue({ quote: { ...QUOTE, version: 1, has_unpublished_changes: false }, notification_queued: true });
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -166,7 +166,7 @@ describe('Admin detailed quote API (mocked service)', () => {
       const res = await request(app).post(`${URL}/publish`).set('Cookie', authCookie('manager')).send({ expected_edit_seq: 3 });
 
       expect(res.status).toBe(200);
-      expect(res.body.data).toMatchObject({ version: 1, has_unpublished_changes: false });
+      expect(res.body.data).toMatchObject({ version: 1, has_unpublished_changes: false, notification_queued: true });
       expect(service.publishQuote).toHaveBeenCalledWith(ESTIMATE_ID, MANAGER_ID, 3);
       expect(audit().find(item => item.action === 'quote.publish')).toMatchObject({
         result: 'success', admin_id: MANAGER_ID, estimate_id: ESTIMATE_ID, quote_version: 1

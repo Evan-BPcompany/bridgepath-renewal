@@ -1019,7 +1019,7 @@ describe('the detailed quote of a request', () => {
       click($('#quotePublish'));
       expect($('#quoteConfirm').hidden).toBe(false);
       expect($('#quoteConfirm').textContent).toContain('6,000,000원');
-      expect($('#quoteConfirm').textContent).toContain('고객이 내 견적에서 이 견적을 바로 볼 수 있어요');
+      expect($('#quoteConfirm').textContent).toContain('고객이 내 견적에서 이 견적을 바로 볼 수 있고');
 
       click($('#quotePublishNo'));
       expect($('#quoteConfirm').hidden).toBe(true);
@@ -1039,6 +1039,30 @@ describe('the detailed quote of a request', () => {
       expect(callsTo('PUT', QUOTE_URL)).toHaveLength(0);
       expect(callsTo('POST', `${QUOTE_URL}/publish`)[0].body).toEqual({ expected_edit_seq: 1 });
       expect($('#notice').textContent).toContain('고객에게 게시했어요 (v1)');
+    });
+
+    it('says that the customer is told by e-mail, or that no e-mail was made', async () => {
+      quoteRoute(QUOTE);
+      routes[`POST ${QUOTE_URL}/publish`] = () => ({ status: 200, body: { success: true, data: { ...QUOTE, version: 1, has_unpublished_changes: false, notification_queued: true } } });
+      await open(`#/estimates/${ID}`);
+      click($('#quotePublish'));
+      expect($('#quoteConfirm').textContent).toContain('고객에게 이메일로 알려요');
+      click($('#quotePublishYes'));
+      await settle();
+      expect($('#notice').textContent).toContain('고객에게 이메일로 알려요.');
+      expect($('#notice').textContent).not.toContain('만들어지지 않았어요');
+    });
+
+    it('does not say so when no e-mail was queued', async () => {
+      quoteRoute(QUOTE);
+      routes[`POST ${QUOTE_URL}/publish`] = () => ({ status: 200, body: { success: true, data: { ...QUOTE, version: 1, has_unpublished_changes: false, notification_queued: false } } });
+      await open(`#/estimates/${ID}`);
+
+      click($('#quotePublish'));
+      click($('#quotePublishYes'));
+      await settle();
+
+      expect($('#notice').textContent).toContain('이메일 알림은 만들어지지 않았어요');
     });
 
     it('saves what was changed first, then publishes that save', async () => {

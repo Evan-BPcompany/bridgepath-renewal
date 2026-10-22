@@ -92,7 +92,7 @@ router.post('/publish', requireJson, async (req: Request, res: Response): Promis
       return;
     }
 
-    const quote = await publishQuote(id, admin.id, seq as number);
+    const { quote, notification_queued } = await publishQuote(id, admin.id, seq as number);
 
     logAdminAudit({
       action: 'quote.publish',
@@ -102,7 +102,7 @@ router.post('/publish', requireJson, async (req: Request, res: Response): Promis
       quote_version: quote.version,
       ...base
     });
-    res.json({ success: true, data: quote });
+    res.json({ success: true, data: { ...quote, notification_queued } });
   } catch (err) {
     answerError(res, err, 'quote.publish', base);
   }

@@ -720,7 +720,7 @@
                 clear(confirmBox);
                 var yes = h('button', { type: 'button', id: 'quotePublishYes', class: 'primary', text: '게시하기' });
                 var no = h('button', { type: 'button', id: 'quotePublishNo', text: '취소' });
-                confirmBox.appendChild(h('p', { text: '게시하면 고객이 내 견적에서 이 견적을 바로 볼 수 있어요. 합계는 ' + totalCell.textContent + '이에요. 게시할까요?' }));
+                confirmBox.appendChild(h('p', { text: '게시하면 고객이 내 견적에서 이 견적을 바로 볼 수 있고, 고객에게 이메일로 알려요. 합계는 ' + totalCell.textContent + '이에요. 게시할까요?' }));
                 confirmBox.appendChild(h('div', { class: 'actions' }, [yes, no]));
                 confirmBox.hidden = false;
                 no.addEventListener('click', function () { confirmBox.hidden = true; });
@@ -747,7 +747,9 @@
                                 }
                                 return;
                             }
-                            say('견적을 고객에게 게시했어요 (v' + result.data.version + '). 접수 상태를 바꾸려면 아래 상태 변경을 써 주세요.', 'success');
+                            say('견적을 고객에게 게시했어요 (v' + result.data.version + '). ' +
+                                (result.data.notification_queued ? '고객에게 이메일로 알려요. ' : '고객에게 보낼 이메일 알림은 만들어지지 않았어요. ') +
+                                '접수 상태를 바꾸려면 아래 상태 변경을 써 주세요.', 'success');
                             loadQuote(id, card);
                         });
                     });

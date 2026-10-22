@@ -1,5 +1,8 @@
 import { getPool } from '../config/database';
+import { config } from '../config/env';
 import { PricedQuoteItem, QuoteInput, priceItems, todayInKorea } from '../utils/detailedQuote';
+import { buildQuotePublishedEmail, quoteLink } from '../utils/quoteEmail';
+import { queueEmailInTransaction } from './emailService';
 
 export type QuoteErrorCode =
   | 'ESTIMATE_NOT_FOUND'
@@ -182,9 +185,16 @@ export async function saveQuote(estimateId: string, adminId: string, input: Quot
 // Publishes the working copy: a new revision is written as it is now, and from that moment the
 // customer sees it. The row is locked, so a save that comes in at the same time either lands before
 // (and is published, if it was the save the publisher saw) or is refused as a conflict.
-export async function publishQuote(estimateId: string, adminId: string, expectedEditSeq: number): Promise<WorkingQuote> {
+export interface PublishResult {
+  quote: WorkingQuote;
+  // The e-mail that tells the customer was queued (false when the request has no active account any more).
+  notification_queued: boolean;
+}
+
+export async function publishQuote(estimateId: string, adminId: string, expectedEditSeq: number): Promise<PublishResult> {
   const pool = getPool();
   const client = await pool.connect();
+  let notificationQueued = false;
 
   try {
     await client.query('BEGIN');
@@ -239,6 +249,32 @@ export async function publishQuote(estimateId: string, adminId: string, expected
       [row.id, version, adminId]
     );
 
+    // The customer is told in the same transaction: either the revision and the mail are both
+    // there, or neither is (the outbox sends it later and retries). The mail has no amount in it.
+    const customer = await client.query(
+      `SELECT e.receipt_id, c.email
+       FROM estimates e JOIN customers c ON c.id = e.customer_id
+       WHERE e.id = $1 AND c.is_active = true`,
+      [estimateId]
+    );
+    if (customer.rows[0]) {
+      const mail = buildQuotePublishedEmail({
+        receiptId: customer.rows[0].receipt_id,
+        version,
+        link: quoteLink(config.frontendBaseUrl, customer.rows[0].receipt_id),
+        supportEmail: config.supportEmail
+      });
+      await queueEmailInTransaction(client, {
+        recipient_email: customer.rows[0].email,
+        email_type: 'quotation',
+        estimate_id: estimateId,
+        idempotency_key: `quote-published-${row.id}-v${version}`,
+        subject: mail.subject,
+        body: mail.body
+      });
+      notificationQueued = true;
+    }
+
     await client.query('COMMIT');
   } catch (err) {
     try {
@@ -255,5 +291,5 @@ export async function publishQuote(estimateId: string, adminId: string, expected
   if (!quote) {
     throw new QuoteError('NO_QUOTE');
   }
-  return quote;
+  return { quote, notification_queued: notificationQueued };
 }
