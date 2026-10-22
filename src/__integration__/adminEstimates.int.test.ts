@@ -68,7 +68,7 @@ describeIntegration('admin estimates on a real PostgreSQL', ({ url }) => {
       expect(receiptsOf(res)).toEqual(['BP20261004001', 'BP20261003002', 'BP20261003001', 'BP20261002001', 'BP20261001001']);
       expect(res.body.pagination).toEqual({ page: 1, limit: 20, total: 5, total_pages: 1 });
       expect(Object.keys(res.body.data[0]).sort()).toEqual([
-        'category', 'company_name', 'created_at', 'customer_name', 'customer_type', 'file_count', 'id', 'receipt_id', 'request_kind', 'status', 'updated_at'
+        'category', 'company_name', 'created_at', 'customer_name', 'customer_type', 'file_count', 'id', 'open_inquiries', 'receipt_id', 'request_kind', 'status', 'updated_at'
       ]);
     });
 

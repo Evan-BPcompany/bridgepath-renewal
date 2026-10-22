@@ -509,7 +509,7 @@ describeIntegration('detailed quotes on a real PostgreSQL', ({ url }) => {
       expect(res.body.inquiry).toMatchObject({ kind: 'question', quote_version: 1, body: '납기를 2주 줄일 수 있나요?', status: 'open', answer: null });
       expect(JSON.stringify(res.body)).not.toMatch(/handled_by|customer_id/);
 
-      const mails = await suite().db('email_events').where({ recipient_email: 'ops@example.com' });
+      const mails = await suite().db('email_events').where({ recipient_email: 'ops@example.com' }).andWhere('idempotency_key', 'like', 'inquiry-%');
       expect(mails).toHaveLength(1);
       expect(mails[0]).toMatchObject({ email_type: 'admin_notification', status: 'pending', estimate_id: id });
       expect(mails[0].subject).toBe(`[Bridge Path] 새 질문: ${receipt}`);
@@ -674,7 +674,7 @@ describeIntegration('detailed quotes on a real PostgreSQL', ({ url }) => {
 
         expect(res.status).toBe(201);
         expect(res.body.inquiry).toMatchObject({ kind: 'consultation', phone: '010-9999-8888', preferred_time: 'weekday_pm', body: '납기 이야기', status: 'open' });
-        const mail = (await suite().db('email_events').where({ recipient_email: 'ops@example.com' }))[0];
+        const mail = (await suite().db('email_events').where({ recipient_email: 'ops@example.com' }).andWhere('idempotency_key', 'like', 'inquiry-%'))[0];
         expect(mail.subject).toBe(`[Bridge Path] 새 심층상담 요청: ${receipt}`);
         expect(`${mail.subject} ${mail.body}`).not.toMatch(/010-9999|납기 이야기/);
 
