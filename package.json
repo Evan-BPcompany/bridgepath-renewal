@@ -22,7 +22,9 @@
     "audit:prod": "npm audit --omit=dev",
     "audit:dev": "npm audit --audit-level=high",
     "secret-scan": "node scripts/secret-scan.js",
-    "it:schemas": "node dist/scripts/integration-schemas.js"
+    "it:schemas": "node dist/scripts/integration-schemas.js",
+    "predeploy:check": "node dist/scripts/predeploy-check.js",
+    "front:files": "node scripts/front-files.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

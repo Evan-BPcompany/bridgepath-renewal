@@ -283,6 +283,8 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 
 Security-relevant details are in [docs/SECURITY.md](docs/SECURITY.md); running and deploying is in [docs/OPERATIONS.md](docs/OPERATIONS.md); tests are in [docs/TESTING.md](docs/TESTING.md).
 
+**Deploying:** follow [docs/DEPLOYMENT-CHECKLIST.md](docs/DEPLOYMENT-CHECKLIST.md) (what to have ready, the settings, the outside services, the order of the first deployment, the smoke test, the known gaps). Two commands help: `npm run predeploy:check -- [--front [config.js]] [--db] [--env-file <file>]` (after `npm run build`; says what is wrong with the settings, the `config.js` of the pages and the database, never prints a secret, exit code 1 on a failure; `--db` only reads) and `npm run front:files` (the list of the files of the customer pages to publish, taken from the pages themselves).
+
 ### Integration tests (real PostgreSQL)
 
 `npm test` uses a fake database and never connects to anything. Nine integration suites in `src/__integration__/` run the real SQL against a **PostgreSQL 14+ on this machine**. Run against a real **PostgreSQL 16.15 on this machine**: **9 of 9 suites and 253 of 253 tests passed** (`npm run test:integration`). Real AWS S3 and SendGrid have **not** been called or verified (SendGrid is stubbed in the suites). Details, safety rules and what each suite checks: [docs/TESTING.md](docs/TESTING.md).

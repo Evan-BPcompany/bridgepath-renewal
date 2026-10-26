@@ -1,5 +1,7 @@
 # Operations
 
+The step-by-step list for a deployment, with the outside services and a smoke test, is [DEPLOYMENT-CHECKLIST.md](DEPLOYMENT-CHECKLIST.md); this page keeps the details of the platform.
+
 Target platform: **Heroku** with **Heroku PostgreSQL**. Nothing here has been deployed or run against Heroku yet; treat the steps as a checklist to verify at the first deployment.
 
 ## Requirements
