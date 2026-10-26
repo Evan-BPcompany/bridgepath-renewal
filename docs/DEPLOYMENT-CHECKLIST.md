@@ -6,7 +6,7 @@ Two helpers check what they can:
 
 ```bash
 npm run predeploy:check -- [--front [config.js]] [--db] [--env-file <file>]   # the settings, before starting
-npm run front:files                                                          # the files of the customer pages to publish
+npm run front:files                                                          # the files of the customer pages (the server serves exactly these)
 ```
 
 `predeploy:check` prints `FAIL` (the server will not start, or a feature is broken), `WARN` (works, but read it) and `ok`. It never prints the value of a secret. Exit code 1 when anything fails. It needs the build (`npm run build`).
@@ -15,9 +15,8 @@ npm run front:files                                                          # t
 
 | What | Why |
 |---|---|
-| **A domain you own** (for example `example.com`; yours is `bptrade.co.kr`, see 0a) | The customer pages and the API have to be on **one site** (`www.example.com` and `api.example.com`), or nobody can stay signed in. Names such as `*.netlify.app` and `*.herokuapp.com` are public suffixes: two of them are two sites. |
-| Heroku account, with the PostgreSQL add-on | The API, the admin screen (`/admin-ui/`) and the database. Check that the plan keeps **backups**: this project makes none. |
-| A static web host for the customer pages (any host that lets you use your own domain with https) | The pages are plain files (`npm run front:files`); the API does not serve them. |
+| **A domain you own** (yours is `bptrade.co.kr`, see 0a) | One name for the service, for example `app.bptrade.co.kr`. |
+| Heroku account, with the PostgreSQL add-on | The customer pages, the API, the admin screen (`/admin-ui/`) and the database. Check that the plan keeps **backups**: this project makes none. |
 | AWS account: one private S3 bucket and one IAM user | Attached files of the requests. |
 | SendGrid account, with the sender (or the domain) verified | The e-mail code to sign up, and every notice. |
 | Anthropic API key | The photo analysis of the AI quote. Optional: without it the price range still works. |
@@ -25,38 +24,27 @@ npm run front:files                                                          # t
 | **An approved privacy consent text** | Production accepts **no** request and no sign-up until one is approved. Needs a legal review. |
 | The staff e-mail for notices, a support e-mail | `ADMIN_NOTIFICATION_EMAIL`, `SUPPORT_EMAIL`. |
 
-## 0a. The hosting that already exists (Cafe24, managed WordPress)
+## 0a. One address for everything
 
-What is known (from the console of 2026-10-26): the plan **"매니지드 워드프레스 빌드업"** (PHP 8.2, MariaDB, FTP, 1 GB of disk, 1.5 GB of traffic a month), the domain **`bptrade.co.kr`**, a WordPress site that is live on it, a staging site that is not used, **a term that ends on 2026-11-18 with no automatic extension**.
+The server (Heroku) serves the customer pages **and** the API **and** the admin screen from **one address**, for example `https://app.example.com`. So there is no second host to publish to, no CORS and no "same site" problem, and `config.js` is written by the server (`API_BASE` empty, the consent version of the approved text). Only the files that the pages use are served (the list of `npm run front:files`), never `package.json`, the source or the documents.
 
-- **It cannot run this server.** A managed WordPress hosting runs PHP; the API needs Node.js and PostgreSQL. The server (API, admin screen, database) has to be somewhere else (Heroku, as planned). Check with Cafe24 whether it sells a Node.js hosting before you decide; nothing here depends on it.
-- **It can hold static files**, so it could hold the customer pages (FTP). The domain is already yours, and anything under `bptrade.co.kr` counts as one site, so `www.bptrade.co.kr` (pages) and `api.bptrade.co.kr` (the server) would satisfy the cookie rule of section 1.
-- **But the existing WordPress site is on that address.** Before anything is published, decide what happens to it:
-
-| Choice | Pages | Server | WordPress | Note |
-|---|---|---|---|---|
-| **A. Pages on the Cafe24 hosting** | `www.bptrade.co.kr` or a folder / extra domain of the hosting | `api.bptrade.co.kr` (Heroku) | replaced, or moved to another name | Two places to publish to (FTP for the pages, git for the server). `config.js` has to be replaced by hand at every publication. |
-| **B. Everything on Heroku, a name of its own** | `app.bptrade.co.kr` (or `quote.`) served by the server itself | the same name | **stays as it is** (the company site; it can link to the quote service) | One address, so no CORS and no "same site" problem, and no FTP. **Needs a small change to the server** (it serves only the admin screen today, not the customer pages) and `config.js` could then be made by the server from its settings. |
-
-  Choice B is simpler to run and leaves the existing site alone; choice A uses the hosting that is paid for. **This is a decision for you; neither is built yet** (B needs the change above).
-- **To check in the Cafe24 console** before you rely on it (these are questions, not facts): whether an **https certificate** can be used for the name you choose (the cookies are secure-only, a page on http cannot sign anyone in); whether **extra domains or subdomains** (the "도메인 추가 연결" page) can point to a folder of their own; where the **DNS** of `bptrade.co.kr` is kept (the "네임서버(DNS) 관리" page: that is where `api.` or `app.` gets its record, a CNAME to the address that Heroku gives for the custom domain); whether the plan's **web firewall** (ModSecurity, the "웹방화벽" settings) blocks the uploaded script files.
-- **Extend the term** (or decide not to) **before 2026-11-18**: the site and the mail of that domain, if it has any, depend on it. The **domain** is a separate thing from the hosting; check its own end date too.
-- The FTP password and the admin of WordPress are secrets of the same kind as the keys of section 2: not in the project, not in a chat.
+- **Point a name at Heroku:** `heroku domains:add app.example.com`, then a `CNAME` record for `app` to the target that Heroku prints, at the place where the DNS of the domain is kept. Heroku issues the https certificate itself.
+- **The company homepage is a separate thing.** The existing site on `bptrade.co.kr` (a Cafe24 managed WordPress hosting, which cannot run this server: it has PHP and MariaDB, not Node.js and PostgreSQL) is left as it is. It is not part of this deployment; decide later whether it links to the quote service. Its term ends on 2026-11-18 with no automatic extension: extend it, or the site goes away. The domain has its own end date.
+- If the pages are ever put on another host again, `config.js` has to be the production one there (`API_BASE` = the address of the server) and the host must be on the same site as the API (see the checks of `predeploy:check --front`).
 
 ## 1. The layout
 
 ```
  customer's browser
-   ├── https://www.example.com   customer pages (static files, config.js says where the API is)
-   └── https://api.example.com   Heroku: the API (/api), the admin screen (/admin-ui/), /admin
+   └── https://app.example.com   Heroku: the customer pages (/), the API (/api), the admin screen (/admin-ui/)
                                    ├── PostgreSQL (Heroku add-on, TLS)
                                    ├── S3 (files)           SendGrid (e-mail)
                                    ├── Claude API (photos)  Google / Kakao (sign-in)
 ```
 
-- Both addresses are **https**. The cookies are `Secure` in production, and a page on http would not get them.
-- The cookie of a signed-in customer is set by the API and sent by the browser to the API from a page of the **same site**. If the pages and the API are on different sites, sign-in appears to work and then nobody is signed in. `predeploy:check` fails for this (`same-site`).
-- The admin screen is served by the API itself, at `https://api.example.com/admin-ui/`; the admin cookies are `SameSite=Strict`, so it must be opened there.
+- The address is **https**. The cookies are `Secure` in production, and a page on http would not get them.
+- The pages and the API are on the same address, so the cookie of a signed-in customer is first-party. (Were the pages on another host, they would have to be on the same site as the API, or sign-in appears to work and then nobody is signed in; `predeploy:check` fails for this, `same-site`.)
+- The admin screen is served by the same server, at `https://app.example.com/admin-ui/`; the admin cookies are `SameSite=Strict`, so it must be opened there.
 - One server process only (see section 7): the rate limits and the e-mail worker live in the process.
 
 ## 2. The settings
@@ -71,9 +59,9 @@ Set secrets in the hosting settings (`heroku config:set NAME=value`), never in a
 | `TRUST_PROXY` | yes | `1` on Heroku. Never `true`. |
 | `DATABASE_URL` | yes | Set by the PostgreSQL add-on. No `?sslmode=` in it. |
 | `DATABASE_SSL_REJECT_UNAUTHORIZED` | on Heroku | `false` (the certificate is not signed by a public CA): encrypted, not verified. A warning is normal. |
-| `CORS_ORIGINS` | yes | The origin of the customer pages, `https://www.example.com` (no `*`, no path, several separated by commas). |
+| `CORS_ORIGINS` | yes | The origin of the service, `https://app.example.com` (no `*`, no path, several separated by commas). The pages and the API are on one address, so it is the same as `FRONTEND_BASE_URL`. |
 | `FRONTEND_BASE_URL` | yes | Same origin: where the browser returns after Google/Kakao, and where the links in e-mails go. |
-| `PUBLIC_API_URL` | yes | `https://api.example.com`: the address that is registered with Google and Kakao. |
+| `PUBLIC_API_URL` | yes | `https://app.example.com`: the address that is registered with Google and Kakao. |
 | `FILE_STORAGE` | yes | `s3` (the default). `local` is refused in production. |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | yes | The bucket and the IAM user of section 3. |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | yes | The key and the verified sender. Without them nobody can sign up. |
@@ -92,19 +80,19 @@ The limits of the rate limiters have defaults (`*_RATE_LIMIT_*`, see the README)
 
 Menu names change; look for the same thing under the new name.
 
-**Domain.** Point `www` to the static host and `api` to the Heroku app (Heroku: add the custom domain to the app, then the DNS record it gives you; its automatic certificate takes some minutes).
+**Domain.** Point `app` to the Heroku app (Heroku: add the custom domain to the app, then the DNS record it gives you; its automatic certificate takes some minutes).
 
 **S3.** One bucket in one region, **block all public access**, no public policy. One IAM user with a policy that allows `s3:PutObject` on `arn:aws:s3:::<bucket>/*` (and `s3:DeleteObject`, which the code uses to undo a request that failed after its files were stored). Nothing else. Put the key pair in the settings. (There is no download from the site yet.)
 
 **SendGrid.** Create an API key that may send mail only. Verify the sender address, or better the whole domain (the DNS records it asks for), so that the codes do not land in spam. `SENDGRID_FROM_EMAIL` must be that sender.
 
-**Google.** In the Cloud Console create an OAuth client of the type "web application". Authorized redirect URI, exactly: `https://api.example.com/api/customers/oauth/google/callback`. The consent screen: scopes `openid`, `email`, `profile`; while it is in "testing" only the listed test users can sign in, so **publish** it before opening to customers. Put the id and the secret in the settings.
+**Google.** In the Cloud Console create an OAuth client of the type "web application". Authorized redirect URI, exactly: `https://app.example.com/api/customers/oauth/google/callback`. The consent screen: scopes `openid`, `email`, `profile`; while it is in "testing" only the listed test users can sign in, so **publish** it before opening to customers. Put the id and the secret in the settings.
 
-**Kakao.** In the Kakao developers console create the app, switch on Kakao Login, and register the Redirect URI, exactly: `https://api.example.com/api/customers/oauth/kakao/callback`. The sign-in asks for the e-mail (`account_email`) and the nickname; **the e-mail item needs the business app review** (a registered business). Without the e-mail the sign-in is refused on purpose: the customer is told to use e-mail sign-up. Put the REST API key in `KAKAO_CLIENT_ID`.
+**Kakao.** In the Kakao developers console create the app, switch on Kakao Login, and register the Redirect URI, exactly: `https://app.example.com/api/customers/oauth/kakao/callback`. The sign-in asks for the e-mail (`account_email`) and the nickname; **the e-mail item needs the business app review** (a registered business). Without the e-mail the sign-in is refused on purpose: the customer is told to use e-mail sign-up. Put the REST API key in `KAKAO_CLIENT_ID`.
 
 **Anthropic.** Create a key in the console and set a monthly spending limit there. Every photo analysis costs money, which is why it has the tightest limit of the API (10 an hour per IP).
 
-**The privacy consent.** Save the approved text as `docs/privacy-consent/<version>.md`, add the version to `APPROVED_CONSENT_VERSIONS` in `src/config/privacyConsent.ts`, and put the **same** version in `config.js` of the pages. A unit test checks that the text exists for each version.
+**The privacy consent.** Save the approved text as `docs/privacy-consent/<version>.md`, add the version to `APPROVED_CONSENT_VERSIONS` in `src/config/privacyConsent.ts`, (the server writes it into `config.js` of the pages by itself). A unit test checks that the text exists for each version.
 
 ## 4. The first deployment, in order
 
@@ -124,11 +112,7 @@ Menu names change; look for the same thing under the new name.
    ```
    **One rule:** a database is migrated with the compiled files **or** with the TypeScript ones of a developer's machine (`npm run db:migrate`), never both: knex records the file names, and `001_init_schema.ts` is not `001_init_schema.js`. A production database is only ever migrated with the compiled ones. (If it was done the other way by mistake, knex answers "migration directory is corrupt" and changes nothing.)
 6. **The first admin account:** `heroku run npm run admin:bootstrap` (interactive; sets a one-time password that has to be changed at the first login). Until then the seeded account cannot be used.
-7. **Publish the customer pages.** `npm run front:files` lists the files. Put them on the static host, with **`config.js` replaced** by the production one: `API_BASE: 'https://api.example.com'` and `PRIVACY_CONSENT_VERSION` of the approved text. Check it before you upload:
-   ```bash
-   npm run predeploy:check -- --front config.js
-   ```
-   (From your machine this also complains about settings that only the server has; read only the lines of `front-`.)
+7. **The customer pages need no publishing:** the server serves them (and writes `config.js`). Open `https://app.example.com/` and `/config.js` to see them.
 8. **Register the redirect addresses** at Google and Kakao (section 3), if you use them.
 9. **Smoke test** (section 5), with the real services.
 
@@ -136,9 +120,9 @@ Menu names change; look for the same thing under the new name.
 
 Do it with a test e-mail address and a test phone number; delete or ignore the records afterwards.
 
-- [ ] `GET https://api.example.com/health` answers `ok` (it does not prove the database is up).
-- [ ] `https://api.example.com/admin-ui/`: sign in, change the password, see the list (empty is fine).
-- [ ] The customer pages open on `https://www.example.com`, over https, with no failed request in the console (a failed one to `localhost` means `config.js` is the development one).
+- [ ] `GET https://app.example.com/health` answers `ok` (it does not prove the database is up).
+- [ ] `https://app.example.com/admin-ui/`: sign in, change the password, see the list (empty is fine).
+- [ ] The customer pages open on `https://app.example.com`, over https, with no failed request in the console.
 - [ ] **Sign-up by e-mail:** the code arrives (check spam), it signs you in, a wrong code is refused.
 - [ ] **Stay signed in:** reload the page, open `my-quotes.html`: still signed in. (If not: the same-site rule, or `COOKIE_SECURE`.)
 - [ ] **Google** and **Kakao** sign-in, if set up: you return to the page you came from; a new account is asked for the consent and the phone.
@@ -176,5 +160,5 @@ Not done, and worth a decision before real customers use it:
 1. `npm test`; for a change of the database also `npm run test:integration` on a local PostgreSQL.
 2. Backup, then deploy: the release step migrates before the new code starts (step 5), so the new code never meets the old tables.
 3. `heroku run npm run predeploy:check -- --db`.
-4. If the pages changed: `npm run front:files`, publish, keep the production `config.js`.
+4. The pages are part of the deployment (the same push); nothing else to publish.
 5. A short smoke test (section 5): at least sign-in, a request, an e-mail.

@@ -14,6 +14,7 @@ import { createAdminInboxRouter } from './routes/adminInbox';
 import { createCustomerAuthRouter } from './routes/customerAuth';
 import { createCustomerEstimatesRouter } from './routes/customerEstimates';
 import { requireCustomer } from './middleware/customerAuth';
+import { createSitePagesRouter } from './routes/sitePages';
 import estimatesRouter from './routes/estimates';
 import estimatePreviewRouter from './routes/estimatePreview';
 import estimateImageAnalysisRouter from './routes/estimateImageAnalysis';
@@ -70,6 +71,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.post('/api/estimate-preview', limiters.estimatePreview);
   // Before Multer in the router: a refused request never has its image parsed or sent on.
   app.post('/api/estimate-preview/analyze-image', limiters.imageAnalysis);
+
+  // The customer pages (index, login, my quotes, the forms) come from this server too.
+  app.use(createSitePagesRouter({ nodeEnv: config.nodeEnv }));
 
   app.use(express.json());
   app.use(cookieParser());
