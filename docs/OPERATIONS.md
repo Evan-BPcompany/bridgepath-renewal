@@ -77,6 +77,19 @@ Migration notes (rolling back is possible, with limits that protect data):
 
 `EMAIL_WORKER_ENABLED=true` starts the outbox loop in the web process. Run it on one dyno unless you accept that the claim query (`FOR UPDATE SKIP LOCKED`) is the only guard against two workers sending the same event (it is designed for that, but it is not verified against a real database). Events stuck in `sending` longer than `EMAIL_WORKER_STALE_TIMEOUT_MS` go back to `pending`. Without `SENDGRID_API_KEY` events stay pending and retry.
 
+## Cleanup of expired data
+
+Once a day (the first run a minute after the server starts) the web process deletes what has finished and is of no use any more (`src/services/retentionService.ts`):
+
+| What | Deleted when |
+|---|---|
+| Customer and admin sessions | 7 days after they expired, or after they were revoked |
+| E-mail codes (sign-up, password) and access links of the quotes | 7 days after they expired |
+| Sent e-mails of the outbox (`email_events`) | after 90 days (they hold the text of a notice) |
+| Failed e-mails of the outbox | after 180 days (kept longer, to find out why) |
+
+**Never touched:** customers, requests (`estimates`), quotes, inquiries, and any e-mail that is `pending` or `sending`. How long those are kept is a decision of the company (the privacy text), not of this job. The result of each run is in the log (`Cleanup of expired data`, the number of rows per table). `CLEANUP_ENABLED=false` switches it off. One server process only, like the e-mail worker.
+
 ## Logs and monitoring
 
 - Logs go to stdout (Heroku logplex, not durable). Output is allowlist-based: see [SECURITY.md](SECURITY.md#logging).

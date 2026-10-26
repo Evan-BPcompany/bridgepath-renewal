@@ -20,11 +20,12 @@ const EXPECTED_SUITES = [
   'isolation',
   'migrations',
   'passwordChange',
-  'receiptSequence'
+  'receiptSequence',
+  'retention'
 ];
 
 describe('integration suites: what they may and may not do (no database needed)', () => {
-  it('there are the thirteen expected suites', () => {
+  it('there are the fourteen expected suites', () => {
     expect(suites.map(file => file.replace('.int.test.ts', '')).sort()).toEqual(EXPECTED_SUITES);
   });
 

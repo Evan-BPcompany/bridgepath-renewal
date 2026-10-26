@@ -66,6 +66,7 @@ Set secrets in the hosting settings (`heroku config:set NAME=value`), never in a
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | yes | The bucket and the IAM user of section 3. |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | yes | The key and the verified sender. Without them nobody can sign up. |
 | `EMAIL_WORKER_ENABLED` | yes | `true`, or the receipts, quote notices and answers are never sent. |
+| `CLEANUP_ENABLED` | no | Leave it unset (on): the daily deletion of expired sessions and old e-mails. `false` switches it off. |
 | `ADMIN_NOTIFICATION_EMAIL` | recommended | Told of each new request, question and request for a consultation. |
 | `SUPPORT_EMAIL`, `SUPPORT_PHONE` | recommended | Shown in the e-mails to customers. |
 | `ANTHROPIC_API_KEY` | optional | The photo analysis. `IMAGE_ANALYSIS_MODEL` to change the model. |
