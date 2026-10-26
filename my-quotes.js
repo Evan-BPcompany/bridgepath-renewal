@@ -6,7 +6,7 @@
     'use strict';
 
     var CATEGORY = Object.freeze({
-        eyewear: '선글라스·안경', shoes: '신발', golf_products: '골프용품', other: '기타 맞춤 제품'
+        eyewear: '선글라스·안경', shoes: '신발', golf_products: '골프티', other: '기타 맞춤 제품'
     });
     var KIND = Object.freeze({ simple: '간단 접수', detailed: '담당자 상세견적 요청' });
 

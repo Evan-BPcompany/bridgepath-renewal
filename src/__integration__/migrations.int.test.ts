@@ -1425,8 +1425,9 @@ describeIntegration('migrations 001-013', ({ url }) => {
     it('rolls back to the schema of 017, and applies again to the same schema', async () => {
       const first = await snapshotSchema(suite().db, suite().schema);
 
-      await migrateDownOne(suite().db); // 019
-      await migrateDownOne(suite().db); // 018
+      while ((await appliedNames()).length > 17) {
+        await migrateDownOne(suite().db); // 020, 019, 018
+      }
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 17));
       expect(await tableNames()).not.toContain('quote_inquiries');
 
@@ -1459,8 +1460,9 @@ describeIntegration('migrations 001-013', ({ url }) => {
     it('rolls back to the schema of 018, and applies again to the same schema', async () => {
       const first = await snapshotSchema(suite().db, suite().schema);
 
-      await migrateDownOne(suite().db); // 020
-      await migrateDownOne(suite().db); // 019
+      while ((await appliedNames()).length > 18) {
+        await migrateDownOne(suite().db); // 020, 019
+      }
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 18));
       expect(await tableNames()).not.toContain('kakao_events');
 
