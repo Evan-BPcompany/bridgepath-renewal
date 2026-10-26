@@ -80,7 +80,7 @@ describe('categories', () => {
   it.each([
     ['sunglasses', ['optical', 'sunglasses', 'sports', 'kids', 'safety'], 'eyewear'],
     ['shoes', ['sneakers', 'heels', 'mens', 'boots', 'sandals', 'other'], 'shoes'],
-    ['golf', ['bags', 'gloves', 'headwear', 'accessories', 'covers', 'training'], 'golf_products']
+    ['golf', ['golf_tee'], 'golf_products']
   ])('%s: every kind of product is sent as the category %s', (page, subtypes, category) => {
     for (const subtype of subtypes) {
       expect(api.normalizeCategory(page, subtype)).toEqual({ category, subtype });
@@ -90,13 +90,13 @@ describe('categories', () => {
 
   it('the last card of the shoes page ("기타") is a kind of shoe, not the category other', () => {
     expect(api.normalizeCategory('shoes', 'other')).toEqual({ category: 'shoes', subtype: 'other' });
-    expect(api.buildSpecification('shoes', 'other', { material: 'unknown', sizes: ['240'], quantity: '1' }).spec.shoe_type).toBe('other');
+    expect(api.buildSpecification('shoes', 'other', { material: 'unknown', sizes: ['240'], quantity: '600' }).spec.shoe_type).toBe('other');
   });
 
   it('other has no kind of product and is the category other', () => {
     expect(api.normalizeCategory('other')).toEqual({ category: 'other', subtype: null });
     expect(api.normalizeCategory('other', '')).toEqual({ category: 'other', subtype: null });
-    expect(api.normalizeCategory('other', 'bags')).toBeNull();
+    expect(api.normalizeCategory('other', 'golf_tee')).toBeNull();
   });
 
   it.each([
@@ -105,8 +105,8 @@ describe('categories', () => {
     ['golf', ''],
     ['golf', undefined],
     ['golf', 'Bags'],
-    ['nope', 'bags'],
-    [undefined, 'bags'],
+    ['nope', 'golf_tee'],
+    [undefined, 'golf_tee'],
     ['__proto__', 'x'],
     ['constructor', 'x']
   ])('refuses the unknown combination %s / %s', (page, subtype) => {
@@ -195,14 +195,14 @@ describe('specification: sunglasses', () => {
 });
 
 describe('specification: shoes', () => {
-  const base = { material: 'leather', sizes: ['240', '230', '270'], quantity: 500 };
+  const base = { material: 'leather', sizes: ['240', '230', '270'], quantity: 600 };
 
   it('builds the size range from the sizes that were ticked', () => {
     const { spec } = api.buildSpecification('shoes', 'sneakers', { ...base, color: '흰색', additionalInfo: '특수 밑창' });
 
     expect(spec).toEqual({
       schema_version: '1.0',
-      quantity: 500,
+      quantity: 600,
       shoe_type: 'sneakers',
       material: 'leather',
       sizes: [230, 240, 270],
@@ -218,7 +218,7 @@ describe('specification: shoes', () => {
   });
 
   it('requires a size, a material and a quantity; refuses sizes the form does not offer', () => {
-    expect(codesOf(api.validateSpecInput('shoes', 'heels', { quantity: '1' }).errors)).toEqual([
+    expect(codesOf(api.validateSpecInput('shoes', 'heels', { quantity: '600' }).errors)).toEqual([
       'material:choice_required',
       'sizes:sizes_required'
     ]);
@@ -229,25 +229,26 @@ describe('specification: shoes', () => {
 
 describe('specification: golf and other', () => {
   it('golf: the design option is the customization, the colour and the size are kept', () => {
-    const { spec } = api.buildSpecification('golf', 'gloves', {
-      material: 'leather', quantity: '300', color: '흰색', size: 'M/L', design: '로고 인쇄', additionalInfo: '포장'
+    const { spec } = api.buildSpecification('golf', 'golf_tee', {
+      material: 'wood', quantity: '1000', color: '흰색', size: '70mm', design: '로고 인쇄', additionalInfo: '포장'
     });
 
     expect(spec).toEqual({
       schema_version: '1.0',
-      quantity: 300,
-      product_type: 'gloves',
-      material: 'leather',
+      quantity: 1000,
+      product_type: 'golf_tee',
+      pieces_per_package: 50,
+      material: 'wood',
       color: '흰색',
-      size: 'M/L',
+      size: '70mm',
       customization: '로고 인쇄',
       additional_info: '포장'
     });
   });
 
   it('golf: the material is required and may be "unknown"', () => {
-    expect(codesOf(api.validateSpecInput('golf', 'bags', { quantity: '1' }).errors)).toEqual(['material:choice_required']);
-    expect(api.validateSpecInput('golf', 'bags', { quantity: '1', material: 'unknown' }).valid).toBe(true);
+    expect(codesOf(api.validateSpecInput('golf', 'golf_tee', { quantity: '1000' }).errors)).toEqual(['material:choice_required']);
+    expect(api.validateSpecInput('golf', 'golf_tee', { quantity: '1000', material: 'unknown' }).valid).toBe(true);
   });
 
   it('other: the description and the quantity are what the API needs', () => {
@@ -558,11 +559,11 @@ describe('the request', () => {
     company_name: 'Acme',
     customer_email: 'buyer@example.com'
   };
-  const spec = api.buildSpecification('golf', 'bags', { material: 'nylon', quantity: '50' }).spec;
+  const spec = api.buildSpecification('golf', 'golf_tee', { material: 'wood', quantity: '1000' }).spec;
   const options = (files: unknown[] = []) => ({
     apiBase: 'http://localhost:4000/',
     page: 'golf',
-    subtype: 'bags',
+    subtype: 'golf_tee',
     spec,
     customer: customerValue,
     consentVersion: 'dev-draft',
@@ -591,8 +592,8 @@ describe('the request', () => {
   it('never sends the kind of product as the category', () => {
     const { init } = api.buildRequest(options());
 
-    expect(JSON.parse(init.body).category).not.toBe('bags');
-    expect(JSON.parse(init.body).specification_json.product_type).toBe('bags');
+    expect(JSON.parse(init.body).category).not.toBe('golf_tee');
+    expect(JSON.parse(init.body).specification_json.product_type).toBe('golf_tee');
   });
 
   it('leaves out the fields that are empty', () => {
@@ -995,5 +996,33 @@ describe('the texts for the visitor', () => {
       ['rate_limited', 'server_error', 'network'].map(code => api.messageFor(code, { minutes: 1 }))
     );
     expect(text).not.toMatch(/token|status|new_receipt/);
+  });
+});
+
+describe('the minimum orders', () => {
+  it('shoes: 600 pairs are accepted and 599 are refused with their own message', () => {
+    const base = { material: 'leather', sizes: ['250'] };
+
+    expect(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '600' }).valid).toBe(true);
+    expect(codesOf(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '599' }).errors)).toEqual(['quantity:quantity_min_shoes']);
+    expect(api.messageFor('quantity_min_shoes')).toBe('최소 주문 수량은 600켤레예요.');
+  });
+
+  it('golf tees: 1,000 packages are accepted and 999 are refused with their own message', () => {
+    expect(api.validateSpecInput('golf', 'golf_tee', { material: 'wood', quantity: '1000' }).valid).toBe(true);
+    expect(codesOf(api.validateSpecInput('golf', 'golf_tee', { material: 'wood', quantity: '999' }).errors)).toEqual(['quantity:quantity_min_golf']);
+    expect(api.messageFor('quantity_min_golf')).toContain('1,000패키지');
+  });
+
+  it('sunglasses keep a minimum of 1', () => {
+    expect(api.validateSpecInput('sunglasses', 'optical', { frameMaterial: 'metal', lensType: 'normal', quantity: '1' }).valid).toBe(true);
+  });
+
+  it('the specification of a golf tee says how many tees a package holds', () => {
+    expect(api.buildSpecification('golf', 'golf_tee', { material: 'bamboo', quantity: '1000' }).spec).toMatchObject({
+      product_type: 'golf_tee',
+      pieces_per_package: 50,
+      quantity: 1000
+    });
   });
 });

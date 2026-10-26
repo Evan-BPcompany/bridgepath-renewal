@@ -434,3 +434,29 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* The price range on the shoes and golf tee pages */
+.market-preview {
+    margin: 8px 0 20px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #f4f6ff;
+    border: 1px solid #d8def8;
+}
+
+.market-preview-main {
+    margin: 0 0 6px;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.market-preview-line {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: #444;
+}
+
+.market-preview[data-kind="minimum"] {
+    background: #fff6e6;
+    border-color: #f0d9a8;
+}

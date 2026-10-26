@@ -106,7 +106,7 @@ Menu names change; look for the same thing under the new name.
    heroku run npm run predeploy:check
    ```
    Fix every `FAIL`. Read every `WARN`.
-5. **Migrate the database** (`001` to `019`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
+5. **Migrate the database** (`001` to `020`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
    ```bash
    heroku run npm run db:status:prod      # what is applied and what is not (changes nothing)
    heroku run npm run db:migrate:prod     # applies what is missing
@@ -149,12 +149,12 @@ Not done, and worth a decision before real customers use it:
 - **No monitoring.** Sentry is not integrated; logs on Heroku are not durable. Nobody is told when the server fails. Add a log drain with alerts, or integrate Sentry.
 - **No backups of its own,** and a restore has never been tried. Use the plan's backups and **try a restore once**.
 - **One process only.** The rate limits are counted in memory and the e-mail worker runs in the web process. With two dynos the limits double and two workers could race (the claim query is designed to prevent a double send; it has never been run against two workers).
-- **Old rows are never removed:** expired sessions and e-mail codes, sent e-mail events. They are small, but there is no cleanup yet.
+- **Old data is cleaned once a day** (expired sessions and codes, old sent e-mails; see OPERATIONS.md), but customers, requests and quotes are kept for ever: how long is a decision of the company and the privacy text.
 - **No virus scan,** so attached files are kept "quarantined" and cannot be opened by the staff. They have to ask the customer for a file by e-mail.
 - **Customers' rights:** there is no way yet to delete an account, export a customer's data or answer a request to remove it; the privacy text has to say how that is done until there is.
 - **No terms of service page,** only the privacy consent.
 - **Admin accounts** can only be made by the bootstrap command; there is no screen to add a staff member or to switch one off.
-- **KakaoTalk notices** (the receipt, the quote, the answer) are planned, not built: they need a Kakao business channel, a sending agency and a separate consent to receive messages.
+- **KakaoTalk notices** (the receipt, the quote, the answer) are prepared in the code but **not connected**: they need a Kakao business channel, a sending agency and approved templates (docs/KAKAO-NOTICES.md). Leave them off.
 - **Never run for real:** S3, SendGrid, Google, Kakao, the Claude API, Heroku, the real custom domains and certificates.
 
 ## 8. Every later deployment

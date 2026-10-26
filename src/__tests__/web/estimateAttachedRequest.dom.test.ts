@@ -368,7 +368,7 @@ describe('a request of the other pages with files', () => {
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
     check($('#size250'));
-    type($('#quantity'), '100');
+    type($('#quantity'), '600');
     click($('#nextBtn2'));
   }
 
@@ -497,7 +497,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
     check($('#size250'));
-    type($('#quantity'), '100');
+    type($('#quantity'), '600');
     type($('#additionalInfo'), '<img src=x onerror=alert(1)>');
     click($('#nextBtn2'));
     check($('#customerTypeBusiness'));
@@ -536,7 +536,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     expect(row('제품 종류')).toBe('운동화');
     expect(row('주요 재질')).toBe('가죽');
     expect(row('사이즈')).toBe('250, 270');
-    expect(row('수량')).toBe('1,200개');
+    expect(row('수량')).toBe('1,200켤레');
     expect(row('전화')).toBe('010-1234-5678');
     expect(row('이메일')).toBeUndefined();
   });

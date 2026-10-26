@@ -60,8 +60,8 @@ const PAGE_FILES = (page: string): string[] => [
 
 const PAGES = [
   { page: 'sunglasses', card: 'sports', category: 'eyewear', fill: () => { choose($('#lensType'), 'mirror'); choose($('#frameMaterial'), 'unknown'); type($('#quantity'), '300'); } },
-  { page: 'shoes', card: 'other', category: 'shoes', fill: () => { choose($('#material'), 'unknown'); check($('#size240')); type($('#quantity'), '80'); } },
-  { page: 'golf', card: 'covers', category: 'golf_products', fill: () => { choose($('#material'), 'nylon'); type($('#productColor'), 'black'); type($('#quantity'), '50'); } }
+  { page: 'shoes', card: 'other', category: 'shoes', fill: () => { choose($('#material'), 'unknown'); check($('#size240')); type($('#quantity'), '600'); } },
+  { page: 'golf', card: 'golf_tee', category: 'golf_products', fill: () => { choose($('#material'), 'wood'); type($('#productColor'), 'black'); type($('#quantity'), '1000'); } }
 ];
 
 describe('the estimate pages against the real API', () => {

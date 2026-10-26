@@ -154,7 +154,7 @@ describe('POST /api/estimate-preview', () => {
   it('answers available:false for a category that is not priced yet', async () => {
     const res = await request(createApp())
       .post('/api/estimate-preview')
-      .send({ ...valid, category: 'shoes' });
+      .send({ ...valid, category: 'other' });
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ available: false, reason: 'CATEGORY_NOT_SUPPORTED' });

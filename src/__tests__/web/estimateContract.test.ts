@@ -30,8 +30,8 @@ const HIGH = { windowMs: 3600000, max: 100000 };
 
 const VALUES: Record<string, Record<string, unknown>> = {
   sunglasses: { frameMaterial: 'unknown', lensType: 'polarized', quantity: '1000', frameColor: '검정' },
-  shoes: { material: 'unknown', sizes: ['240', '250', '270'], quantity: '500', color: '흰색', additionalInfo: '특수 밑창' },
-  golf: { material: 'nylon', quantity: '300', color: '검정', size: 'One size', design: '로고 인쇄' },
+  shoes: { material: 'unknown', sizes: ['240', '250', '270'], quantity: '600', color: '흰색', additionalInfo: '특수 밑창' },
+  golf: { material: 'wood', quantity: '1000', color: '검정', size: 'One size', design: '로고 인쇄' },
   other: { productDescription: '맞춤형 텀블러', quantity: '1000' }
 };
 const INDIVIDUAL = {
@@ -126,9 +126,9 @@ describe('the front end against the real API', () => {
       }
     }
 
-    it('covers the 4 pages and 17 kinds of product (and the page of other products)', () => {
-      expect(cases.filter(([page]) => page !== 'other')).toHaveLength(17);
-      expect(cases).toHaveLength(18);
+    it('covers the 4 pages and 12 kinds of product (and the page of other products)', () => {
+      expect(cases.filter(([page]) => page !== 'other')).toHaveLength(12);
+      expect(cases).toHaveLength(13);
     });
 
     it.each(cases)('%s / %s is accepted as the category %s, with the specification the API checks', async (page, subtype, category) => {
@@ -159,7 +159,7 @@ describe('the front end against the real API', () => {
 
   describe('the customer', () => {
     it('an individual with an e-mail: the fields arrive as the API wants them', async () => {
-      const response = await send(app, build('golf', 'bags', INDIVIDUAL));
+      const response = await send(app, build('golf', 'golf_tee', INDIVIDUAL));
 
       expect(response.status).toBe(201);
       expect(sentToService()).toMatchObject({
@@ -194,7 +194,7 @@ describe('the front end against the real API', () => {
       for (const customer of wrong) {
         expect(api.validateCustomer(customer).valid).toBe(false);
         // Past the front end's check, as a forged request, the API refuses it too.
-        const spec = api.buildSpecification('golf', 'bags', VALUES.golf).spec;
+        const spec = api.buildSpecification('golf', 'golf_tee', VALUES.golf).spec;
         const response = await request(app).post('/api/estimates').send({
           category: 'golf_products',
           specification_json: spec,
@@ -251,7 +251,7 @@ describe('the front end against the real API', () => {
 
   describe('what comes back', () => {
     it('201: the receipt number, the time, the fixed message; never the token or the internal status', async () => {
-      const response = await send(app, build('golf', 'covers'));
+      const response = await send(app, build('golf', 'golf_tee'));
       const result = read(response);
 
       expect(result).toEqual({
@@ -274,7 +274,7 @@ describe('the front end against the real API', () => {
     });
 
     it('400 on the customer: each field has a code and a Korean text', async () => {
-      const spec = api.buildSpecification('golf', 'bags', VALUES.golf).spec;
+      const spec = api.buildSpecification('golf', 'golf_tee', VALUES.golf).spec;
       const response = await request(app).post('/api/estimates').send({
         category: 'golf_products',
         specification_json: spec,
@@ -343,9 +343,9 @@ describe('the front end against the real API', () => {
 
     it('429: the wait is read from Retry-After, which the browser is allowed to read', async () => {
       const limited = createApp({ rateLimits: { estimateCreate: { windowMs: 3600000, max: 1 }, estimateRead: HIGH } });
-      await send(limited, build('golf', 'bags'));
+      await send(limited, build('golf', 'golf_tee'));
 
-      const response = await send(limited, build('golf', 'bags'));
+      const response = await send(limited, build('golf', 'golf_tee'));
       const result = read(response);
 
       expect(response.status).toBe(429);
@@ -364,7 +364,7 @@ describe('the front end against the real API', () => {
     it('503: production without an approved consent version is "not ready"', async () => {
       config.nodeEnv = 'production';
 
-      const response = await send(app, build('golf', 'bags'));
+      const response = await send(app, build('golf', 'golf_tee'));
 
       expect(response.status).toBe(503);
       expect(read(response)).toEqual({ kind: 'notReady' });
@@ -374,9 +374,9 @@ describe('the front end against the real API', () => {
     it('500 from the service: a server error; nothing was saved, with files too', async () => {
       create.mockRejectedValue(new Error('database down'));
 
-      const plain = read(await send(app, build('golf', 'bags')));
+      const plain = read(await send(app, build('golf', 'golf_tee')));
       const withFiles = read(
-        await send(app, build('golf', 'bags', INDIVIDUAL, [new g.File([PNG], 'a.png', { type: 'image/png' })])),
+        await send(app, build('golf', 'golf_tee', INDIVIDUAL, [new g.File([PNG], 'a.png', { type: 'image/png' })])),
         true
       );
 
@@ -389,7 +389,7 @@ describe('the front end against the real API', () => {
       upload.mockRejectedValue(new Error('storage down'));
 
       const result = read(
-        await send(app, build('golf', 'bags', INDIVIDUAL, [new g.File([PNG], 'a.png', { type: 'image/png' })])),
+        await send(app, build('golf', 'golf_tee', INDIVIDUAL, [new g.File([PNG], 'a.png', { type: 'image/png' })])),
         true
       );
 
@@ -427,7 +427,7 @@ describe('the front end against the real API', () => {
     it('a file type it does not accept is a validation result naming the file', async () => {
       const gif = new g.File([Buffer.from('GIF89a')], 'photo.gif', { type: 'image/gif' });
 
-      const response = await send(app, build('golf', 'bags', INDIVIDUAL, [gif]));
+      const response = await send(app, build('golf', 'golf_tee', INDIVIDUAL, [gif]));
       const result = read(response, true);
 
       expect(response.status).toBe(400);
@@ -439,7 +439,7 @@ describe('the front end against the real API', () => {
     it('a WEBP file is accepted', async () => {
       const webp = new g.File([Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBP'), Buffer.alloc(8)])], 'photo.webp', { type: 'image/webp' });
 
-      const response = await send(app, build('golf', 'bags', INDIVIDUAL, [webp]));
+      const response = await send(app, build('golf', 'golf_tee', INDIVIDUAL, [webp]));
 
       expect(response.status).toBe(201);
     });
@@ -447,7 +447,7 @@ describe('the front end against the real API', () => {
     it('more than 5 files are a validation result, not a server error', async () => {
       const files = Array.from({ length: 6 }, (_, i) => new g.File([PNG], `f${i}.png`, { type: 'image/png' }));
 
-      const response = await send(app, build('golf', 'bags', INDIVIDUAL, files));
+      const response = await send(app, build('golf', 'golf_tee', INDIVIDUAL, files));
 
       expect(response.status).toBe(400);
       expect(read(response, true).kind).toBe('validation');

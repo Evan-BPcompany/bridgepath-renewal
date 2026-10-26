@@ -36,6 +36,8 @@ The inbox of the staff (2026-10-26) added a block to the `detailedQuotes` suite 
 
 The deployment helpers (2026-10-26) are covered by unit tests only, as they touch no database in a test: the checks (`deployCheck.test.ts`, with a setting that is right in every way and one change at a time), the command (`predeployCli.test.ts`, with the file system and the database replaced), the list of files of the pages (`frontFiles.test.ts`, on the real pages and on small folders) and a guard that the checklist and `.env.example` name every setting the server reads (`deploymentDocs.test.ts`). `npm run predeploy:check` was also run by hand on a poor setting. **`--db` has never been run against a real database.**
 
+Migration 020 (the shoe and golf tee base prices) has tests in `migration020.test.ts` (the figures against the script), `shoesGolfPreview.test.ts` (the arithmetic, the minimum orders, the API) and `estimateMarketPreview.dom.test.ts` (the price box); the `migrations` suite has a block for it. **Not run on PostgreSQL yet.**
+
 The KakaoTalk notices have their own suite, **`kakao`** (the outbox, who gets a notice, the retries, the consent endpoint). Run on PostgreSQL 2026-10-26: passed (all 15 suites, 403 tests, after the migration suite was updated for 019). Its unit tests are `kakao.test.ts` and the new cases of `customerAuthRoutes.test.ts` and `customerAuthPage.dom.test.ts`.
 
 The cleanup of expired data has its own suite, **`retention`** (what is deleted and what must stay, on the six tables). Run on PostgreSQL 2026-10-26: passed (all 14 suites together: 394 tests). Its unit test (`retentionService.test.ts`) covers the statements and the schedule.

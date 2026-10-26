@@ -146,14 +146,17 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="quantity">수량 *</label>
-                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
+                        <label for="quantity">수량 (켤레) *</label>
+                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="600" required>
+                        <p class="form-hint">최소 주문 수량은 600켤레예요.</p>
                     </div>
                     <div class="form-group">
                         <label for="deliveryDate">납기일 요청</label>
                         <input type="date" id="deliveryDate" name="deliveryDate">
                     </div>
                 </div>
+
+                <div class="market-preview" id="marketPreview" role="status" aria-live="polite" hidden></div>
 
                 <div class="form-group full-width">
                     <label for="additionalInfo">추가 요청사항</label>
@@ -205,6 +208,7 @@
     <script src="estimate-attachments.js"></script>
     <script src="estimate-submit.js"></script>
     <script src="estimate-flow.js"></script>
+    <script src="estimate-market-preview.js"></script>
     <script src="shoes-estimate.js"></script>
 </body>
 

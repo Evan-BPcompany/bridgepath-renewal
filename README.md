@@ -1375,6 +1375,35 @@ Step 2 of `sunglasses-estimate.html` ends with **AI 견적 시작** (no longer a
 - A price is a factory price per piece as listed, at the middle of the listed range (FOB-style). It does **not** include shipping, duty, mold, logo, packaging or the service fee, and listings are mostly stock designs, not custom OEM development. It is an opening estimate: replace each row with the figures of real quotes as they come in, and keep the lens multipliers and quantity tiers (placeholders) in mind.
 - The migration also switches off the other `[SAMPLE]` eyewear rows (`Premium Frame`), so an unknown material is priced between the cheapest and the dearest of these five. Nothing is applied by the tests: run `npm run db:migrate` yourself on a database you chose.
 
+### Shoes and golf tees: the same price guidance, with a minimum order (migration 020)
+
+`POST /api/estimate-preview` also prices **shoes** and **golf tees** (2026-10-26), with the same method as the sunglasses: a staff-maintained row of `base_prices` (the median of China factory listings on Made-in-China.com, `scripts/shoes-golf-base-prices.js`, data in `docs/pricing/shoes-golf-factory-prices-2026-10-26.json`), adjusted by multipliers that live in `src/config/shoesGolfPricingRules.ts` and are **placeholders** until real quotes replace them. The margin is not shown to the customer and is not part of these numbers.
+
+| | Shoes | Golf tees |
+|---|---|---|
+| Minimum order | **600 pairs** | **1,000 packages** (1 package = 50 tees) |
+| The request | `category` = the shoe type (`sneakers`, `heels`, `mens`, `boots`, `sandals`, `other`), `material`, `quantity` | `category: "golf_tee"`, `material` (`wood`, `bamboo`, `plastic`, `unknown`), `quantity` in packages |
+| The base | `Sneakers`, `Heels`, `Mens Dress`, `Boots`, `Sandals`; an unknown type or material is priced across all of them with a wider range | `Wood Tee`, `Bamboo Tee`, `Plastic Tee` (a price per tee; the answer is per package = price x 50) |
+| The answer | `unit: "pair"`, `unit_price`, `total_price` | `unit: "package"`, `pieces_per_package: 50`, the same ranges |
+| Below the minimum | `{ available: false, reason: "BELOW_MINIMUM", minimum_quantity: 600 }` (status 200) | `minimum_quantity: 1000` |
+
+| Variant | Listings (suppliers) | Median USD | Base price KRW |
+|---|---|---|---|
+| Sneakers | 6 (4) | 10.47 | 13,860 per pair |
+| Heels | 6 (4) | 8.635 | 11,430 per pair |
+| Mens Dress | 6 (5) | 18.15 | 24,030 per pair |
+| Boots | 10 (9) | 12.39 | 16,400 per pair |
+| Sandals | 14 (10) | 5.975 | 7,910 per pair |
+| Wood Tee | 4 (3) | 0.018 | 23.8 per tee |
+| Bamboo Tee | 3 (2) | 0.025 | 33.1 per tee |
+| Plastic Tee | 2 (1) | 0.025 | 33.1 per tee |
+
+- **The tee prices rest on few suppliers** (the plastic one on a single supplier). Treat them as a rough guide and replace them with real quotes first.
+- The minimum orders are also checked when a request is sent (`validateSpecification`: 600 pairs for any shoe request, 1,000 packages for a golf tee request) and by the forms (`estimate-api.js`), so a request below them is refused with a message that names the minimum.
+- A golf request is a golf tee now: the golf page has one product (`golf_tee`, `pieces_per_package: 50` in the specification). Old requests for bags and gloves stay readable; only the page changed.
+- The price box under the quantity of both pages is `estimate-market-preview.js`.
+- A price is a factory price as listed (FOB-style): no shipping, duty, mold, logo, packaging (the package of 50 included) or service fee. The migration also switches off the `[SAMPLE]` shoe and golf rows.
+
 ### All or nothing: files, storage and the receipt number (PRD FR-4.7)
 
 A request with files is saved with all of them or not at all, so a failed attachment never leaves an estimate behind and trying again cannot make a second request:

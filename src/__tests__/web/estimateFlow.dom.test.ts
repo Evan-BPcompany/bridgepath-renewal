@@ -46,16 +46,16 @@ const PAGES: Array<{ page: string; card: string; fill: () => void; required: str
     fill: () => {
       choose($('#material'), 'leather');
       check($('#size250'));
-      type($('#quantity'), '100');
+      type($('#quantity'), '600');
     }
   },
   {
     page: 'golf',
-    card: 'gloves',
+    card: 'golf_tee',
     required: ['material'],
     fill: () => {
-      choose($('#material'), 'leather');
-      type($('#quantity'), '100');
+      choose($('#material'), 'wood');
+      type($('#quantity'), '1000');
     }
   }
 ];
@@ -204,14 +204,14 @@ describe.each(PAGES)('$page estimate page: the three steps', ({ page, card, fill
 
 describe('estimate flow: values of the pages', () => {
   it('reads the colour of the golf page from productColor', () => {
-    open('golf', 'gloves');
+    open('golf', 'golf_tee');
     type($('#productColor'), 'black');
     type($('#design'), 'logo');
-    choose($('#material'), 'leather');
+    choose($('#material'), 'wood');
     const values = g.BridgePathFlow.collectValues('golf');
     expect(values.color).toBe('black');
     expect(values.design).toBe('logo');
-    expect(values.material).toBe('leather');
+    expect(values.material).toBe('wood');
     expect(values.productColor).toBeUndefined();
   });
 
@@ -225,7 +225,7 @@ describe('estimate flow: values of the pages', () => {
   it('asks for a size on the shoes page and puts the focus on the first size', () => {
     open('shoes', 'sneakers');
     choose($('#material'), 'leather');
-    type($('#quantity'), '10');
+    type($('#quantity'), '600');
     click($('#nextBtn2'));
     expect($('#step3-content').classList.contains('active')).toBe(false);
     expect($('#size220').getAttribute('aria-invalid')).toBe('true');
@@ -240,7 +240,7 @@ describe('estimate flow: values of the pages', () => {
     open('shoes', 'other');
     choose($('#material'), 'unknown');
     check($('#size260'));
-    type($('#quantity'), '10');
+    type($('#quantity'), '600');
     click($('#nextBtn2'));
     expect($('#step3-content').classList.contains('active')).toBe(true);
   });

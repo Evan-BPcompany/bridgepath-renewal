@@ -11,11 +11,11 @@ afterAll(() => {
 });
 
 const customer = { customer_type: 'business_brand', customer_name: 'Kim', company_name: 'Acme', customer_email: 'buyer@example.com' };
-const spec = api.buildSpecification('golf', 'bags', { material: 'nylon', quantity: '50' }).spec;
+const spec = api.buildSpecification('golf', 'golf_tee', { material: 'wood', quantity: '1000' }).spec;
 const options = (extra: Record<string, unknown> = {}) => ({
   apiBase: 'http://localhost:4000',
   page: 'golf',
-  subtype: 'bags',
+  subtype: 'golf_tee',
   spec,
   customer,
   consentVersion: 'dev-draft',

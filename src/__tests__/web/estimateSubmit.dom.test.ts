@@ -68,20 +68,20 @@ const PAGES: Array<{ page: string; card: string; category: string; fill: () => v
       choose($('#material'), 'leather');
       check($('#size250'));
       check($('#size270'));
-      type($('#quantity'), '120');
+      type($('#quantity'), '600');
     },
-    expectSpec: { shoe_type: 'other', material: 'leather', sizes: [250, 270], quantity: 120 }
+    expectSpec: { shoe_type: 'other', material: 'leather', sizes: [250, 270], quantity: 600 }
   },
   {
     page: 'golf',
-    card: 'gloves',
+    card: 'golf_tee',
     category: 'golf_products',
     fill: () => {
-      choose($('#material'), 'leather');
+      choose($('#material'), 'wood');
       type($('#productColor'), 'black');
-      type($('#quantity'), '50');
+      type($('#quantity'), '1000');
     },
-    expectSpec: { product_type: 'gloves', material: 'leather', color: 'black', quantity: 50 }
+    expectSpec: { product_type: 'golf_tee', material: 'wood', color: 'black', quantity: 1000 }
   }
 ];
 

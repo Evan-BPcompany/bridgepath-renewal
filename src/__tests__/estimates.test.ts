@@ -37,7 +37,7 @@ describe('Estimate API', () => {
         shoe_type: 'Running',
         material: 'Mesh',
         size_range: '240-250',
-        quantity: 500
+        quantity: 600
       };
 
       const result = validateSpecification('sneakers', spec);

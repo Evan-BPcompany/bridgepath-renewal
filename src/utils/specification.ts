@@ -1,10 +1,11 @@
 import Ajv, { JSONSchemaType } from 'ajv';
+import { GOLF_TEE_PRODUCT_TYPE, SHOES_MIN_QUANTITY, TEE_MIN_PACKAGES } from '../config/shoesGolfPricingRules';
 
 export type CategoryType =
   | 'eyewear' | 'shoes' | 'golf_products' | 'other'
   | 'optical' | 'sunglasses' | 'sports' | 'kids' | 'safety'
   | 'sneakers' | 'heels' | 'mens' | 'boots' | 'sandals'
-  | 'bags' | 'gloves' | 'headwear' | 'accessories' | 'covers' | 'training';
+  | 'bags' | 'gloves' | 'headwear' | 'accessories' | 'covers' | 'training' | 'golf_tee';
 
 export const CATEGORY_MAPPING: Record<string, string> = {
   eyewear: 'eyewear',
@@ -14,6 +15,7 @@ export const CATEGORY_MAPPING: Record<string, string> = {
   golf_products: 'golf_products',
   bags: 'golf_products', gloves: 'golf_products', headwear: 'golf_products',
   accessories: 'golf_products', covers: 'golf_products', training: 'golf_products',
+  golf_tee: 'golf_products',
   other: 'other'
 };
 
@@ -173,7 +175,24 @@ export function validateSpecification(
     };
   }
 
+  // The minimum orders: 600 pairs of shoes, 1,000 packages (of 50) of golf tees.
+  const wanted = minimumQuantity(category, canonicalCategory, specification);
+  if (wanted !== undefined && !((specification as { quantity?: unknown }).quantity as number >= wanted)) {
+    return { valid: false, errors: [`/quantity: must be at least ${wanted} (the minimum order)`] };
+  }
+
   return { valid: true };
+}
+
+function minimumQuantity(category: string, canonical: string, specification: unknown): number | undefined {
+  if (canonical === 'shoes') {
+    return SHOES_MIN_QUANTITY;
+  }
+  const productType = (specification as { product_type?: unknown } | null)?.product_type;
+  if (canonical === 'golf_products' && (category === 'golf_tee' || productType === GOLF_TEE_PRODUCT_TYPE)) {
+    return TEE_MIN_PACKAGES;
+  }
+  return undefined;
 }
 
 // What the customer's screen showed when the AI quote was started (sunglasses form): the analysis

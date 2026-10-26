@@ -33,10 +33,13 @@
             ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
         ],
         golf: [
-            ['material', '재질', 'select'], ['color', '색상'], ['size', '크기'], ['design', '디자인'], ['quantity', '수량', 'count'],
+            ['material', '재질', 'select'], ['color', '색상'], ['size', '길이'], ['design', '디자인'], ['quantity', '수량', 'count'],
             ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
         ]
     };
+
+    // The unit of the quantity, per page: shoes are counted in pairs, golf tees in packages of 50.
+    var COUNT_UNIT = { shoes: '켤레', golf: '패키지(50개입)' };
 
     function clipText(text) {
         return text.length > 100 ? text.slice(0, 100) + '…' : text;
@@ -66,7 +69,7 @@
                 var chosen = select && select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null;
                 value = chosen ? chosen.textContent.trim() : value;
             } else if (entry[2] === 'count') {
-                value = Number(value).toLocaleString('ko-KR') + '개';
+                value = Number(value).toLocaleString('ko-KR') + (COUNT_UNIT[page] || '개');
             }
             rows.push({ label: entry[1], value: clipText(value) });
         });

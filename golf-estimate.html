@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>골프용품 AI 가상견적 - Bridge Path</title>
+    <title>골프티 AI 가상견적 - Bridge Path</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="estimate-common.css">
     <link rel="stylesheet" href="estimate-customer.css">
@@ -14,7 +14,7 @@
     <header class="estimate-header">
         <div class="header-container">
             <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
-            <h1>골프용품 AI 가상견적</h1>
+            <h1>골프티 AI 가상견적</h1>
             <div></div>
         </div>
     </header>
@@ -38,41 +38,16 @@
             </div>
         </div>
 
-        <!-- Step 1: Golf Product Category Selection -->
+        <!-- Step 1: the golf tee (the one product of this page) -->
         <section class="step-content active" id="step1-content">
-            <h2>골프용품 종류를 선택해주세요</h2>
-            <p class="step-description">제조하고 싶은 골프용품의 종류를 선택해주세요. 정확한 선택이 견적에 도움이 됩니다.</p>
+            <h2>골프티 견적을 시작할게요</h2>
+            <p class="step-description">골프티(공을 올려놓는 골프용품)를 제조·소싱하는 견적이에요. 1패키지는 50개입이고, 최소 주문 수량은 1,000패키지예요.</p>
 
             <div class="category-grid">
-                <div class="category-card" data-category="bags">
-                    <div class="category-icon">🎒</div>
-                    <p class="category-main">Golf Bags</p>
-                    <p class="category-sub">골프백</p>
-                </div>
-                <div class="category-card" data-category="gloves">
-                    <div class="category-icon">🧤</div>
-                    <p class="category-main">Golf Gloves</p>
-                    <p class="category-sub">골프 장갑</p>
-                </div>
-                <div class="category-card" data-category="headwear">
-                    <div class="category-icon">🧢</div>
-                    <p class="category-main">Golf Headwear</p>
-                    <p class="category-sub">골프 모자</p>
-                </div>
-                <div class="category-card" data-category="accessories">
+                <div class="category-card" data-category="golf_tee">
                     <div class="category-icon">⛳</div>
-                    <p class="category-main">Golf Accessories</p>
-                    <p class="category-sub">골프 액세서리</p>
-                </div>
-                <div class="category-card" data-category="covers">
-                    <div class="category-icon">🛡️</div>
-                    <p class="category-main">Golf Covers & Cases</p>
-                    <p class="category-sub">골프 커버·케이스</p>
-                </div>
-                <div class="category-card" data-category="training">
-                    <div class="category-icon">🎯</div>
-                    <p class="category-main">Golf Training</p>
-                    <p class="category-sub">골프 연습용품</p>
+                    <p class="category-main">Golf Tees</p>
+                    <p class="category-sub">골프티</p>
                 </div>
             </div>
 
@@ -82,7 +57,7 @@
         <!-- Step 2: Detailed Information -->
         <section class="step-content" id="step2-content">
             <h2>상세 정보를 입력해주세요</h2>
-            <p class="step-description">선택하신 골프용품에 대한 상세 정보를 입력해주세요.</p>
+            <p class="step-description">골프티에 대한 상세 정보를 입력해주세요.</p>
 
             <div class="form-section">
                 <div class="form-group full-width">
@@ -98,15 +73,9 @@
                         <label for="material">주요 재질 *</label>
                         <select id="material" name="material">
                             <option value="">선택해주세요</option>
-                            <option value="polyester">폴리에스터</option>
-                            <option value="nylon">나일론</option>
-                            <option value="leather">가죽</option>
-                            <option value="synthetic">인공가죽</option>
-                            <option value="rubber">고무</option>
-                            <option value="metal">금속</option>
-                            <option value="cotton">면</option>
-                            <option value="wool">울</option>
-                            <option value="mixed">혼합</option>
+                            <option value="wood">나무</option>
+                            <option value="bamboo">대나무</option>
+                            <option value="plastic">플라스틱</option>
                             <option value="unknown">잘 모르겠음</option>
                         </select>
                     </div>
@@ -114,12 +83,13 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="size">사이즈</label>
-                        <input type="text" id="size" name="size" placeholder="예: One size, M/L/XL, 10~26cm">
+                        <label for="size">길이</label>
+                        <input type="text" id="size" name="size" placeholder="예: 54mm, 70mm, 83mm">
                     </div>
                     <div class="form-group">
-                        <label for="quantity">수량 *</label>
-                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1" required>
+                        <label for="quantity">수량 (패키지) *</label>
+                        <input type="number" id="quantity" name="quantity" placeholder="예: 1000" min="1000" required>
+                        <p class="form-hint">1패키지 = 50개입 · 최소 주문 수량은 1,000패키지예요.</p>
                     </div>
                 </div>
 
@@ -133,6 +103,8 @@
                         <input type="date" id="deliveryDate" name="deliveryDate">
                     </div>
                 </div>
+
+                <div class="market-preview" id="marketPreview" role="status" aria-live="polite" hidden></div>
 
                 <div class="form-group full-width">
                     <label for="additionalInfo">추가 요청사항</label>
@@ -184,6 +156,7 @@
     <script src="estimate-attachments.js"></script>
     <script src="estimate-submit.js"></script>
     <script src="estimate-flow.js"></script>
+    <script src="estimate-market-preview.js"></script>
     <script src="golf-estimate.js"></script>
 </body>
 

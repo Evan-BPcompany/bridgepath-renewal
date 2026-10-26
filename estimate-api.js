@@ -31,7 +31,8 @@
         golf: Object.freeze({
             category: 'golf_products',
             typeField: 'product_type',
-            subtypes: Object.freeze(['bags', 'gloves', 'headwear', 'accessories', 'covers', 'training'])
+            // The golf page sells one product: the golf tee, counted in packages of 50.
+            subtypes: Object.freeze(['golf_tee'])
         }),
         other: Object.freeze({
             category: 'other',
@@ -50,9 +51,7 @@
         lensType: Object.freeze(['normal', 'polarized', 'mirror', 'gradient', 'photochromic', UNKNOWN]),
         frameMaterial: Object.freeze(['metal', 'plastic', 'acetate', 'mixed', 'wood', UNKNOWN]),
         shoesMaterial: Object.freeze(['leather', 'canvas', 'mesh', 'synthetic', 'rubber', 'mixed', UNKNOWN]),
-        golfMaterial: Object.freeze([
-            'polyester', 'nylon', 'leather', 'synthetic', 'rubber', 'metal', 'cotton', 'wool', 'mixed', UNKNOWN
-        ]),
+        golfMaterial: Object.freeze(['wood', 'bamboo', 'plastic', UNKNOWN]),
         shoeSizes: Object.freeze([220, 230, 240, 250, 260, 270, 280, 290])
     });
 
@@ -73,6 +72,10 @@
         phoneMinDigits: 7,
         phoneMaxDigits: 15,
         quantityMax: 1000000,
+        // The minimum orders: 600 pairs of shoes, 1,000 packages of golf tees (a package holds 50 tees).
+        quantityMinShoes: 600,
+        quantityMinGolf: 1000,
+        teesPerPackage: 50,
         textShort: 100,
         textLong: 2000,
     });
@@ -135,7 +138,7 @@
         return date.getUTCFullYear() === parts[0] && date.getUTCMonth() === parts[1] - 1 && date.getUTCDate() === parts[2];
     }
 
-    function checkQuantity(values, errors) {
+    function checkQuantity(values, errors, page) {
         var raw = typeof values.quantity === 'number' ? String(values.quantity) : text(values.quantity);
         if (!QUANTITY_PATTERN.test(raw)) {
             errors.push({ field: 'quantity', code: 'quantity_invalid' });
@@ -144,6 +147,14 @@
         var quantity = Number(raw);
         if (quantity < 1 || quantity > LIMITS.quantityMax) {
             errors.push({ field: 'quantity', code: 'quantity_invalid' });
+            return undefined;
+        }
+        if (page === 'shoes' && quantity < LIMITS.quantityMinShoes) {
+            errors.push({ field: 'quantity', code: 'quantity_min_shoes' });
+            return undefined;
+        }
+        if (page === 'golf' && quantity < LIMITS.quantityMinGolf) {
+            errors.push({ field: 'quantity', code: 'quantity_min_golf' });
             return undefined;
         }
         return quantity;
@@ -218,7 +229,7 @@
             return { ok: false, errors: [{ field: 'category', code: 'invalid_choice' }] };
         }
 
-        spec.quantity = checkQuantity(input, errors);
+        spec.quantity = checkQuantity(input, errors, page);
 
         function put(key, value) {
             if (value !== undefined) {
@@ -245,6 +256,7 @@
             put('special_requirements', checkOptionalText(input, 'additionalInfo', LIMITS.textLong, errors));
         } else if (page === 'golf') {
             spec.product_type = kind.subtype;
+            spec.pieces_per_package = LIMITS.teesPerPackage;
             spec.material = checkChoice(input, 'material', OPTIONS.golfMaterial, errors);
             put('color', checkOptionalText(input, 'color', LIMITS.textShort, errors));
             put('size', checkOptionalText(input, 'size', LIMITS.textShort, errors));
@@ -781,6 +793,8 @@
         consent_required: '개인정보 수집·이용에 동의해 주세요.',
         consent_version: '동의 안내문을 다시 불러온 뒤 시도해 주세요.',
         quantity_invalid: '수량은 1 이상의 숫자로 입력해 주세요. (최대 1,000,000)',
+        quantity_min_shoes: '최소 주문 수량은 600켤레예요.',
+        quantity_min_golf: '최소 주문 수량은 1,000패키지(1패키지 = 50개입)예요.',
         choice_required: '선택해 주세요. 잘 모르겠다면 ‘' + UNKNOWN_LABEL + '’을 골라도 돼요.',
         sizes_required: '사이즈를 1개 이상 선택해 주세요.',
         description_required: '제품 설명을 입력해 주세요.',

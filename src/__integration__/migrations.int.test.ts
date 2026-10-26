@@ -38,7 +38,8 @@ const ALL_MIGRATIONS = [
   '016_estimate_customer_link.ts',
   '017_detailed_quotes.ts',
   '018_quote_contact_and_inquiries.ts',
-  '019_kakao_notifications.ts'
+  '019_kakao_notifications.ts',
+  '020_shoes_golf_tee_base_prices.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -1445,7 +1446,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
       }
     });
 
-    it('is the last migration: the consent column and the outbox table', async () => {
+    it('adds the consent column and the outbox table', async () => {
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
       expect(await tableNames()).toContain('kakao_events');
       const column = await suite().db.raw(
@@ -1458,12 +1459,78 @@ describeIntegration('migrations 001-013', ({ url }) => {
     it('rolls back to the schema of 018, and applies again to the same schema', async () => {
       const first = await snapshotSchema(suite().db, suite().schema);
 
-      await migrateDownOne(suite().db);
+      await migrateDownOne(suite().db); // 020
+      await migrateDownOne(suite().db); // 019
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 18));
       expect(await tableNames()).not.toContain('kakao_events');
 
       await migrateEverything(suite().db);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+    });
+  });
+
+  // Migration 020 writes the first real shoe and golf tee prices (not the structure of the schema).
+  describe('020 (the first real shoe and golf tee base prices)', () => {
+    const rows = (category: string) =>
+      suite().db('base_prices').where({ category }).orderBy('product_variant').select('product_variant', 'base_price', 'is_active', 'description');
+
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    it('is the last migration, and writes five shoe types and three tee materials', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+
+      const shoes = (await rows('shoes')).filter(row => row.is_active);
+      expect(shoes.map(row => [row.product_variant, Number(row.base_price)])).toEqual([
+        ['Boots', 16400], ['Heels', 11430], ['Mens Dress', 24030], ['Sandals', 7910], ['Sneakers', 13860]
+      ]);
+      const tees = (await rows('golf_products')).filter(row => row.is_active);
+      expect(tees.map(row => [row.product_variant, Number(row.base_price)])).toEqual([
+        ['Bamboo Tee', 33.1], ['Plastic Tee', 33.1], ['Wood Tee', 23.8]
+      ]);
+      for (const row of [...shoes, ...tees]) {
+        expect(row.description).toMatch(/^Made-in-China\.com 2026-10-26: median of \d+ factory listings of \d+ suppliers, USD [\d.]+ at 1 USD = 1323\.9 KRW/);
+      }
+    });
+
+    it('switches the development samples of the two categories off, and leaves the eyewear alone', async () => {
+      for (const category of ['shoes', 'golf_products']) {
+        const samples = (await rows(category)).filter(row => /^\[SAMPLE\]/.test(row.description));
+        expect(samples.length).toBeGreaterThan(0);
+        samples.forEach(row => expect(row.is_active).toBe(false));
+      }
+      const eyewear = (await rows('eyewear')).filter(row => row.is_active);
+      expect(eyewear).toHaveLength(5);
+    });
+
+    it('keeps the tee price to a tenth of a won (the column holds two decimals)', async () => {
+      const wood = (await rows('golf_products')).find(row => row.product_variant === 'Wood Tee');
+
+      expect(String(wood.base_price)).toBe('23.80');
+    });
+
+    it('rolls back: its prices are gone and the samples are on again; applies again to the same schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+
+      await migrateDownOne(suite().db);
+
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 19));
+      for (const category of ['shoes', 'golf_products']) {
+        const after = await rows(category);
+        expect(after.some(row => /^Made-in-China/.test(row.description))).toBe(false);
+        expect(after.filter(row => /^\[SAMPLE\]/.test(row.description)).every(row => row.is_active)).toBe(true);
+      }
+
+      await migrateEverything(suite().db);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+      expect((await rows('shoes')).filter(row => row.is_active)).toHaveLength(5);
     });
   });
 });

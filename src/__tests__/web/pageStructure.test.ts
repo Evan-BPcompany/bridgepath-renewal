@@ -69,6 +69,8 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
       // Only the sunglasses form has the photo analysis and the result screen (estimatePhoto and
       // estimateResult .dom.test.ts).
       ...(page === 'sunglasses' ? ['estimate-preview.js', 'estimate-result.js'] : []),
+      // The shoes and golf tee pages show the price range under the quantity (estimateMarketPreview.dom.test.ts).
+      ...(page === 'sunglasses' ? [] : ['estimate-market-preview.js']),
       `${page}-estimate.js`
     ]);
     scripts.forEach(file => expect(fs.existsSync(path.join(ROOT, file))).toBe(true));
@@ -90,7 +92,13 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 
   it('has no behaviour of its own in the page script any more (no fake submit, no redirect)', () => {
     const code = read(`${page}-estimate.js`).replace(/^\s*\/\/.*$/gm, '').trim();
-    expect(code).toBe('');
+    if (page === 'golf') {
+      // The golf tee is the one product of its page: the script only chooses its card.
+      expect(code).not.toMatch(/fetch|location|submit|innerHTML/);
+      expect(code).toContain('card.click()');
+    } else {
+      expect(code).toBe('');
+    }
   });
 
   it('has the success screen with places for the receipt number, the time and the message of the server', () => {

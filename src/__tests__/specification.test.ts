@@ -72,7 +72,7 @@ describe('Specification Validation', () => {
         shoe_type: 'Running',
         material: 'Mesh',
         size_range: '6-12',
-        quantity: 500
+        quantity: 600
       };
 
       const result = validateSpecification('shoes', spec);
@@ -86,7 +86,7 @@ describe('Specification Validation', () => {
         shoe_type: 'Running',
         material: 'Mesh',
         size_range: '6-12',
-        quantity: 500,
+        quantity: 600,
         special_requirements: 'Waterproof'
       };
 
@@ -101,7 +101,7 @@ describe('Specification Validation', () => {
         shoe_type: 'Running',
         material: 'Mesh',
         // missing size_range
-        quantity: 500
+        quantity: 600
       };
 
       const result = validateSpecification('shoes', spec);
@@ -227,7 +227,7 @@ describe('Specification Validation', () => {
         shoe_type: 'Running',
         material: 'Mesh',
         size_range: '6-12',
-        quantity: 500
+        quantity: 600
       };
 
       const result = validateSpecification('sneakers', spec);

@@ -16,7 +16,7 @@ import { storeFiles } from '../services/fileService';
 
 // PRD FR-4.9.3: customers never get the internal status. Whatever the services return, the
 // customer answers are built field by field and carry the fixed guidance instead.
-const SPEC = { schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity: 500 };
+const SPEC = { schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity: 600 };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const INTERNAL_STATUS =
   /new_receipt|under_review|info_requested|factory_checking|quoted|customer_review|negotiating|accepted|on_hold|completed|cancelled|rejected|archived/;

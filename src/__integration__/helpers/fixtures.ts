@@ -27,7 +27,7 @@ export const SHOE_SPEC = {
   shoe_type: 'Running',
   material: 'Mesh',
   size_range: '240-250',
-  quantity: 500
+  quantity: 600
 };
 
 // Low cost: these hashes only exist to make logins fast in tests.

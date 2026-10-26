@@ -38,7 +38,7 @@ const CREATED = {
   access_token: 'a'.repeat(64),
   created_at: '2026-10-13T03:00:00.000Z'
 };
-const SPEC = { schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity: 500 };
+const SPEC = { schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity: 600 };
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const RECEIPT = 'BP20261013001';
 
