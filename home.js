@@ -1,51 +1,32 @@
-// The five steps of the process section: one tab selected, one panel shown. Keys of a tab list:
-// arrows move between the tabs, Home and End go to the first and the last. Nothing is fetched and no
-// text is built here; the panels are in the page.
+// The home page: the front panel shows the word of the choice that has the pointer or the keyboard
+// focus, and goes back to the neutral word when it leaves. Nothing is fetched and no markup is built;
+// the words are put in with textContent.
 (function () {
     'use strict';
 
     function init() {
-        var tabs = Array.prototype.slice.call(document.querySelectorAll('.process-tabs [role="tab"]'));
-        if (tabs.length === 0) {
+        var word = document.getElementById('stackWord');
+        var label = document.getElementById('stackLabel');
+        var links = document.querySelectorAll('#choices a');
+        if (!word || !label || links.length === 0) {
             return;
         }
 
-        function select(index, focus) {
-            tabs.forEach(function (tab, position) {
-                var on = position === index;
-                tab.setAttribute('aria-selected', on ? 'true' : 'false');
-                tab.setAttribute('tabindex', on ? '0' : '-1');
-                var panel = document.getElementById(tab.getAttribute('aria-controls'));
-                if (panel) {
-                    panel.hidden = !on;
-                }
-            });
-            if (focus) {
-                tabs[index].focus();
-            }
+        var restWord = word.textContent;
+        var restLabel = label.textContent;
+
+        function show(text) {
+            word.textContent = text;
+            label.textContent = text === restWord ? restLabel : '이 제품으로';
         }
 
-        tabs.forEach(function (tab, index) {
-            tab.addEventListener('click', function () {
-                select(index, false);
-            });
-            tab.addEventListener('keydown', function (event) {
-                var last = tabs.length - 1;
-                var target = null;
-                if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-                    target = index === last ? 0 : index + 1;
-                } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-                    target = index === 0 ? last : index - 1;
-                } else if (event.key === 'Home') {
-                    target = 0;
-                } else if (event.key === 'End') {
-                    target = last;
-                }
-                if (target !== null) {
-                    event.preventDefault();
-                    select(target, true);
-                }
-            });
+        Array.prototype.forEach.call(links, function (link) {
+            var choose = function () { show(link.getAttribute('data-word') || restWord); };
+            var leave = function () { show(restWord); };
+            link.addEventListener('mouseenter', choose);
+            link.addEventListener('focus', choose);
+            link.addEventListener('mouseleave', leave);
+            link.addEventListener('blur', leave);
         });
     }
 
