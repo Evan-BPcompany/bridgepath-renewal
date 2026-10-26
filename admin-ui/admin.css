@@ -511,3 +511,41 @@ ul.memos p {
 .inquiry-form {
     margin-top: 10px;
 }
+
+.mainnav {
+    display: flex;
+    gap: 16px;
+    margin-left: 24px;
+}
+
+.mainnav a {
+    color: inherit;
+    text-decoration: none;
+    padding: 4px 2px;
+    border-bottom: 2px solid transparent;
+}
+
+.mainnav a:hover,
+.mainnav a:focus-visible {
+    border-bottom-color: currentColor;
+}
+
+.count {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #d6001c;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.count[hidden] {
+    display: none;
+}
+
+.inbox-open td {
+    background: #fffaf0;
+}

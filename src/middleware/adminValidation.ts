@@ -289,6 +289,51 @@ export function parsePageQuery(query: Request['query']): PageQueryResult {
   return { valid: true, value: { page, limit } };
 }
 
+// GET /admin/inquiries: what the customers asked about the quotes, over all requests.
+// status: open (the default: waiting for the staff), handled, or all; kind: question or consultation.
+export interface InboxQuery {
+  status: 'open' | 'handled' | 'all';
+  kind?: 'question' | 'consultation';
+  page: number;
+  limit: number;
+}
+
+export type InboxQueryResult =
+  | { valid: true; value: InboxQuery }
+  | { valid: false; errors: Array<{ field: string; message: string }> };
+
+export function parseInboxQuery(query: Request['query']): InboxQueryResult {
+  const errors: Array<{ field: string; message: string }> = [];
+
+  const page = integerParam(singleString(query.page, 'page', errors), 'page', 1, 1, 100000, errors);
+  const limit = integerParam(singleString(query.limit, 'limit', errors), 'limit', LIST_DEFAULT_LIMIT, 1, LIST_MAX_LIMIT, errors);
+
+  let status: InboxQuery['status'] = 'open';
+  const statusRaw = singleString(query.status, 'status', errors);
+  if (statusRaw !== undefined) {
+    if (statusRaw === 'open' || statusRaw === 'handled' || statusRaw === 'all') {
+      status = statusRaw;
+    } else {
+      errors.push({ field: 'status', message: 'must be open, handled or all' });
+    }
+  }
+
+  let kind: InboxQuery['kind'];
+  const kindRaw = singleString(query.kind, 'kind', errors);
+  if (kindRaw !== undefined) {
+    if (kindRaw === 'question' || kindRaw === 'consultation') {
+      kind = kindRaw;
+    } else {
+      errors.push({ field: 'kind', message: 'must be question or consultation' });
+    }
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+  return { valid: true, value: { status, kind, page, limit } };
+}
+
 export type PasswordBodyResult =
   | { valid: true; currentPassword: string; newPassword: string }
   | { valid: false; message: string };

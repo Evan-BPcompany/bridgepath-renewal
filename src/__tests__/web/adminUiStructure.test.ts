@@ -33,7 +33,7 @@ describe('admin-ui/index.html', () => {
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
     const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ['app', 'notice', 'whoBox', 'whoName', 'logoutBtn']) {
+    for (const id of ['app', 'notice', 'whoBox', 'whoName', 'logoutBtn', 'mainNav', 'inboxLink', 'inboxCount']) {
       expect(ids).toContain(id);
     }
   });

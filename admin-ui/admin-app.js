@@ -112,17 +112,20 @@
         if (segments[0] === 'estimates' && segments[1]) {
             return { name: 'detail', id: segments[1] };
         }
+        if (segments[0] === 'inquiries') {
+            return { name: 'inbox', query: query };
+        }
         return { name: 'list', query: query };
     }
 
-    function buildHash(query) {
+    function buildHash(query, base) {
         var parts = [];
         Object.keys(query).forEach(function (key) {
             if (query[key] !== undefined && query[key] !== null && String(query[key]) !== '') {
                 parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(query[key])));
             }
         });
-        return '#/estimates' + (parts.length > 0 ? '?' + parts.join('&') : '');
+        return (base || '#/estimates') + (parts.length > 0 ? '?' + parts.join('&') : '');
     }
 
     // ------------------------------------------------------------------------------------------
@@ -133,6 +136,9 @@
         var whoBox = document.getElementById('whoBox');
         var whoName = document.getElementById('whoName');
         var logoutButton = document.getElementById('logoutBtn');
+        var mainNav = document.getElementById('mainNav');
+        var inboxLink = document.getElementById('inboxLink');
+        var inboxCount = document.getElementById('inboxCount');
         var labels = globalThis.AdminLabels;
         if (!app || !globalThis.AdminApi || !labels || typeof globalThis.fetch !== 'function') {
             return;
@@ -151,6 +157,10 @@
 
         function showWho() {
             whoBox.hidden = !me;
+            mainNav.hidden = !me || me.must_change_password === true;
+            if (!me) {
+                inboxCount.hidden = true;
+            }
             whoName.textContent = me ? me.username + ' (' + labels.pick(labels.ROLE, me.role, me.role) + ')' : '';
         }
 
@@ -918,10 +928,158 @@
                     }
                     say(isConsultation ? '통화 완료로 표시했어요.' : '답변을 남겼어요. 고객에게 이메일로 알려요.', 'success');
                     loadInquiries(id, card, heading);
+                    refreshInboxCount();
                 });
             });
             body.appendChild(form);
             return body;
+        }
+
+
+        // ------------------------------------------------------------------------------------------
+        // The inbox: what the customers asked about their quotes, over all requests. Reading only; the
+        // answer or the call is done on the request itself (the link of each row).
+
+        var INBOX_STATUS = [['open', '처리 대기'], ['handled', '처리 완료'], ['all', '전체']];
+        var INBOX_KIND = [['', '질문·상담 모두'], ['question', '질문'], ['consultation', '심층상담 요청']];
+        var SNIPPET = 80;
+
+        function readInboxFilters(query) {
+            var page = parseInt(query.page, 10);
+            return {
+                status: query.status === 'handled' || query.status === 'all' ? query.status : 'open',
+                kind: query.kind === 'question' || query.kind === 'consultation' ? query.kind : '',
+                page: page > 0 ? page : 1
+            };
+        }
+
+        function inboxHash(filters, page) {
+            return buildHash({ status: filters.status === 'open' ? '' : filters.status, kind: filters.kind, page: page > 1 ? page : '' }, '#/inquiries');
+        }
+
+        function snippet(text) {
+            var chars = Array.from(String(text || '').replace(/\s+/g, ' ').trim());
+            return chars.length > SNIPPET ? chars.slice(0, SNIPPET).join('') + '…' : chars.join('');
+        }
+
+        // "3일째 대기": how long an open one has been waiting (whole days, from the time it was left).
+        function waitingText(inquiry) {
+            if (inquiry.status !== 'open') {
+                return '';
+            }
+            var days = Math.floor((Date.now() - new Date(inquiry.created_at).getTime()) / 86400000);
+            return days >= 1 ? days + '일째 대기' : '오늘 들어왔어요';
+        }
+
+        // The number on the menu: what waits for the staff.
+        function setInboxCount(counts) {
+            var total = counts ? Number(counts.open_questions || 0) + Number(counts.open_consultations || 0) : 0;
+            inboxCount.textContent = total > 0 ? String(total) : '';
+            inboxCount.hidden = total === 0;
+            inboxLink.setAttribute('aria-label', total > 0 ? '문의함, 처리 대기 ' + total + '건' : '문의함');
+        }
+
+        function refreshInboxCount() {
+            if (!me || me.must_change_password) {
+                return;
+            }
+            api.inbox({ status: 'open', limit: 1 }).then(function (answer) {
+                if (answer.ok && me) {
+                    setInboxCount(answer.counts);
+                }
+            });
+        }
+
+        function viewInbox(query) {
+            var filters = readInboxFilters(query);
+            var mine = ++turn;
+
+            function select(id, options, value) {
+                var element = h('select', { id: id });
+                options.forEach(function (option) {
+                    var node = h('option', { value: option[0], text: option[1] });
+                    if (option[0] === value) {
+                        node.selected = true;
+                    }
+                    element.appendChild(node);
+                });
+                return element;
+            }
+            var status = select('iStatus', INBOX_STATUS, filters.status);
+            var kind = select('iKind', INBOX_KIND, filters.kind);
+            var form = h('form', { id: 'inboxForm', class: 'filters card', novalidate: true }, [
+                labeled('상태', status), labeled('종류', kind),
+                h('div', { class: 'field actions' }, [h('button', { type: 'submit', class: 'primary', text: '보기' })])
+            ]);
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                go(inboxHash({ status: status.value, kind: kind.value }, 1));
+            });
+
+            var summary = h('p', { id: 'inboxSummary', class: 'hint', text: '' });
+            var result = h('div', { id: 'inboxResult', 'aria-live': 'polite' }, [h('p', { class: 'hint', text: '불러오는 중…' })]);
+            frame('문의함', [summary, form, result]);
+
+            api.inbox({ status: filters.status, kind: filters.kind, page: filters.page, limit: PAGE_SIZE }).then(function (answer) {
+                if (mine !== turn) {
+                    return;
+                }
+                clear(result);
+                if (!answer.ok) {
+                    result.appendChild(h('p', { class: 'error', role: 'alert', text: answer.message }));
+                    return;
+                }
+                var counts = answer.counts || {};
+                setInboxCount(counts);
+                summary.textContent = '처리 대기 · 질문 ' + (counts.open_questions || 0) + '건 · 심층상담 요청 ' + (counts.open_consultations || 0) + '건';
+
+                var items = answer.data || [];
+                var pagination = answer.pagination || { page: 1, total: items.length, total_pages: 1 };
+                if (items.length === 0) {
+                    result.appendChild(h('p', { class: 'empty', text: filters.status === 'open' ? '지금 처리할 문의가 없어요.' : '조건에 맞는 문의가 없어요.' }));
+                    return;
+                }
+                var body = h('tbody');
+                items.forEach(function (item) {
+                    var isConsultation = item.kind === 'consultation';
+                    var content = isConsultation
+                        ? [
+                            h('strong', { class: 'inquiry-phone', text: item.phone || '' }),
+                            h('span', { class: 'muted', text: ' · ' + labels.pick(labels.PREFERRED_TIME, item.preferred_time || 'any', item.preferred_time) }),
+                            item.body ? h('div', { class: 'muted', text: snippet(item.body) }) : null
+                        ]
+                        : [h('span', { text: snippet(item.body) })];
+                    var who = [item.estimate.customer_name, item.estimate.company_name].filter(Boolean).join(' · ');
+                    body.appendChild(h('tr', { class: item.status === 'open' ? 'inbox-open' : '' }, [
+                        h('td', {}, [h('span', { class: 'badge badge-' + (item.status === 'open' ? 'new' : 'done'), text: isConsultation ? '심층상담' : '질문' })]),
+                        h('td', {}, [h('a', { href: '#/estimates/' + encodeURIComponent(item.estimate.id), text: item.estimate.receipt_id })]),
+                        h('td', { text: who || '-' }),
+                        h('td', { class: 'long' }, content),
+                        h('td', {}, [
+                            h('div', { text: labels.formatDateTime(item.created_at) }),
+                            waitingText(item) ? h('div', { class: 'muted', text: waitingText(item) }) : null
+                        ]),
+                        h('td', { text: inquiryStatusText(item) })
+                    ]));
+                });
+                var head = h('tr', {}, ['종류', '접수', '고객', '내용', '남긴 시각', '상태'].map(function (name) {
+                    return h('th', { scope: 'col', text: name });
+                }));
+                result.appendChild(h('div', { class: 'table-wrap' }, [
+                    h('table', { class: 'list' }, [h('caption', { class: 'sr-only', text: '문의 목록' }), h('thead', {}, [head]), body])
+                ]));
+                result.appendChild(h('p', { class: 'hint', text: '접수번호를 누르면 그 접수의 "고객 문의"에서 답변하거나 통화 완료로 표시할 수 있어요.' }));
+
+                var page = pagination.page;
+                var last = Math.max(1, pagination.total_pages || 1);
+                var prev = h('button', { type: 'button', id: 'inboxPrev', text: '이전', disabled: page <= 1 });
+                var next = h('button', { type: 'button', id: 'inboxNext', text: '다음', disabled: page >= last });
+                prev.addEventListener('click', function () { go(inboxHash(filters, page - 1)); });
+                next.addEventListener('click', function () { go(inboxHash(filters, page + 1)); });
+                result.appendChild(h('nav', { class: 'pager', 'aria-label': '쪽 이동' }, [
+                    prev, h('span', { id: 'inboxPageInfo', text: page + ' / ' + last + ' 쪽 · 총 ' + pagination.total + '건' }), next
+                ]));
+            });
         }
 
         function viewDetail(id) {
@@ -1153,8 +1311,12 @@
             } else if (me.must_change_password) {
                 go('#/password');
             } else if (route.name === 'detail') {
+                refreshInboxCount();
                 viewDetail(route.id);
+            } else if (route.name === 'inbox') {
+                viewInbox(route.query);
             } else {
+                refreshInboxCount();
                 viewList(route.query);
             }
         }

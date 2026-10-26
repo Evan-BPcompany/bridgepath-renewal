@@ -10,6 +10,7 @@ import { assertFileDownloadConfiguration, downloadProvider } from './services/fi
 import adminAuthRouter from './routes/adminAuth';
 import { createAdminAccountRouter } from './routes/adminAccount';
 import { createAdminEstimatesRouter } from './routes/adminEstimates';
+import { createAdminInboxRouter } from './routes/adminInbox';
 import { createCustomerAuthRouter } from './routes/customerAuth';
 import { createCustomerEstimatesRouter } from './routes/customerEstimates';
 import { requireCustomer } from './middleware/customerAuth';
@@ -98,6 +99,9 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Admin account (Phase 3 Week 2): own password change
   app.use('/admin/me', createAdminAccountRouter({ passwordLimiter: limiters.password }));
+
+  // The inbox of the staff: what customers asked about their quotes, over all requests
+  app.use('/admin/inquiries', createAdminInboxRouter({ mutationLimiter: limiters.mutation }));
 
   // Admin estimate management (Phase 3)
   app.use(

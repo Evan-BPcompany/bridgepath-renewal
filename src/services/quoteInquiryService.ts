@@ -281,3 +281,72 @@ export async function completeConsultation(estimateId: string, inquiryId: string
   }
   return done;
 }
+
+// ---------------------------------------------------------------------------------------------
+// The inbox: what the customers asked, over all requests
+
+export interface InboxItem extends AdminInquiry {
+  estimate: { id: string; receipt_id: string; category: string; customer_name: string | null; company_name: string | null };
+}
+
+export interface InboxResult {
+  items: InboxItem[];
+  total: number;
+  // What waits for the staff, whatever the filter: the questions to answer and the calls to make.
+  counts: { open_questions: number; open_consultations: number };
+}
+
+// Open ones first and the longest waiting on top (the staff work through them in that order); the handled
+// ones newest first. The customer's name and company are the ones typed on the request, to find it.
+export async function listInbox(query: { status: 'open' | 'handled' | 'all'; kind?: 'question' | 'consultation'; page: number; limit: number }): Promise<InboxResult> {
+  const pool = getPool();
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (query.status === 'open') {
+    where.push(`i.status = 'open'`);
+  } else if (query.status === 'handled') {
+    where.push(`i.status <> 'open'`);
+  }
+  if (query.kind) {
+    params.push(query.kind);
+    where.push(`i.kind = $${params.length}`);
+  }
+  const clause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
+  const offset = (query.page - 1) * query.limit;
+
+  const [count, list, counts] = await Promise.all([
+    pool.query(`SELECT COUNT(*)::int AS total FROM quote_inquiries i ${clause}`, params),
+    pool.query(
+      `SELECT ${ADMIN_COLUMNS}, e.id AS estimate_id, e.receipt_id, e.category, e.customer_name, e.company_name
+       FROM quote_inquiries i
+       JOIN estimates e ON e.id = i.estimate_id
+       LEFT JOIN admin_users u ON u.id = i.handled_by
+       ${clause}
+       ORDER BY (i.status = 'open') DESC,
+                CASE WHEN i.status = 'open' THEN i.created_at END ASC,
+                i.handled_at DESC NULLS LAST, i.id ASC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, query.limit, offset]
+    ),
+    pool.query(
+      `SELECT COUNT(*) FILTER (WHERE kind = 'question')::int AS open_questions,
+              COUNT(*) FILTER (WHERE kind = 'consultation')::int AS open_consultations
+       FROM quote_inquiries WHERE status = 'open'`
+    )
+  ]);
+
+  return {
+    total: count.rows[0].total,
+    counts: { open_questions: counts.rows[0].open_questions, open_consultations: counts.rows[0].open_consultations },
+    items: list.rows.map((row: Row) => ({
+      ...toAdminInquiry(row),
+      estimate: {
+        id: row.estimate_id,
+        receipt_id: row.receipt_id,
+        category: row.category,
+        customer_name: row.customer_name ?? null,
+        company_name: row.company_name ?? null
+      }
+    }))
+  };
+}

@@ -1352,3 +1352,244 @@ describe('what the customer asked about the quote', () => {
     expect(card().querySelector('.error').textContent).toContain('서버에 문제가 생겼어요');
   });
 });
+
+
+// The inbox: what the customers asked about their quotes, over all requests.
+describe('the inbox', () => {
+  const INBOX = '/admin/inquiries';
+  const item = (over: Record<string, unknown> = {}, estimate: Record<string, unknown> = {}) => ({
+    id: 'i1', kind: 'question', quote_version: 1, body: '납기를 2주 줄일 수 있나요?', phone: null, preferred_time: null, status: 'open', answer: null,
+    created_at: new Date(Date.now() - 3 * 86400000).toISOString(), handled_at: null, handled_by: null,
+    estimate: { id: ID, receipt_id: 'BP20261021001', category: 'eyewear', customer_name: 'Kim', company_name: 'Acme', ...estimate },
+    ...over
+  });
+  const route = (items: unknown[], counts = { open_questions: 2, open_consultations: 1 }, pagination?: Record<string, unknown>) => {
+    routes[`GET ${INBOX}`] = () => ({
+      status: 200,
+      body: { success: true, data: items, counts, pagination: pagination || { page: 1, limit: 20, total: items.length, total_pages: 1 } }
+    });
+  };
+  const click = (element: any): void => element.dispatchEvent(new g.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  // Opens the screen again inside one test: the first one must stop listening to the address, or it answers too.
+  const reopen = (): void => {
+    g.AdminApp?.instance?.dispose();
+    loaded?.dispose();
+    loaded = undefined;
+  };
+
+  beforeEach(() => signedIn());
+
+  describe('the menu', () => {
+    it('is not there before the login, and is there after it', async () => {
+      routes['GET /admin/me'] = () => ({ status: 401, body: { error: 'No access token provided' } });
+      await open();
+      expect($('#mainNav').hidden).toBe(true);
+      reopen();
+
+      signedIn();
+      route([]);
+      await open();
+
+      expect($('#mainNav').hidden).toBe(false);
+      expect($$('#mainNav a').map(link => link.getAttribute('href'))).toEqual(['#/estimates', '#/inquiries']);
+    });
+
+    it('shows how many wait (questions and calls together), and nothing when none do', async () => {
+      route([], { open_questions: 2, open_consultations: 1 });
+      await open();
+
+      expect($('#inboxCount').hidden).toBe(false);
+      expect($('#inboxCount').textContent).toBe('3');
+      expect($('#inboxLink').getAttribute('aria-label')).toBe('문의함, 처리 대기 3건');
+      reopen();
+
+      route([], { open_questions: 0, open_consultations: 0 });
+      await open();
+
+      expect($('#inboxCount').hidden).toBe(true);
+      expect($('#inboxLink').getAttribute('aria-label')).toBe('문의함');
+    });
+
+    it('asks for the number with one small request, and a failure of it breaks nothing', async () => {
+      routes[`GET ${INBOX}`] = () => ({ status: 500, body: { error: 'x' } });
+      await open();
+
+      expect(callsTo('GET', INBOX)[0].query).toMatchObject({ status: 'open', limit: '1' });
+      expect($('#inboxCount').hidden).toBe(true);
+      expect($('#screenTitle').textContent).toBe('견적 접수 목록');
+    });
+
+    it('is hidden again after signing out', async () => {
+      route([]);
+      routes['POST /admin/logout'] = () => ({ status: 200, body: { message: 'ok' } });
+      await open();
+
+      click($('#logoutBtn'));
+      await settle();
+
+      expect($('#mainNav').hidden).toBe(true);
+    });
+  });
+
+  describe('the page', () => {
+    it('lists what waits first, with the kind, the request, the customer, the words, how long and the state', async () => {
+      route([
+        item(),
+        item(
+          { id: 'i2', kind: 'consultation', body: '샘플 일정 이야기', phone: '010-9999-8888', preferred_time: 'weekday_pm', created_at: new Date().toISOString() },
+          { id: 'e2', receipt_id: 'BP20261021002', customer_name: null, company_name: 'Beta' }
+        )
+      ]);
+      await open('#/inquiries');
+
+      expect($('#screenTitle').textContent).toBe('문의함');
+      expect($('#inboxSummary').textContent).toBe('처리 대기 · 질문 2건 · 심층상담 요청 1건');
+      const rows = $$('#inboxResult tbody tr').map(row => Array.from(row.children).map((cell: any) => cell.textContent));
+      expect(rows[0]).toEqual(['질문', 'BP20261021001', 'Kim · Acme', '납기를 2주 줄일 수 있나요?', expect.stringContaining('3일째 대기'), '답변 대기']);
+      expect(rows[1][0]).toBe('심층상담');
+      expect(rows[1][2]).toBe('Beta');
+      expect(rows[1][3]).toContain('010-9999-8888');
+      expect(rows[1][3]).toContain('평일 오후');
+      expect(rows[1][3]).toContain('샘플 일정 이야기');
+      expect(rows[1][4]).toContain('오늘 들어왔어요');
+      expect(rows[1][5]).toBe('전화 대기');
+      expect($$('#inboxResult tbody tr.inbox-open')).toHaveLength(2);
+    });
+
+    it('links each row to the request, where it is answered', async () => {
+      route([item()]);
+      await open('#/inquiries');
+
+      expect($('#inboxResult tbody a').getAttribute('href')).toBe(`#/estimates/${ID}`);
+    });
+
+    it('cuts a long question for the row and keeps the whole of it for the request', async () => {
+      route([item({ body: '가'.repeat(300) })]);
+      await open('#/inquiries');
+
+      const text = $('#inboxResult tbody td.long').textContent;
+      expect(Array.from(text)).toHaveLength(81);
+      expect(text.endsWith('…')).toBe(true);
+    });
+
+    it('puts what the customer wrote in as text only', async () => {
+      route([
+        item({ body: '<img src=x onerror=alert(1)>' }, { customer_name: '<b>Kim</b>', company_name: '<script>alert(2)</script>' }),
+        item({ id: 'i2', kind: 'consultation', body: '<i>메모</i>', phone: '<img src=y>', preferred_time: 'any' })
+      ]);
+      await open('#/inquiries');
+
+      expect($('#inboxResult img')).toBeNull();
+      expect($('#inboxResult script')).toBeNull();
+      expect($('#inboxResult b')).toBeNull();
+      expect($('#inboxResult i')).toBeNull();
+      expect($('#inboxResult tbody td.long').textContent).toBe('<img src=x onerror=alert(1)>');
+    });
+
+    it('shows a handled one without a waiting note, with the state it ended in', async () => {
+      route([
+        item({ status: 'answered', answer: '가능합니다', handled_at: new Date().toISOString(), handled_by: { id: 'u1', username: 'master' } }),
+        item({ id: 'i2', kind: 'consultation', phone: '010-1', status: 'done', handled_at: new Date().toISOString() })
+      ]);
+      await open('#/inquiries?status=handled');
+
+      const rows = $$('#inboxResult tbody tr').map(row => Array.from(row.children).map((cell: any) => cell.textContent));
+      expect(rows[0][5]).toBe('답변 완료');
+      expect(rows[1][5]).toBe('통화 완료');
+      expect(rows[0][4]).not.toContain('대기');
+      expect($$('#inboxResult tbody tr.inbox-open')).toHaveLength(0);
+    });
+
+    it('says that nothing waits, and says so differently for a filter', async () => {
+      route([], { open_questions: 0, open_consultations: 0 });
+      await open('#/inquiries');
+      expect($('#inboxResult').textContent).toContain('지금 처리할 문의가 없어요');
+      reopen();
+
+      await open('#/inquiries?status=handled');
+      expect($('#inboxResult').textContent).toContain('조건에 맞는 문의가 없어요');
+    });
+
+    it('says why when it cannot be loaded', async () => {
+      routes[`GET ${INBOX}`] = () => ({ status: 500, body: { error: 'x' } });
+      await open('#/inquiries');
+
+      expect($('#inboxResult .error').textContent).toContain('서버에 문제가 생겼어요');
+    });
+  });
+
+  describe('the filters and the pages', () => {
+    it('asks for what waits at first, whatever the address says that is not valid', async () => {
+      route([item()]);
+      await open('#/inquiries?status=nonsense&kind=%3Cscript%3E&page=-4');
+
+      const asked = callsTo('GET', INBOX).filter(call => call.query.limit === '20');
+      expect(asked[0].query).toMatchObject({ status: 'open', page: '1' });
+      expect(asked[0].query.kind).toBeUndefined();
+      expect($('#iStatus').value).toBe('open');
+      expect($('#iKind').value).toBe('');
+    });
+
+    it('changes the address with the filters, and goes back to the first page', async () => {
+      route([item()]);
+      await open('#/inquiries?page=3');
+
+      choose($('#iStatus'), 'handled');
+      choose($('#iKind'), 'consultation');
+      submit($('#inboxForm'));
+      await settle();
+
+      expect(g.location.hash).toBe('#/inquiries?status=handled&kind=consultation');
+      const asked = callsTo('GET', INBOX).filter(call => call.query.limit === '20').pop()!;
+      expect(asked.query).toMatchObject({ status: 'handled', kind: 'consultation', page: '1' });
+    });
+
+    it('goes to the next and the previous page, and says where it is', async () => {
+      // The server answers with the page that was asked for.
+      routes[`GET ${INBOX}`] = req => ({
+        status: 200,
+        body: {
+          success: true, data: [item()], counts: { open_questions: 30, open_consultations: 15 },
+          pagination: { page: Number(req.query.page || 1), limit: 20, total: 45, total_pages: 3 }
+        }
+      });
+      await open('#/inquiries?page=2');
+
+      expect($('#inboxPageInfo').textContent).toBe('2 / 3 쪽 · 총 45건');
+      click($('#inboxNext'));
+      await settle();
+      expect(g.location.hash).toBe('#/inquiries?page=3');
+      click($('#inboxPrev'));
+      await settle();
+      expect(g.location.hash).toBe('#/inquiries?page=2');
+    });
+
+    it('does not offer a page before the first or after the last', async () => {
+      route([item()], { open_questions: 1, open_consultations: 0 });
+      await open('#/inquiries');
+
+      expect($('#inboxPrev').disabled).toBe(true);
+      expect($('#inboxNext').disabled).toBe(true);
+    });
+  });
+
+  it('counts the menu again after a question was answered on the request', async () => {
+    const INQ = '6a000000-0000-4000-8000-000000000001';
+    routes[`GET /admin/estimates/${ID}/inquiries`] = () => ({
+      status: 200,
+      body: { success: true, data: [{ id: INQ, kind: 'question', quote_version: 1, body: '질문', phone: null, preferred_time: null, status: 'open', answer: null, created_at: '2026-10-22T05:00:00.000Z', handled_at: null, handled_by: null }] }
+    });
+    routes[`POST /admin/estimates/${ID}/inquiries/${INQ}/answer`] = () => ({ status: 200, body: { success: true, data: {} } });
+    route([], { open_questions: 1, open_consultations: 0 });
+    await open(`#/estimates/${ID}`);
+    expect($('#inboxCount').textContent).toBe('1');
+    route([], { open_questions: 0, open_consultations: 0 });
+
+    type($(`#inquiryAnswer-${INQ}`), '답변');
+    submit($('.inquiry-form'));
+    await settle();
+
+    expect($('#inboxCount').hidden).toBe(true);
+  });
+});

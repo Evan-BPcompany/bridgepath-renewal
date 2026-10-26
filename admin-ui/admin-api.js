@@ -149,6 +149,9 @@
                 if (body.pagination) {
                     result.pagination = body.pagination;
                 }
+                if (body.counts && typeof body.counts === 'object') {
+                    result.counts = body.counts;
+                }
                 if (typeof body.message === 'string') {
                     result.message = body.message;
                 }
@@ -236,6 +239,8 @@
             publishQuote: function (id, expectedEditSeq) {
                 return request('POST', '/estimates/' + encodeURIComponent(id) + '/quote/publish', { json: { expected_edit_seq: expectedEditSeq } });
             },
+            // The inbox: what customers asked about their quotes, over all requests.
+            inbox: function (query) { return request('GET', '/inquiries', { query: query }); },
             // What the customer asked about the published quote, and the staff's answers.
             inquiries: function (id) { return request('GET', '/estimates/' + encodeURIComponent(id) + '/inquiries'); },
             answerInquiry: function (id, inquiryId, answer) {

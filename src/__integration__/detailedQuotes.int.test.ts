@@ -749,6 +749,121 @@ describeIntegration('detailed quotes on a real PostgreSQL', ({ url }) => {
       });
     });
 
+    describe('the inbox over all requests', () => {
+      const inbox = (query = '') => request(app).get(`/admin/inquiries${query}`).set('Cookie', adminCookie);
+
+      // Two requests of two customers, with what they asked, in this order: question A, call B, question B.
+      const twoRequests = async () => {
+        const a = await published('buyer@example.com');
+        const b = await published('other@example.com');
+        const qa = await ask(a.cookie, a.receipt, { kind: 'question', body: 'A의 질문' });
+        const cb = await ask(b.cookie, b.receipt, { kind: 'consultation', phone: '010-9999-8888', preferred_time: 'weekday_am' });
+        const qb = await ask(b.cookie, b.receipt, { kind: 'question', body: 'B의 질문' });
+        return { a, b, qa: qa.body.inquiry.id as string, cb: cb.body.inquiry.id as string, qb: qb.body.inquiry.id as string };
+      };
+
+      it('is for staff only', async () => {
+        const { a } = await twoRequests();
+
+        expect((await request(app).get('/admin/inquiries')).status).toBe(401);
+        expect((await request(app).get('/admin/inquiries').set('Cookie', a.cookie)).status).toBe(401);
+      });
+
+      it('lists what waits, over all requests, the longest waiting first, with the request and the customer', async () => {
+        const { a, b } = await twoRequests();
+
+        const res = await inbox();
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.map((item: { body: string | null; kind: string }) => item.body ?? item.kind)).toEqual(['A의 질문', 'consultation', 'B의 질문']);
+        expect(res.body.data[0].estimate).toEqual({ id: a.id, receipt_id: a.receipt, category: 'shoes', customer_name: 'Kim', company_name: null });
+        expect(res.body.data[1]).toMatchObject({ kind: 'consultation', phone: '010-9999-8888', preferred_time: 'weekday_am', status: 'open' });
+        expect(res.body.data[1].estimate.id).toBe(b.id);
+        expect(res.body.counts).toEqual({ open_questions: 2, open_consultations: 1 });
+        expect(res.body.pagination).toEqual({ page: 1, limit: 20, total: 3, total_pages: 1 });
+      });
+
+      it('gives nothing of the customer but what the staff need: no account, no e-mail, no one who handled it', async () => {
+        await twoRequests();
+
+        const text = JSON.stringify((await inbox()).body);
+
+        expect(text).not.toMatch(/customer_id|password|@example\.com|bp_session|token/i);
+      });
+
+      it('filters by kind, and counts what waits whatever the filter', async () => {
+        await twoRequests();
+
+        const questions = await inbox('?kind=question');
+        const calls = await inbox('?kind=consultation');
+
+        expect(questions.body.data.map((item: { kind: string }) => item.kind)).toEqual(['question', 'question']);
+        expect(calls.body.data).toHaveLength(1);
+        expect(calls.body.pagination.total).toBe(1);
+        expect(questions.body.counts).toEqual(calls.body.counts);
+        expect(calls.body.counts).toEqual({ open_questions: 2, open_consultations: 1 });
+      });
+
+      it('moves an inquiry from "waiting" to "handled" when it is handled, newest handled first', async () => {
+        const { a, b, qa, cb } = await twoRequests();
+        await answer(a.id, qa, '답변');
+        await done(b.id, cb, '통화함');
+
+        const waiting = await inbox();
+        const handled = await inbox('?status=handled');
+        const all = await inbox('?status=all');
+
+        expect(waiting.body.data.map((item: { body: string }) => item.body)).toEqual(['B의 질문']);
+        expect(waiting.body.counts).toEqual({ open_questions: 1, open_consultations: 0 });
+        expect(handled.body.data.map((item: { id: string }) => item.id)).toEqual([cb, qa]);
+        expect(handled.body.data[0]).toMatchObject({ status: 'done', answer: '통화함', handled_by: { username: 'master' } });
+        expect(handled.body.data[1]).toMatchObject({ status: 'answered', answer: '답변' });
+        // "all": what waits first, then the handled ones.
+        expect(all.body.data.map((item: { status: string }) => item.status)).toEqual(['open', 'done', 'answered']);
+        expect(all.body.pagination.total).toBe(3);
+      });
+
+      it('pages, with the total of the filter', async () => {
+        await twoRequests();
+
+        const first = await inbox('?limit=2');
+        const second = await inbox('?limit=2&page=2');
+        const beyond = await inbox('?limit=2&page=9');
+
+        expect(first.body.data).toHaveLength(2);
+        expect(second.body.data).toHaveLength(1);
+        expect(first.body.data[0].id).not.toBe(second.body.data[0].id);
+        expect(first.body.pagination).toEqual({ page: 1, limit: 2, total: 3, total_pages: 2 });
+        expect(beyond.body.data).toEqual([]);
+      });
+
+      it('is empty, with zero counts, when nobody asked anything', async () => {
+        await published();
+
+        const res = await inbox();
+
+        expect(res.body.data).toEqual([]);
+        expect(res.body.counts).toEqual({ open_questions: 0, open_consultations: 0 });
+        expect(res.body.pagination.total).toBe(0);
+      });
+
+      it('refuses a query that is not valid', async () => {
+        expect((await inbox('?status=closed')).status).toBe(400);
+        expect((await inbox('?kind=complaint')).status).toBe(400);
+        expect((await inbox('?limit=101')).status).toBe(400);
+        expect((await inbox('?page=0')).status).toBe(400);
+      });
+
+      it('keeps an inquiry in the inbox when its account is gone, with the request it belongs to', async () => {
+        const { a } = await twoRequests();
+        await suite().db('customers').where({ email: 'buyer@example.com' }).del();
+
+        const res = await inbox('?kind=question');
+
+        expect(res.body.data.map((item: { estimate: { id: string } }) => item.estimate.id)).toContain(a.id);
+      });
+    });
+
     it('keeps the inquiries when the account goes, without the link to it', async () => {
       const { cookie, receipt, id } = await published();
       await ask(cookie, receipt, { kind: 'question', body: '질문' });
