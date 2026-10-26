@@ -24,7 +24,20 @@ describe('index.html: what the page says', () => {
     expect(text).not.toMatch(/Co\., Ltd\.|2024/);
   });
 
-  it('names the company in the footer and promises nothing the site does not do', () => {
+  it('gives the business details in the footer, as in the registration papers of the company', () => {
+    const footer = html.slice(html.indexOf('<footer'), html.indexOf('</footer>'));
+
+    expect(footer).toContain('주식회사 브릿지패스');
+    expect(footer).toContain('대표 옥보경');
+    expect(footer).toContain('사업자등록번호 478-86-03621');
+    expect(footer).toContain('통신판매업 신고번호 제 2025-수원팔달-0228호');
+    expect(footer).toContain('경기도 화성시 병점구 병점노을5로 20, 골든스퀘어2 1223호');
+    expect(footer).toContain('href="mailto:bptrade7@bptrade.co.kr"');
+    // Not in the footer: the date of birth and the corporate registration number are not for visitors.
+    expect(footer).not.toMatch(/1992|130111/);
+  });
+
+  it('names the company and promises nothing the site does not do', () => {
     expect(html).toContain('주식회사 브릿지패스');
     // No live production tracking, no KakaoTalk notices, no phone call without a request.
     expect(html).not.toMatch(/실시간|카카오톡|생산 현황|생산 진행 현황/);

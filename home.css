@@ -357,6 +357,20 @@
     font-weight: 700;
 }
 
+.footer-info {
+    font-size: 0.82rem;
+    opacity: 0.9;
+}
+
+.footer-info span {
+    display: inline-block;
+    margin: 0 10px;
+}
+
+.footer-info a {
+    color: #fff;
+}
+
 @media (max-width: 860px) {
     .process-layout {
         grid-template-columns: 1fr;
