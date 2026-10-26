@@ -13,6 +13,7 @@ jest.mock('../services/customerAuthService', () => ({
   loginWithSocial: jest.fn(),
   setPassword: jest.fn(),
   recordConsent: jest.fn(),
+  setKakaoNotify: jest.fn(),
   updateProfile: jest.fn(),
   loadPublicCustomer: jest.fn()
 }));
@@ -106,6 +107,15 @@ describe('customer accounts API (mocked services)', () => {
       );
       expect(sendCodeEmail).toHaveBeenCalledWith('buyer@example.com', 'signup', '123456');
       expect(cookieOf(res, 'bp_session')).toBeUndefined();
+    });
+
+    it('records the KakaoTalk consent only for an explicit true, never by default', async () => {
+      await request(app).post('/api/customers/signup').send(SIGNUP);
+      await request(app).post('/api/customers/signup').send({ ...SIGNUP, kakao_notify: 'true' });
+      await request(app).post('/api/customers/signup').send({ ...SIGNUP, kakao_notify: true });
+
+      const given = mocked(service.signup).mock.calls.map(call => call[0].kakaoNotify);
+      expect(given).toEqual([false, false, true]);
     });
 
     it.each([
@@ -300,6 +310,29 @@ describe('customer accounts API (mocked services)', () => {
       const ok = await request(app).patch('/api/customers/me').set('Cookie', `bp_session=${TOKEN}`).send({ name: 'Lee' });
       expect(ok.status).toBe(200);
       expect(service.updateProfile).toHaveBeenCalledWith(CUSTOMER.id, expect.objectContaining({ name: 'Lee' }));
+    });
+
+    describe('POST /me/kakao-notify (agreeing to the KakaoTalk notices, and taking it back)', () => {
+      const send = (body: unknown) => request(app).post('/api/customers/me/kakao-notify').set('Cookie', `bp_session=${TOKEN}`).send(body as object);
+
+      it('needs a session', async () => {
+        expect((await request(app).post('/api/customers/me/kakao-notify').send({ enabled: true })).status).toBe(401);
+      });
+
+      it.each([true, false])('sets the consent to %s and answers with the customer', async enabled => {
+        const res = await send({ enabled });
+
+        expect(res.status).toBe(200);
+        expect(service.setKakaoNotify).toHaveBeenCalledWith(CUSTOMER.id, enabled);
+        expect(res.body.customer.id).toBe(CUSTOMER.id);
+      });
+
+      it.each([{}, { enabled: 'true' }, { enabled: 1 }, { enabled: null }])('refuses %j: only true or false', async body => {
+        const res = await send(body);
+
+        expect(res.status).toBe(400);
+        expect(service.setKakaoNotify).not.toHaveBeenCalled();
+      });
     });
 
     describe('POST /me/complete (the consent and the mobile phone of an account made with Google/Kakao)', () => {

@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { INQUIRY_LIMITS, InquiryInput } from '../utils/quoteInquiry';
 import { buildAdminInquiryEmail, buildInquiryAnsweredEmail, quoteLink } from '../utils/quoteEmail';
 import { queueEmailInTransaction } from './emailService';
+import { queueKakaoInTransaction } from './kakaoService';
 
 export type InquiryErrorCode =
   | 'ESTIMATE_NOT_FOUND'
@@ -248,6 +249,13 @@ export async function answerQuestion(estimateId: string, inquiryId: string, admi
         idempotency_key: `inquiry-answer-${inquiryId}`,
         subject: mail.subject,
         body: mail.body
+      });
+      await queueKakaoInTransaction(client, {
+        customerId: closed.customer_id,
+        estimateId,
+        template: 'inquiry_answered',
+        receiptId: customer.rows[0].receipt_id,
+        key: `kakao-inquiry-answer-${inquiryId}`
       });
     }
 

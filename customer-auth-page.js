@@ -274,6 +274,7 @@
                 privacy_consent_version: globalThis.BridgePathConfig.PRIVACY_CONSENT_VERSION
             };
             payload.phone = phone.trim();
+            payload.kakao_notify = byId('signupKakao').checked;
             if (company !== '') {
                 payload.company_name = company;
             }
@@ -378,7 +379,7 @@
         event.preventDefault();
         clearErrors();
         var missing = page.state.missing;
-        var payload = {};
+        var payload = { kakao_notify: byId('completeKakao').checked };
         if (missing.phone) {
             var phone = byId('completePhone').value;
             var phoneProblem = Auth().checkPhone(phone, true);

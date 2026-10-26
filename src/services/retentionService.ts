@@ -21,6 +21,8 @@ export interface CleanupResult {
   estimate_access_tokens: number;
   email_events_sent: number;
   email_events_failed: number;
+  kakao_events_sent: number;
+  kakao_events_failed: number;
 }
 
 interface Statement {
@@ -60,6 +62,16 @@ const STATEMENTS: readonly Statement[] = [
     key: 'email_events_sent',
     days: RETENTION_DAYS.sentEmails,
     sql: `DELETE FROM email_events WHERE status = 'sent' AND COALESCE(sent_at, created_at) < now() - make_interval(days => $1)`
+  },
+  {
+    key: 'kakao_events_sent',
+    days: RETENTION_DAYS.sentEmails,
+    sql: `DELETE FROM kakao_events WHERE status = 'sent' AND COALESCE(sent_at, created_at) < now() - make_interval(days => $1)`
+  },
+  {
+    key: 'kakao_events_failed',
+    days: RETENTION_DAYS.failedEmails,
+    sql: `DELETE FROM kakao_events WHERE status = 'failed' AND created_at < now() - make_interval(days => $1)`
   },
   {
     key: 'email_events_failed',

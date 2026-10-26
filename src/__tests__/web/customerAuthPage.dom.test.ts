@@ -168,7 +168,7 @@ describe('login.html in jsdom (fake API)', () => {
 
       expect(g.fetch).toHaveBeenCalledTimes(1);
       expect(JSON.parse(g.fetch.mock.calls[0][1].body)).toEqual({
-        phone: '010-1234-5678', privacy_consent: true, privacy_consent_version: 'dev-draft'
+        phone: '010-1234-5678', privacy_consent: true, privacy_consent_version: 'dev-draft', kakao_notify: false
       });
       expect(go).toHaveBeenCalledWith('/estimate.html');
     });
@@ -183,7 +183,7 @@ describe('login.html in jsdom (fake API)', () => {
       g.fetch = fakeApi({ 'POST /me/complete': ok({ customer: CUSTOMER }) }).impl;
       submit('#completeForm');
       await flush();
-      expect(JSON.parse(g.fetch.mock.calls[0][1].body)).toEqual({ phone: '010-1234-5678' });
+      expect(JSON.parse(g.fetch.mock.calls[0][1].body)).toEqual({ phone: '010-1234-5678', kakao_notify: false });
       page?.dispose();
 
       await open({ 'GET /me': ok({ customer: { ...CUSTOMER, consent_required: true } }) });
@@ -380,7 +380,7 @@ describe('login.html in jsdom (fake API)', () => {
       const signup = api.calls.find(call => call.path === '/signup')!;
       expect(signup.body).toEqual({
         email: 'buyer@example.com', password: 'abcdefg1', name: 'Kim', phone: '010-1234-5678', company_name: 'ACME',
-        privacy_consent: true, privacy_consent_version: 'dev-draft'
+        privacy_consent: true, privacy_consent_version: 'dev-draft', kakao_notify: false
       });
       expect($('#signupPassword').value).toBe('');
       expect(visibleSteps()).toEqual(['code']);
@@ -404,8 +404,21 @@ describe('login.html in jsdom (fake API)', () => {
       await flush();
 
       expect(Object.keys(api.calls.find(call => call.path === '/signup')!.body).sort()).toEqual([
-        'email', 'name', 'password', 'phone', 'privacy_consent', 'privacy_consent_version'
+        'email', 'kakao_notify', 'name', 'password', 'phone', 'privacy_consent', 'privacy_consent_version'
       ]);
+    });
+
+    it('sends the KakaoTalk consent only when the box is ticked, and it is not ticked by itself', async () => {
+      const api = await open({ 'POST /signup': { status: 201, body: { resend_after_seconds: 60 } } });
+
+      click('#toSignup');
+      expect($('#signupKakao').checked).toBe(false);
+      fill();
+      $('#signupKakao').checked = true;
+      submit('#signupForm');
+      await flush();
+
+      expect(api.calls.find(call => call.path === '/signup')!.body.kakao_notify).toBe(true);
     });
 
     it('says when the e-mail is already registered, and stays on the form', async () => {

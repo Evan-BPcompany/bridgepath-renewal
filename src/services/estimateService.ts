@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { generateReceiptIdInTransaction } from '../utils/receipt-id';
 import { generateEstimateAccessToken } from '../utils/token';
 import { queueEmailInTransaction } from './emailService';
+import { queueKakaoInTransaction } from './kakaoService';
 import { insertFileRows, StoredFile } from './fileService';
 import { CUSTOMER_GUIDANCE_MESSAGE } from '../utils/customerMessages';
 import { runInTransaction } from '../utils/transactionRetry';
@@ -216,6 +217,15 @@ export async function createEstimate(
             body: adminEmailBody
           });
         }
+
+        // The KakaoTalk receipt, only for a signed-in customer who agreed to it (see kakaoService)
+        await queueKakaoInTransaction(client, {
+          customerId: request.customer_id,
+          estimateId: estimate.id,
+          template: 'receipt',
+          receiptId: receipt_id,
+          key: `kakao-receipt-${estimate.id}`
+        });
 
         return { receipt_id, token, estimate };
       },

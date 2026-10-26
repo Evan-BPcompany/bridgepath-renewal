@@ -68,6 +68,11 @@
                     <input class="auth-input" id="signupCompany" type="text" autocomplete="organization" maxlength="100" placeholder="회사명 또는 브랜드명">
 
                     <label class="auth-check">
+                        <input id="signupKakao" type="checkbox">
+                        <span>카카오톡으로 접수·견적 알림을 받겠습니다. <span class="auth-optional">(선택)</span></span>
+                    </label>
+
+                    <label class="auth-check">
                         <input id="signupConsent" type="checkbox">
                         <span>개인정보 수집·이용에 동의합니다. <a href="privacy-consent.html" target="_blank" rel="noopener">내용 보기</a></span>
                     </label>
@@ -142,6 +147,10 @@
                         <input class="auth-input" id="completePhone" type="tel" autocomplete="tel" maxlength="20" placeholder="010-1234-5678">
                         <p class="auth-hint">견적 진행 상황을 안내받을 연락처예요.</p>
                     </div>
+                    <label class="auth-check">
+                        <input id="completeKakao" type="checkbox">
+                        <span>카카오톡으로 접수·견적 알림을 받겠습니다. <span class="auth-optional">(선택)</span></span>
+                    </label>
                     <label class="auth-check" id="completeConsentRow" hidden>
                         <input id="completeConsent" type="checkbox">
                         <span>개인정보 수집·이용에 동의합니다. <a href="privacy-consent.html" target="_blank" rel="noopener">내용 보기</a></span>

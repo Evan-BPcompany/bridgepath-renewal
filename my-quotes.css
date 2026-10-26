@@ -350,3 +350,23 @@
 [hidden] {
     display: none !important;
 }
+
+.mq-notify-box {
+    max-width: 720px;
+    margin: 32px auto 48px;
+    padding: 0 16px;
+    font-size: 0.85rem;
+}
+
+.mq-notify {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.mq-notify-msg {
+    margin: 6px 0 0;
+    color: #555;
+    min-height: 1.2em;
+}

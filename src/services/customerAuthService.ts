@@ -50,6 +50,8 @@ export interface PublicCustomer {
   consent_required: boolean;
   // The mobile phone is asked at sign-up; an account made with Google/Kakao has none until it is given.
   phone_required: boolean;
+  // Agreed to KakaoTalk notices (a separate consent; can be taken back).
+  kakao_notify: boolean;
 }
 
 export interface SessionContext {
@@ -60,7 +62,7 @@ export interface SessionContext {
 type Row = Record<string, any>;
 
 const CUSTOMER_COLUMNS = `id, email, password_hash, name, phone, company_name, customer_type,
-  email_verified_at, privacy_consent_at, is_active, failed_login_attempts, locked_until`;
+  email_verified_at, privacy_consent_at, kakao_notify_consent_at, is_active, failed_login_attempts, locked_until`;
 
 // A login for an unknown e-mail still pays for one bcrypt comparison, so the answer does not come
 // back faster than for a known one. The hash is made once, on first use.
@@ -81,7 +83,8 @@ export function toPublicCustomer(row: Row, providers: string[] = []): PublicCust
     has_password: Boolean(row.password_hash),
     providers,
     consent_required: !row.privacy_consent_at,
-    phone_required: !row.phone
+    phone_required: !row.phone,
+    kakao_notify: Boolean(row.kakao_notify_consent_at)
   };
 }
 
@@ -108,6 +111,7 @@ export interface SignupInput {
   password: string;
   profile: SignupProfile;
   consentVersion: string;
+  kakaoNotify?: boolean;
 }
 
 // Creates the account, still unverified, or takes over an unverified one for the same e-mail: nobody
@@ -127,7 +131,8 @@ export async function signup(input: SignupInput): Promise<{ customerId: string }
       const updated = await pool.query(
         `UPDATE customers
          SET password_hash = $2, name = $3, phone = $4, company_name = $5, customer_type = $6,
-             privacy_consent_at = CURRENT_TIMESTAMP, privacy_consent_version = $7, updated_at = CURRENT_TIMESTAMP
+             privacy_consent_at = CURRENT_TIMESTAMP, privacy_consent_version = $7,
+             kakao_notify_consent_at = CASE WHEN $8::boolean THEN CURRENT_TIMESTAMP ELSE NULL END, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND email_verified_at IS NULL
          RETURNING id`,
         [
@@ -137,7 +142,8 @@ export async function signup(input: SignupInput): Promise<{ customerId: string }
           profile.phone ?? null,
           profile.company_name ?? null,
           profile.customer_type ?? null,
-          input.consentVersion
+          input.consentVersion,
+          input.kakaoNotify === true
         ]
       );
       if (updated.rows[0]) {
@@ -149,8 +155,8 @@ export async function signup(input: SignupInput): Promise<{ customerId: string }
     try {
       const inserted = await pool.query(
         `INSERT INTO customers (email, password_hash, name, phone, company_name, customer_type,
-                                privacy_consent_at, privacy_consent_version)
-         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7)
+                                privacy_consent_at, privacy_consent_version, kakao_notify_consent_at)
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, CASE WHEN $8::boolean THEN CURRENT_TIMESTAMP ELSE NULL END)
          RETURNING id`,
         [
           input.email,
@@ -159,7 +165,8 @@ export async function signup(input: SignupInput): Promise<{ customerId: string }
           profile.phone ?? null,
           profile.company_name ?? null,
           profile.customer_type ?? null,
-          input.consentVersion
+          input.consentVersion,
+          input.kakaoNotify === true
         ]
       );
       return { customerId: inserted.rows[0].id };
@@ -317,7 +324,7 @@ export async function findSessionCustomer(token: string, now = new Date()): Prom
   const pool = getPool();
   const result = await pool.query(
     `SELECT s.id AS session_id, c.id, c.email, c.password_hash, c.name, c.phone, c.company_name, c.customer_type,
-            c.privacy_consent_at
+            c.privacy_consent_at, c.kakao_notify_consent_at
      FROM customer_sessions s
      JOIN customers c ON c.id = s.customer_id
      WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > $2
@@ -491,6 +498,17 @@ export async function recordConsent(customerId: string, version: string): Promis
     `UPDATE customers SET privacy_consent_at = CURRENT_TIMESTAMP, privacy_consent_version = $2, updated_at = CURRENT_TIMESTAMP
      WHERE id = $1`,
     [customerId, version]
+  );
+}
+
+// The consent to KakaoTalk notices: given at sign-up or later, and taken back at any time.
+export async function setKakaoNotify(customerId: string, on: boolean): Promise<void> {
+  await getPool().query(
+    `UPDATE customers
+     SET kakao_notify_consent_at = CASE WHEN $2::boolean THEN COALESCE(kakao_notify_consent_at, CURRENT_TIMESTAMP) ELSE NULL END,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $1`,
+    [customerId, on]
   );
 }
 

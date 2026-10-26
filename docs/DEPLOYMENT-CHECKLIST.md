@@ -66,6 +66,7 @@ Set secrets in the hosting settings (`heroku config:set NAME=value`), never in a
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | yes | The bucket and the IAM user of section 3. |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL` | yes | The key and the verified sender. Without them nobody can sign up. |
 | `EMAIL_WORKER_ENABLED` | yes | `true`, or the receipts, quote notices and answers are never sent. |
+| `KAKAO_NOTIFY_ENABLED`, `KAKAO_PROVIDER`, `KAKAO_WORKER_INTERVAL_MS` | no | **Leave them unset.** KakaoTalk notices are prepared but no sending agency is connected: the server refuses to start in production with `KAKAO_NOTIFY_ENABLED=true` (docs/KAKAO-NOTICES.md). |
 | `CLEANUP_ENABLED` | no | Leave it unset (on): the daily deletion of expired sessions and old e-mails. `false` switches it off. |
 | `ADMIN_NOTIFICATION_EMAIL` | recommended | Told of each new request, question and request for a consultation. |
 | `SUPPORT_EMAIL`, `SUPPORT_PHONE` | recommended | Shown in the e-mails to customers. |
@@ -105,7 +106,7 @@ Menu names change; look for the same thing under the new name.
    heroku run npm run predeploy:check
    ```
    Fix every `FAIL`. Read every `WARN`.
-5. **Migrate the database** (`001` to `018`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
+5. **Migrate the database** (`001` to `019`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
    ```bash
    heroku run npm run db:status:prod      # what is applied and what is not (changes nothing)
    heroku run npm run db:migrate:prod     # applies what is missing

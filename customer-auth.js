@@ -215,6 +215,8 @@
         // Completes an account that lacks the consent and/or the mobile phone (Google/Kakao sign-in).
         // Only what is given is sent: { privacy_consent, privacy_consent_version, phone }.
         complete: function (payload, fetchImpl) { return call('POST', '/me/complete', payload, fetchImpl); },
+        // Agrees to the KakaoTalk notices, or takes the agreement back.
+        setKakaoNotify: function (enabled, fetchImpl) { return call('POST', '/me/kakao-notify', { enabled: enabled === true }, fetchImpl); },
         // The requests of the signed-in customer, and one of them with the quote published for it.
         myEstimates: function (fetchImpl) { return call('GET', '/me/estimates', undefined, fetchImpl); },
         myEstimate: function (receiptId, fetchImpl) {

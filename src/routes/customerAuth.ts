@@ -25,6 +25,7 @@ import {
   loginWithSocial,
   markEmailVerified,
   recordConsent,
+  setKakaoNotify,
   revokeSession,
   setPassword,
   signup,
@@ -142,7 +143,8 @@ export function createCustomerAuthRouter(options: CustomerAuthRouterOptions): Ro
         email,
         password: body.password as string,
         profile: profile.value as SignupProfile,
-        consentVersion
+        consentVersion,
+        kakaoNotify: body.kakao_notify === true
       });
       try {
         await sendNewCode(customerId, email, 'signup');
@@ -401,9 +403,28 @@ export function createCustomerAuthRouter(options: CustomerAuthRouterOptions): Ro
       if (phone) {
         await updateProfile(customer.id, { phone });
       }
+      if (typeof body.kakao_notify === 'boolean') {
+        await setKakaoNotify(customer.id, body.kakao_notify);
+      }
       res.json({ customer: await loadPublicCustomer(customer.id), timestamp: now() });
     } catch (err) {
       logger.error('Customer account completion error', { error: err instanceof Error ? err.message : String(err) });
+      fail(res, 500, 'INTERNAL_ERROR', 'Internal server error');
+    }
+  });
+
+  // Takes the KakaoTalk notices back, or agrees to them later (a separate consent from the privacy one).
+  router.post('/me/kakao-notify', requireCustomer, async (req: Request, res: Response) => {
+    try {
+      const body = bodyOf(req);
+      if (typeof body.enabled !== 'boolean') {
+        res.status(400).json({ error: 'enabled must be true or false', code: 'VALIDATION_ERROR', details: [{ field: 'enabled', message: 'must be true or false' }], timestamp: now() });
+        return;
+      }
+      await setKakaoNotify(req.customer!.id, body.enabled);
+      res.json({ customer: await loadPublicCustomer(req.customer!.id), timestamp: now() });
+    } catch (err) {
+      logger.error('Customer KakaoTalk consent error', { error: err instanceof Error ? err.message : String(err) });
       fail(res, 500, 'INTERNAL_ERROR', 'Internal server error');
     }
   });

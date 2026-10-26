@@ -85,8 +85,9 @@ Once a day (the first run a minute after the server starts) the web process dele
 |---|---|
 | Customer and admin sessions | 7 days after they expired, or after they were revoked |
 | E-mail codes (sign-up, password) and access links of the quotes | 7 days after they expired |
-| Sent e-mails of the outbox (`email_events`) | after 90 days (they hold the text of a notice) |
-| Failed e-mails of the outbox | after 180 days (kept longer, to find out why) |
+| Sent e-mails (`email_events`) | after 90 days (they hold the text of a notice) |
+| Failed e-mails | after 180 days (kept longer, to find out why) |
+| Sent and failed KakaoTalk notices (`kakao_events`) | after 90 and 180 days, like the e-mails |
 
 **Never touched:** customers, requests (`estimates`), quotes, inquiries, and any e-mail that is `pending` or `sending`. How long those are kept is a decision of the company (the privacy text), not of this job. The result of each run is in the log (`Cleanup of expired data`, the number of rows per table). `CLEANUP_ENABLED=false` switches it off. One server process only, like the e-mail worker.
 

@@ -84,6 +84,14 @@ export interface AppConfig {
     intervalMs: number;
     staleTimeoutMs: number;
   };
+  // KakaoTalk notices (receipt, quote arrived, question answered). Off by default. 'log' only writes
+  // the message to the log (development): it is refused in production, where no real sending agency
+  // is connected yet.
+  kakao: {
+    enabled: boolean;
+    provider: 'log';
+    intervalMs: number;
+  };
   // Where the customer pages are served (the browser is sent back here after a Google/Kakao login),
   // and the public address of this API (the redirect address registered with Google/Kakao).
   frontendBaseUrl: string;
@@ -237,6 +245,19 @@ export function assertProductionSettings(
 }
 
 // Things that are allowed but probably not what the operator wants in production.
+export function parseKakao(env: NodeJS.ProcessEnv, nodeEnv: string): AppConfig['kakao'] {
+  const enabled = env.KAKAO_NOTIFY_ENABLED === 'true';
+  const provider = env.KAKAO_PROVIDER ?? 'log';
+  if (provider !== 'log') {
+    throw new Error('KAKAO_PROVIDER must be "log": no sending agency is connected yet');
+  }
+  if (enabled && nodeEnv === 'production') {
+    throw new Error('KAKAO_NOTIFY_ENABLED=true is not possible in production yet: only the "log" provider exists, and it sends nothing');
+  }
+  const intervalMs = parseInt(env.KAKAO_WORKER_INTERVAL_MS || '30000', 10);
+  return { enabled, provider, intervalMs: Number.isFinite(intervalMs) && intervalMs >= 1000 ? intervalMs : 30000 };
+}
+
 export function productionWarnings(settings: {
   nodeEnv: string;
   trustProxy: number;
@@ -347,6 +368,7 @@ export function loadConfig(): AppConfig {
       intervalMs: parseInt(process.env.EMAIL_WORKER_INTERVAL_MS || '30000', 10),
       staleTimeoutMs: parseInt(process.env.EMAIL_WORKER_STALE_TIMEOUT_MS || '300000', 10)
     },
+    kakao: parseKakao(process.env, nodeEnv),
     frontendBaseUrl: parseBaseUrl('FRONTEND_BASE_URL', process.env.FRONTEND_BASE_URL, corsOrigins[0]),
     publicApiUrl: parseBaseUrl('PUBLIC_API_URL', process.env.PUBLIC_API_URL, `http://localhost:${port}`),
     oauth: {

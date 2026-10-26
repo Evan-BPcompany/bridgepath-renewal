@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { PricedQuoteItem, QuoteInput, missingContact, priceItems, todayInKorea } from '../utils/detailedQuote';
 import { buildQuotePublishedEmail, quoteLink } from '../utils/quoteEmail';
 import { queueEmailInTransaction } from './emailService';
+import { queueKakaoInTransaction } from './kakaoService';
 
 export type QuoteErrorCode =
   | 'ESTIMATE_NOT_FOUND'
@@ -284,7 +285,7 @@ export async function publishQuote(estimateId: string, adminId: string, expected
     // The customer is told in the same transaction: either the revision and the mail are both
     // there, or neither is (the outbox sends it later and retries). The mail has no amount in it.
     const customer = await client.query(
-      `SELECT e.receipt_id, c.email
+      `SELECT e.receipt_id, c.email, c.id AS customer_id
        FROM estimates e JOIN customers c ON c.id = e.customer_id
        WHERE e.id = $1 AND c.is_active = true`,
       [estimateId]
@@ -303,6 +304,13 @@ export async function publishQuote(estimateId: string, adminId: string, expected
         idempotency_key: `quote-published-${row.id}-v${version}`,
         subject: mail.subject,
         body: mail.body
+      });
+      await queueKakaoInTransaction(client, {
+        customerId: customer.rows[0].customer_id,
+        estimateId,
+        template: 'quote_published',
+        receiptId: customer.rows[0].receipt_id,
+        key: `kakao-quote-published-${row.id}-v${version}`
       });
       notificationQueued = true;
     }

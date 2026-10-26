@@ -276,6 +276,7 @@ Copy `.env.example` to `.env` (never commit it). `JWT_SECRET` is the only variab
 | `CUSTOMER_LOGIN_RATE_LIMIT_*`, `CUSTOMER_SIGNUP_RATE_LIMIT_*`, `CUSTOMER_CODE_RATE_LIMIT_*` | no | 10 failed logins / 15 min, 10 sign-ups / hour, 20 code requests / 15 min | Per IP; `_WINDOW_MS` and `_MAX`. |
 | `ADMIN_NOTIFICATION_EMAIL` | no | - | Receives the new-estimate notification. |
 | `EMAIL_WORKER_ENABLED` | no | `false` | Starts the email worker loop (never in `test`). |
+| `KAKAO_NOTIFY_ENABLED` | no | `false` | KakaoTalk notices (receipt, quote, answer). Only the `log` provider exists; refused in production. See docs/KAKAO-NOTICES.md. |
 | `CLEANUP_ENABLED` | no | `true` | Daily deletion of expired sessions, codes and old sent e-mails (see docs/OPERATIONS.md); `false` switches it off. |
 | `EMAIL_WORKER_INTERVAL_MS`, `EMAIL_WORKER_STALE_TIMEOUT_MS` | no | 30000 / 300000 | Worker poll interval and stuck-`sending` recovery time. |
 | `SUPPORT_EMAIL`, `SUPPORT_PHONE` | no | - | Contact details shown in customer emails. |

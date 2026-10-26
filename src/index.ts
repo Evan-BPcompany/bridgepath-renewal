@@ -4,6 +4,7 @@ import logger from './utils/logger';
 import { createApp } from './app';
 import { initializeEmailWorker } from './services/emailWorker';
 import { startCleanupSchedule } from './services/retentionService';
+import { startKakaoWorker } from './services/kakaoService';
 
 const app = createApp();
 
@@ -20,6 +21,7 @@ app.listen(PORT, () => {
   // Initialize email worker (Phase 2 Day 3)
   if (config.nodeEnv !== 'test') {
     initializeEmailWorker();
+    startKakaoWorker();
     if (process.env.CLEANUP_ENABLED !== 'false') {
       startCleanupSchedule();
     }

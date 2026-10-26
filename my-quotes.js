@@ -370,6 +370,27 @@
         });
     }
 
+    // The KakaoTalk notices can be agreed to and taken back here, at any time.
+    function wireKakaoNotify(customer) {
+        var box = byId('kakaoNotify');
+        var message = byId('kakaoNotifyMsg');
+        box.checked = Boolean(customer.kakao_notify);
+        byId('notifyBox').hidden = false;
+        box.addEventListener('change', async function () {
+            var wanted = box.checked;
+            box.disabled = true;
+            message.textContent = '';
+            var result = await Auth().setKakaoNotify(wanted);
+            box.disabled = false;
+            if (result.ok) {
+                message.textContent = wanted ? '카카오톡 알림을 받을게요.' : '카카오톡 알림을 끌게요.';
+            } else {
+                box.checked = !wanted;
+                message.textContent = '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+            }
+        });
+    }
+
     async function init() {
         var auth = Auth();
         var params = new URLSearchParams(window.location.search);
@@ -397,6 +418,8 @@
             await auth.logout();
             page.go('index.html');
         });
+
+        wireKakaoNotify(customer);
 
         if (receipt) {
             wireAsk();
