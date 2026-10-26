@@ -37,7 +37,8 @@ const ALL_MIGRATIONS = [
   '015_customer_accounts.ts',
   '016_estimate_customer_link.ts',
   '017_detailed_quotes.ts',
-  '018_quote_contact_and_inquiries.ts'
+  '018_quote_contact_and_inquiries.ts',
+  '019_kakao_notifications.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -1327,7 +1328,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
       suite().db('quote_inquiries').insert({ estimate_id: estimateId, quote_version: 1, kind: 'question', body: '질문', ...extra }).returning('id');
     const handled = { status: 'answered', answer: '답변', handled_at: new Date() };
 
-    it('is the last migration: the contact columns on the quote and the table of inquiries', async () => {
+    it('adds the contact columns on the quote and the table of inquiries', async () => {
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
       expect(await tableNames()).toContain('quote_inquiries');
       const columns = await suite().db.raw(
@@ -1423,9 +1424,43 @@ describeIntegration('migrations 001-013', ({ url }) => {
     it('rolls back to the schema of 017, and applies again to the same schema', async () => {
       const first = await snapshotSchema(suite().db, suite().schema);
 
-      await migrateDownOne(suite().db);
+      await migrateDownOne(suite().db); // 019
+      await migrateDownOne(suite().db); // 018
       expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 17));
       expect(await tableNames()).not.toContain('quote_inquiries');
+
+      await migrateEverything(suite().db);
+      expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
+    });
+  });
+
+  describe('019 (KakaoTalk notices)', () => {
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    it('is the last migration: the consent column and the outbox table', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+      expect(await tableNames()).toContain('kakao_events');
+      const column = await suite().db.raw(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = 'customers' AND column_name = 'kakao_notify_consent_at'`,
+        [suite().schema]
+      );
+      expect(column.rows).toHaveLength(1);
+    });
+
+    it('rolls back to the schema of 018, and applies again to the same schema', async () => {
+      const first = await snapshotSchema(suite().db, suite().schema);
+
+      await migrateDownOne(suite().db);
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 18));
+      expect(await tableNames()).not.toContain('kakao_events');
 
       await migrateEverything(suite().db);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
