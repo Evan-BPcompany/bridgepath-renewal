@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bridge Path - 제조업 및 무역 솔루션</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="home.css">
 </head>
 
 <body>
@@ -13,9 +14,9 @@
         <div class="header-container">
             <div class="logo">Bridge Path</div>
             <nav class="navbar">
-                <a href="#about">회사소개</a>
+                <a href="#process">진행 과정</a>
                 <a href="#services">서비스</a>
-                <a href="#contact">문의하기</a>
+                <a href="#contact">문의 안내</a>
                 <a href="my-quotes.html">내 견적</a>
                 <a href="login.html">로그인</a>
             </nav>
@@ -26,34 +27,112 @@
     <section class="hero">
         <div class="hero-content">
             <h1>맞춤형 제조 및 수입 대행 서비스</h1>
-            <p>선글라스, 골프티 전문 OEM/ODM 및 수입 대행업체</p>
+            <p>선글라스, 신발, 골프티 OEM/ODM 및 수입 대행</p>
             <button class="cta-button" onclick="window.location.href='estimate.html'">견적 요청하기</button>
         </div>
     </section>
 
-    <!-- About Us Section -->
-    <section id="about" class="about">
+    <!-- Process Section: five steps, one panel each (home.js switches them) -->
+    <section id="process" class="process">
         <div class="section-container">
-            <h2>우리의 강점</h2>
-            <p class="about-subtitle">단순한 매칭이 아닌, 실제 제조 경험과 전문 노하우가 담긴 서비스</p>
+            <p class="eyebrow">PRODUCTION PROCESS</p>
+            <h2 class="process-title">첫 견적에서 제품 출고까지, 다섯 단계로 이어져요</h2>
+            <p class="process-subtitle">처음 제작해도 흐름을 놓치지 않도록, 단계마다 무엇을 하는지 미리 알려드려요.</p>
 
-            <div class="about-grid">
-                <div class="about-card fade-in">
-                    <div class="about-icon">🏭</div>
-                    <h3>실제 제조 경험</h3>
-                    <p>신발, 선글라스, 골프티 등 다양한 제품을 직접 제조해본 풍부한 경험과 노하우를 보유하고 있습니다. 단순 중개가 아닌 제조 파트너로서 고객의 니즈를 정확히 이해하고 대응합니다.</p>
+            <div class="process-layout">
+                <div class="process-tabs" role="tablist" aria-label="진행 과정 단계" aria-orientation="vertical">
+                    <button class="process-tab" role="tab" id="tab-1" type="button" aria-selected="true" aria-controls="panel-1">
+                        <span class="tab-title">01 견적 요청</span>
+                        <span class="tab-text">AI 가상견적으로 예상 범위를 먼저 보고, 필요하면 담당자 상세견적을 요청해요.</span>
+                    </button>
+                    <button class="process-tab" role="tab" id="tab-2" type="button" aria-selected="false" aria-controls="panel-2" tabindex="-1">
+                        <span class="tab-title">02 사양 협의</span>
+                        <span class="tab-text">소재, 색상, 수량, 일정을 담당자와 구체화해요.</span>
+                    </button>
+                    <button class="process-tab" role="tab" id="tab-3" type="button" aria-selected="false" aria-controls="panel-3" tabindex="-1">
+                        <span class="tab-title">03 샘플 확인</span>
+                        <span class="tab-text">샘플의 형태와 마감을 확인하고, 고칠 곳을 알려주세요.</span>
+                    </button>
+                    <button class="process-tab" role="tab" id="tab-4" type="button" aria-selected="false" aria-controls="panel-4" tabindex="-1">
+                        <span class="tab-title">04 제품 생산</span>
+                        <span class="tab-text">확정된 사양으로 생산해요. 일정은 담당자가 안내해요.</span>
+                    </button>
+                    <button class="process-tab" role="tab" id="tab-5" type="button" aria-selected="false" aria-controls="panel-5" tabindex="-1">
+                        <span class="tab-title">05 검수·출고</span>
+                        <span class="tab-text">완성된 제품을 검수하고 납품 일정을 안내해요.</span>
+                    </button>
                 </div>
 
-                <div class="about-card fade-in">
-                    <div class="about-icon">🔗</div>
-                    <h3>전문 공정 네트워크</h3>
-                    <p>브랜드의 특성과 요구사항에 맞는 믿을 수 있는 국내외 제조 파트너사와의 긴밀한 네트워크를 구축하고 있습니다. 최고의 품질을 위해 엄격한 기준으로 파트너를 선정합니다.</p>
-                </div>
+                <div class="process-stage">
+                    <!-- The pictures are examples made for this page, not real orders. -->
+                    <div class="process-panel" role="tabpanel" id="panel-1" aria-labelledby="tab-1">
+                        <div class="mock-card">
+                            <p class="mock-label">AI 가상견적 <span class="mock-example">예시 화면</span></p>
+                            <dl class="mock-list">
+                                <div><dt>제품</dt><dd>신발 · 운동화</dd></div>
+                                <div><dt>소재</dt><dd>메쉬</dd></div>
+                                <div><dt>수량</dt><dd>600켤레</dd></div>
+                            </dl>
+                            <div class="mock-result">
+                                <p class="mock-result-main">켤레당 약 11,600원 ~ 17,400원</p>
+                                <p class="mock-result-sub">총 약 6,960,000원 ~ 10,440,000원</p>
+                            </div>
+                            <p class="mock-note">입력한 정보로 계산한 예상 범위이며 확정 견적이 아니에요.</p>
+                            <a class="mock-button" href="estimate.html">AI 견적 받기 →</a>
+                        </div>
+                    </div>
 
-                <div class="about-card fade-in">
-                    <div class="about-icon">⚙️</div>
-                    <h3>완벽한 품질 관리</h3>
-                    <p>샘플 개발부터 대량 생산까지 전체 프로세스를 철저히 관리합니다. 품질 검수, 납기 관리, 고객 커뮤니케이션까지 책임지고 진행하여 신뢰할 수 있는 파트너가 되겠습니다.</p>
+                    <div class="process-panel" role="tabpanel" id="panel-2" aria-labelledby="tab-2" hidden>
+                        <div class="mock-card">
+                            <p class="mock-label">사양 선택 <span class="mock-example">예시 화면</span></p>
+                            <div class="mock-grid">
+                                <div class="mock-field"><span>소재</span><strong>천연가죽</strong></div>
+                                <div class="mock-field"><span>색상</span><strong>화이트</strong></div>
+                                <div class="mock-field"><span>수량</span><strong>1,000켤레</strong></div>
+                                <div class="mock-field"><span>희망 납기</span><strong>협의</strong></div>
+                            </div>
+                            <p class="mock-label mock-sub">담당자 코멘트</p>
+                            <p class="mock-comment">소재를 바꾸면 단가와 납기가 달라질 수 있어요. 비교해서 알려드릴게요.</p>
+                        </div>
+                    </div>
+
+                    <div class="process-panel" role="tabpanel" id="panel-3" aria-labelledby="tab-3" hidden>
+                        <div class="mock-card">
+                            <p class="mock-label">샘플 검토 <span class="mock-example">예시 화면</span></p>
+                            <ul class="mock-checks">
+                                <li class="done"><span>형태</span><strong>확인</strong></li>
+                                <li class="done"><span>마감</span><strong>확인</strong></li>
+                                <li class="done"><span>로고·인쇄</span><strong>확인</strong></li>
+                                <li><span>포장</span><strong>대기</strong></li>
+                            </ul>
+                            <p class="mock-note">고칠 곳이 있으면 담당자에게 알려주세요. 수정 샘플로 다시 확인해요.</p>
+                        </div>
+                    </div>
+
+                    <div class="process-panel" role="tabpanel" id="panel-4" aria-labelledby="tab-4" hidden>
+                        <div class="mock-card">
+                            <p class="mock-label">생산 단계 <span class="mock-example">예시 화면</span></p>
+                            <ol class="mock-steps">
+                                <li class="done"><span>사양 확정</span></li>
+                                <li class="now"><span>생산</span></li>
+                                <li><span>검수</span></li>
+                                <li><span>출고</span></li>
+                            </ol>
+                            <p class="mock-note">단계가 바뀌면 담당자가 일정과 함께 안내해요.</p>
+                        </div>
+                    </div>
+
+                    <div class="process-panel" role="tabpanel" id="panel-5" aria-labelledby="tab-5" hidden>
+                        <div class="mock-card">
+                            <p class="mock-label">검수·출고 <span class="mock-example">예시 화면</span></p>
+                            <ul class="mock-checks">
+                                <li class="done"><span>수량 확인</span><strong>완료</strong></li>
+                                <li class="done"><span>외관 검수</span><strong>완료</strong></li>
+                                <li class="done"><span>포장 확인</span><strong>완료</strong></li>
+                                <li><span>납품 일정 안내</span><strong>진행</strong></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -68,7 +147,7 @@
                 <div class="service-card fade-in">
                     <div class="card-icon">😎</div>
                     <h3>선글라스</h3>
-                    <p>중국 OEM 제조 5년 이상의 경험으로 고품질 선글라스 생산. 디자인부터 완성품까지 One-Stop 서비스를 제공합니다.</p>
+                    <p>사진을 올리면 재질과 렌즈를 분석해 예상 가격 범위를 바로 보여드려요. 디자인부터 완성품까지 한곳에서 이어집니다.</p>
                     <button class="service-button" onclick="window.location.href='sunglasses-estimate.html'">AI 가상견적</button>
                 </div>
 
@@ -76,15 +155,15 @@
                 <div class="service-card fade-in">
                     <div class="card-icon">👟</div>
                     <h3>신발</h3>
-                    <p>다양한 신발 제조 및 수입 대행 경험으로 고객의 요구사항에 맞는 신발을 생산합니다. 샘플 제작부터 대량 주문까지 지원합니다.</p>
+                    <p>운동화, 구두, 부츠, 샌들을 제작해요. 샘플 제작부터 대량 주문까지 지원하고, 최소 주문 수량은 600켤레예요.</p>
                     <button class="service-button" onclick="window.location.href='shoes-estimate.html'">AI 가상견적</button>
                 </div>
 
-                <!-- Service Card 3: Golf Products -->
+                <!-- Service Card 3: Golf Tees -->
                 <div class="service-card fade-in">
                     <div class="card-icon">⛳</div>
                     <h3>골프티</h3>
-                    <p>나무·대나무·플라스틱 골프티를 1패키지(50개입) 단위로 맞춤 제작해 드립니다. 최소 주문 수량은 1,000패키지예요.</p>
+                    <p>나무·대나무·플라스틱 골프티를 1패키지(50개입) 단위로 맞춤 제작해요. 최소 주문 수량은 1,000패키지예요.</p>
                     <button class="service-button" onclick="window.location.href='golf-estimate.html'">AI 가상견적</button>
                 </div>
 
@@ -92,43 +171,60 @@
                 <div class="service-card fade-in">
                     <div class="card-icon">🔧</div>
                     <h3>기타 맞춤형 제품</h3>
-                    <p>고객의 요구사항에 맞는 맞춤형 제품 제조 및 수입을 지원합니다. 프로토타입 개발부터 대량 생산까지 전문적으로 대응합니다.</p>
-                    <button class="service-button" onclick="window.location.href='other-inquiry.html'">AI 문의하기</button>
+                    <p>위에 없는 제품도 문의해 주세요. 어떤 제품인지, 몇 개가 필요한지 남겨주시면 담당자가 확인해서 답해요.</p>
+                    <button class="service-button" onclick="window.location.href='other-inquiry.html'">문의하기</button>
                 </div>
             </div>
         </div>
     </section>
 
-<!-- Contact Section -->
-    <section id="contact" class="contact">
+    <!-- Contact guide: how to ask, and what happens after (only what the site really does) -->
+    <section id="contact" class="contact-guide">
         <div class="section-container">
-            <h2>문의하기</h2>
-            <div class="contact-info">
-                <div class="contact-item">
-                    <h3>📞 전화</h3>
-                    <p>(담당자 연락처)</p>
-                </div>
-                <div class="contact-item">
-                    <h3>📧 이메일</h3>
-                    <p>(담당자 이메일)</p>
-                </div>
-                <div class="contact-item">
-                    <h3>📍 주소</h3>
-                    <p>(회사 주소)</p>
-                </div>
+            <p class="eyebrow">QUOTE &amp; SUPPORT</p>
+            <h2 class="process-title">문의 안내</h2>
+            <p class="process-subtitle">견적 이후에도 같은 곳에서 이어서 물어보고 확인할 수 있어요.</p>
+
+            <div class="guide-grid">
+                <article class="guide-card">
+                    <p class="guide-number">1</p>
+                    <h3>AI 가상견적</h3>
+                    <p>로그인 없이 제품, 소재, 수량만 넣으면 예상 가격 범위를 바로 볼 수 있어요. 확정 견적은 아니에요.</p>
+                </article>
+                <article class="guide-card">
+                    <p class="guide-number">2</p>
+                    <h3>담당자 상세견적</h3>
+                    <p>회원가입 후 요청하면 담당자가 공장·운송 조건을 확인해 작성해요. 업무일 기준 2~3일 정도 걸릴 수 있어요. 올라오면 이메일로 알려드리고, <strong>내 견적</strong>에서 확인해요.</p>
+                </article>
+                <article class="guide-card">
+                    <p class="guide-number">3</p>
+                    <h3>질문과 상담</h3>
+                    <p>상세견적에 궁금한 점은 <strong>내 견적</strong>에서 300자까지 적어 질문할 수 있어요. 더 자세한 이야기가 필요하면 심층상담을 요청해 주세요. 담당자가 전화로 연락드려요.</p>
+                </article>
+            </div>
+
+            <ul class="guide-facts">
+                <li><strong>최소 주문 수량</strong> 신발 600켤레 · 골프티 1,000패키지(1패키지 50개입)</li>
+                <li><strong>개인정보</strong> 견적 요청에는 개인정보 수집·이용 동의가 필요해요.</li>
+            </ul>
+
+            <div class="guide-actions">
+                <a class="guide-primary" href="estimate.html">견적 요청하기</a>
+                <a class="guide-secondary" href="my-quotes.html">내 견적 보기</a>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
+    <!-- Footer: the company line only. The business details (representative, registration numbers, address, contact) go here once they are given. -->
     <footer class="footer">
         <div class="footer-content">
-            <p>&copy; 2024 Bridge Path Co., Ltd. All rights reserved.</p>
-            <p>사업자 등록번호: (사업자 번호)</p>
+            <p class="footer-company">주식회사 브릿지패스</p>
+            <p>&copy; 2026 Bridge Path. All rights reserved.</p>
         </div>
     </footer>
 
     <script src="script.js"></script>
+    <script src="home.js"></script>
 </body>
 
 </html>
