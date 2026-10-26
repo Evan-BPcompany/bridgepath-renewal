@@ -404,7 +404,7 @@ export async function checkDatabaseState(query: Query, migrationFiles: string[])
     const pending = expected.filter(name => !applied.includes(name));
     const unknown = applied.filter(name => !expected.includes(name));
     if (pending.length > 0) {
-      out.push(result('migrations', 'fail', `${pending.length} migration(s) are not applied: ${pending.join(', ')}`, 'Run the migrations (npx knex migrate:latest --env production) before starting this version.'));
+      out.push(result('migrations', 'fail', `${pending.length} migration(s) are not applied: ${pending.join(', ')}`, 'Run the migrations before starting this version (npm run db:migrate:prod; Heroku does it before each release).'));
     } else if (unknown.length > 0) {
       out.push(result('migrations', 'warn', `The database has migrations that this version does not know: ${unknown.join(', ')}`, 'It was migrated by a newer version. Deploy that version, or check what ran.'));
     } else {

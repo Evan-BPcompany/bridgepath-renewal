@@ -54,10 +54,14 @@ DATABASE_SSL_REJECT_UNAUTHORIZED=false     # see below
 ```bash
 export DATABASE_URL=<connection string>      # no default exists
 npm run build
-npm run db:migrate                            # knex, development environment
+npm run db:migrate                            # a developer's machine: knexfile.ts, the migrations as TypeScript
+npm run db:migrate:prod                       # a server: knexfile.production.js, the compiled migrations (dist/db/migrations/*.js), TLS on
+npm run db:status:prod                        # what is applied and what is not
 ```
 
-`scripts/setup-db.sh` refuses to run without `DATABASE_URL` and refuses to run if it equals `TEST_DATABASE_URL`. For production migrations run knex with the `production` environment (`npx knex migrate:latest --env production`) so TLS applies. Always take a backup first; rollback (`npm run db:rollback`) undoes the last batch only.
+On Heroku the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each release. `knex` is a normal dependency for that: the development ones (`ts-node`, TypeScript) are removed after the build. **Migrate a database either way, never both**: knex records the file names (`001_init_schema.ts` or `.js`) and refuses a directory whose names differ from what it recorded.
+
+`scripts/setup-db.sh` refuses to run without `DATABASE_URL` and refuses to run if it equals `TEST_DATABASE_URL`. For production migrations use `npm run db:migrate:prod` so that TLS applies. Always take a backup first; rollback (`npm run db:rollback`) undoes the last batch only.
 
 Migration notes (rolling back is possible, with limits that protect data):
 

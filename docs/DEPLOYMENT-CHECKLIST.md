@@ -15,7 +15,7 @@ npm run front:files                                                          # t
 
 | What | Why |
 |---|---|
-| **A domain you own** (for example `example.com`) | The customer pages and the API have to be on **one site** (`www.example.com` and `api.example.com`), or nobody can stay signed in. Names such as `*.netlify.app` and `*.herokuapp.com` are public suffixes: two of them are two sites. |
+| **A domain you own** (for example `example.com`; yours is `bptrade.co.kr`, see 0a) | The customer pages and the API have to be on **one site** (`www.example.com` and `api.example.com`), or nobody can stay signed in. Names such as `*.netlify.app` and `*.herokuapp.com` are public suffixes: two of them are two sites. |
 | Heroku account, with the PostgreSQL add-on | The API, the admin screen (`/admin-ui/`) and the database. Check that the plan keeps **backups**: this project makes none. |
 | A static web host for the customer pages (any host that lets you use your own domain with https) | The pages are plain files (`npm run front:files`); the API does not serve them. |
 | AWS account: one private S3 bucket and one IAM user | Attached files of the requests. |
@@ -24,6 +24,24 @@ npm run front:files                                                          # t
 | Google OAuth client, Kakao app | Optional: without them the two buttons are hidden and e-mail sign-up works. |
 | **An approved privacy consent text** | Production accepts **no** request and no sign-up until one is approved. Needs a legal review. |
 | The staff e-mail for notices, a support e-mail | `ADMIN_NOTIFICATION_EMAIL`, `SUPPORT_EMAIL`. |
+
+## 0a. The hosting that already exists (Cafe24, managed WordPress)
+
+What is known (from the console of 2026-10-26): the plan **"매니지드 워드프레스 빌드업"** (PHP 8.2, MariaDB, FTP, 1 GB of disk, 1.5 GB of traffic a month), the domain **`bptrade.co.kr`**, a WordPress site that is live on it, a staging site that is not used, **a term that ends on 2026-11-18 with no automatic extension**.
+
+- **It cannot run this server.** A managed WordPress hosting runs PHP; the API needs Node.js and PostgreSQL. The server (API, admin screen, database) has to be somewhere else (Heroku, as planned). Check with Cafe24 whether it sells a Node.js hosting before you decide; nothing here depends on it.
+- **It can hold static files**, so it could hold the customer pages (FTP). The domain is already yours, and anything under `bptrade.co.kr` counts as one site, so `www.bptrade.co.kr` (pages) and `api.bptrade.co.kr` (the server) would satisfy the cookie rule of section 1.
+- **But the existing WordPress site is on that address.** Before anything is published, decide what happens to it:
+
+| Choice | Pages | Server | WordPress | Note |
+|---|---|---|---|---|
+| **A. Pages on the Cafe24 hosting** | `www.bptrade.co.kr` or a folder / extra domain of the hosting | `api.bptrade.co.kr` (Heroku) | replaced, or moved to another name | Two places to publish to (FTP for the pages, git for the server). `config.js` has to be replaced by hand at every publication. |
+| **B. Everything on Heroku, a name of its own** | `app.bptrade.co.kr` (or `quote.`) served by the server itself | the same name | **stays as it is** (the company site; it can link to the quote service) | One address, so no CORS and no "same site" problem, and no FTP. **Needs a small change to the server** (it serves only the admin screen today, not the customer pages) and `config.js` could then be made by the server from its settings. |
+
+  Choice B is simpler to run and leaves the existing site alone; choice A uses the hosting that is paid for. **This is a decision for you; neither is built yet** (B needs the change above).
+- **To check in the Cafe24 console** before you rely on it (these are questions, not facts): whether an **https certificate** can be used for the name you choose (the cookies are secure-only, a page on http cannot sign anyone in); whether **extra domains or subdomains** (the "도메인 추가 연결" page) can point to a folder of their own; where the **DNS** of `bptrade.co.kr` is kept (the "네임서버(DNS) 관리" page: that is where `api.` or `app.` gets its record, a CNAME to the address that Heroku gives for the custom domain); whether the plan's **web firewall** (ModSecurity, the "웹방화벽" settings) blocks the uploaded script files.
+- **Extend the term** (or decide not to) **before 2026-11-18**: the site and the mail of that domain, if it has any, depend on it. The **domain** is a separate thing from the hosting; check its own end date too.
+- The FTP password and the admin of WordPress are secrets of the same kind as the keys of section 2: not in the project, not in a chat.
 
 ## 1. The layout
 
@@ -92,21 +110,19 @@ Menu names change; look for the same thing under the new name.
 
 1. **Prepare the code.** The consent version (section 3), then `npm test`. Commit.
 2. **Heroku.** Create the app, add the PostgreSQL add-on, set the settings of section 2 (`heroku config:set ...`). Add the custom domain.
-3. **Deploy** (`git push heroku <branch>:main`). Heroku runs `npm run build` and `npm start`. There is no `Procfile`; the `start` script is used.
+3. **Deploy** (`git push heroku <branch>:main`). Heroku runs `npm run build`, then the `release` step of the `Procfile` (the migrations, step 5), then `npm start`. **On the very first deployment the database is empty and the release step creates all of it**, so set the settings (step 2) first: a release without `DATABASE_URL` stops.
 4. **Check the settings on the server**, which sees the real ones:
    ```bash
    heroku run npm run predeploy:check
    ```
    Fix every `FAIL`. Read every `WARN`.
-5. **Migrate the database** (`001` to `018`). The migration tool (`knex`, `ts-node`) is a development dependency that Heroku removes after the build, so run it **from your own machine**, against the production database:
-   ```powershell
-   # PowerShell: take the address of the database from Heroku; do not write it into a file
-   $env:DATABASE_URL = (heroku config:get DATABASE_URL -a <app>)
-   $env:DATABASE_SSL_REJECT_UNAUTHORIZED = "false"
-   npx knex migrate:latest --env production
-   Remove-Item Env:DATABASE_URL
+5. **Migrate the database** (`001` to `018`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
+   ```bash
+   heroku run npm run db:status:prod      # what is applied and what is not (changes nothing)
+   heroku run npm run db:migrate:prod     # applies what is missing
+   heroku run npm run predeploy:check -- --db
    ```
-   Take a **backup first** (`heroku pg:backups:capture`). Then, on the server: `heroku run npm run predeploy:check -- --db` (reads the migrations, the prices and the admin accounts; changes nothing).
+   **One rule:** a database is migrated with the compiled files **or** with the TypeScript ones of a developer's machine (`npm run db:migrate`), never both: knex records the file names, and `001_init_schema.ts` is not `001_init_schema.js`. A production database is only ever migrated with the compiled ones. (If it was done the other way by mistake, knex answers "migration directory is corrupt" and changes nothing.)
 6. **The first admin account:** `heroku run npm run admin:bootstrap` (interactive; sets a one-time password that has to be changed at the first login). Until then the seeded account cannot be used.
 7. **Publish the customer pages.** `npm run front:files` lists the files. Put them on the static host, with **`config.js` replaced** by the production one: `API_BASE: 'https://api.example.com'` and `PRIVACY_CONSENT_VERSION` of the approved text. Check it before you upload:
    ```bash
@@ -151,7 +167,6 @@ Not done, and worth a decision before real customers use it:
 - **No virus scan,** so attached files are kept "quarantined" and cannot be opened by the staff. They have to ask the customer for a file by e-mail.
 - **Customers' rights:** there is no way yet to delete an account, export a customer's data or answer a request to remove it; the privacy text has to say how that is done until there is.
 - **No terms of service page,** only the privacy consent.
-- **Migrations cannot run on the server** (see step 5); the tool should be compiled or moved to the dependencies.
 - **Admin accounts** can only be made by the bootstrap command; there is no screen to add a staff member or to switch one off.
 - **KakaoTalk notices** (the receipt, the quote, the answer) are planned, not built: they need a Kakao business channel, a sending agency and a separate consent to receive messages.
 - **Never run for real:** S3, SendGrid, Google, Kakao, the Claude API, Heroku, the real custom domains and certificates.
@@ -159,7 +174,7 @@ Not done, and worth a decision before real customers use it:
 ## 8. Every later deployment
 
 1. `npm test`; for a change of the database also `npm run test:integration` on a local PostgreSQL.
-2. Backup, then migrate (step 5), then deploy (step 3), in that order: the new code expects the new tables.
+2. Backup, then deploy: the release step migrates before the new code starts (step 5), so the new code never meets the old tables.
 3. `heroku run npm run predeploy:check -- --db`.
 4. If the pages changed: `npm run front:files`, publish, keep the production `config.js`.
 5. A short smoke test (section 5): at least sign-in, a request, an e-mail.
