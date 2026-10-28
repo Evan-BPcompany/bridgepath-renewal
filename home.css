@@ -1,12 +1,12 @@
 /* The home page: a spec sheet. Square corners, hairline grid, mono labels, one blue.
    Palette from the picture the owner chose:
-   blue #2779a7 (white text on it: 4.8:1), gray #9c9c9c (lines and shapes only: 2.75:1 with white, never for text),
+   blue #5a76a8, the blue of the company logo (white text on it: 4.57:1), gray #9c9c9c (lines and shapes only: 2.75:1 with white, never for text),
    white, paper #f8f8f8, ink #222222. Tokens: design-system/bridgepath/MASTER.md */
 :root {
     --ink: #222222;
     --ink-soft: #55595e;       /* 7:1 on white: for the small texts */
-    --blue: #2779a7;
-    --blue-deep: #1d5f84;
+    --blue: #5a76a8;
+    --blue-deep: #44598a;      /* the same blue, darker: for small texts and hover (6.9:1 on white) */
     --gray: #9c9c9c;
     --line: #d9d9d9;           /* the grid: decoration */
     --line-strong: #8a8a8a;    /* the edge of a control: 3:1 */
@@ -384,7 +384,7 @@ a { color: inherit; }
 /* ---------- ticker: the running line of what is made ---------- */
 .ticker {
     overflow: hidden;
-    background: var(--blue);       /* white on it: 4.8:1 */
+    background: var(--blue);       /* white on it: 4.57:1 */
     color: var(--white);
 }
 

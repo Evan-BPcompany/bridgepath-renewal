@@ -114,7 +114,7 @@ describe('index.html: structure and files', () => {
 
 describe('home.css: the colours of the palette, and a quality floor', () => {
   it('uses the colours of the chosen picture, plus ink and paper, as variables', () => {
-    expect(css).toMatch(/--blue:\s*#2779a7/i);
+    expect(css).toMatch(/--blue:\s*#5a76a8/i);
     expect(css).toMatch(/--gray:\s*#9c9c9c/i);
     expect(css).toMatch(/--ink:\s*#222222/i);
     expect(css).toMatch(/--paper:\s*#f8f8f8/i);
