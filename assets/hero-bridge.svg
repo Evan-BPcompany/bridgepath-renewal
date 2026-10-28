@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMax slice" fill="none">
+  <!-- the arch of the logo, drawn large: a bridge between the idea (left) and the product (right).
+       The ends sit well inside the picture: a wide screen shows all of it, a narrow one crops the sides. -->
+  <g stroke="#2779a7" stroke-linecap="round">
+    <path d="M-20 548H1460" stroke-opacity="0.3" stroke-width="2"/>
+    <path d="M290 574C350 170 520 70 720 70C920 70 1090 170 1150 574" stroke-opacity="0.55" stroke-width="3"/>
+    <path d="M350 548C410 230 540 140 720 140C900 140 1030 230 1090 548" stroke-opacity="0.22" stroke-width="1.5"/>
+  </g>
+  <g fill="#2779a7">
+    <circle cx="290" cy="548" r="7"/>
+    <circle cx="1150" cy="548" r="7"/>
+  </g>
+  <g fill="#55595e" font-family="Consolas, 'Courier New', monospace" font-size="14" letter-spacing="2">
+    <text x="290" y="596">YOUR IDEA</text>
+    <text x="1150" y="596" text-anchor="end">YOUR PRODUCT</text>
+  </g>
+</svg>

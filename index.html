@@ -11,7 +11,7 @@
     <a class="skip" href="#start">본문으로 건너뛰기</a>
 
     <header class="top">
-        <a class="brand" href="index.html">Bridge Path</a>
+        <a class="brand" href="index.html"><img class="brand-mark" src="assets/logo/logo-header.png" alt="Bridge Path" width="111" height="44"></a>
         <nav class="top-nav" aria-label="주요 메뉴">
             <a href="#process">진행 과정</a>
             <a href="#guide">문의 안내</a>
@@ -24,6 +24,7 @@
         <!-- The one question. The panel on the right shows the word of the choice under the pointer. -->
         <section class="hero" id="start" aria-labelledby="question">
             <div class="hero-text">
+                <p class="hero-slogan">당신의 길을 잇는 다리, Bridge Path</p>
                 <h1 id="question">어떤 제품을 만들고 싶으세요?</h1>
                 <p class="hero-lead">고르면 바로 AI 가상견적이 시작돼요. 로그인 없이 예상 가격 범위를 볼 수 있어요.</p>
 
@@ -56,8 +57,15 @@
             </div>
 
             <div class="stack" aria-hidden="true">
-                <div class="stack-panel stack-blue"></div>
-                <div class="stack-panel stack-gray"></div>
+                <!-- dummy work cards: reference photos (shoespoto/), not made by Bridge Path -->
+                <div class="stack-panel stack-blue">
+                    <img src="shoespoto/imgi_493_71zvrlxQTAL._AC_SL1500_.jpg" alt="">
+                    <span class="stack-cap"><b>SNEAKER</b> MOQ 600</span>
+                </div>
+                <div class="stack-panel stack-gray">
+                    <img src="shoespoto/imgi_242_61di0powo-L._AC_SL1500_.jpg" alt="">
+                    <span class="stack-cap"><b>LOAFER</b> OEM / ODM</span>
+                </div>
                 <div class="stack-panel stack-card">
                     <span class="stack-label" id="stackLabel">내 제품</span>
                     <span class="stack-word" id="stackWord">제품</span>
@@ -65,10 +73,103 @@
             </div>
         </section>
 
+        <!-- A running line of what is made here; decoration only, so a screen reader skips it. -->
+        <div class="ticker" aria-hidden="true">
+            <div class="ticker-track">
+                <span>SNEAKERS</span><span>LOAFERS</span><span>SLIPPERS</span><span>GOLF TEE</span><span>SUNGLASSES</span><span>OEM</span><span>ODM</span><span>AI ESTIMATE</span>
+                <span>SNEAKERS</span><span>LOAFERS</span><span>SLIPPERS</span><span>GOLF TEE</span><span>SUNGLASSES</span><span>OEM</span><span>ODM</span><span>AI ESTIMATE</span>
+            </div>
+        </div>
+
+        <!-- Facts only: every figure here is also written elsewhere on the page. -->
+        <section class="facts" aria-label="한눈에 보기">
+            <dl>
+                <div><dt>제품 종류</dt><dd><span class="num">4</span></dd></div>
+                <div><dt>진행 단계</dt><dd><span class="num">5</span><span class="unit">단계</span></dd></div>
+                <div><dt>상세견적 (업무일 기준)</dt><dd><span class="num">2~3</span><span class="unit">일</span></dd></div>
+                <div><dt>신발 최소 주문</dt><dd><span class="num">600</span><span class="unit">켤레</span></dd></div>
+                <div><dt>골프티 최소 주문</dt><dd><span class="num">1,000</span><span class="unit">패키지</span></dd></div>
+            </dl>
+        </section>
+
+        <!-- Reference photos (temporary): shoes collected from the market, NOT made by Bridge Path.
+             They live in shoespoto/ (untracked). Replace with Bridge Path's own work before the launch. -->
+        <section class="samples" id="samples" aria-labelledby="samples-title">
+            <p class="label" aria-hidden="true">&sect; 01 &mdash; REFERENCE</p>
+            <h2 id="samples-title">이런 신발을 만들 수 있어요</h2>
+            <p class="section-lead">참고 이미지예요. 신발은 최소 주문 600켤레부터 견적을 받아볼 수 있어요.</p>
+
+            <div class="samples-grid">
+                <figure class="sample sample-lead">
+                    <img src="shoespoto/imgi_493_71zvrlxQTAL._AC_SL1500_.jpg" alt="분홍색 니트 운동화" width="1500" height="1000" loading="lazy">
+                    <figcaption>SNEAKER</figcaption>
+                </figure>
+                <figure class="sample">
+                    <img src="shoespoto/imgi_166_SL0WSCFW084_6.jpg" alt="털 안감이 있는 슬리퍼형 신발" width="900" height="900" loading="lazy">
+                    <figcaption>HOME SHOES</figcaption>
+                </figure>
+                <figure class="sample">
+                    <img src="shoespoto/imgi_184_SC0WFCGY182_SC0WFCGY182_primary.jpg" alt="갈색 스웨이드 캐주얼화" width="900" height="900" loading="lazy">
+                    <figcaption>CASUAL</figcaption>
+                </figure>
+                <figure class="sample">
+                    <img src="shoespoto/imgi_234_GPM726050691025_0_ORGINL_20260506173110609.jpg" alt="베이지색 스웨이드 신발" width="900" height="900" loading="lazy">
+                    <figcaption>SUEDE</figcaption>
+                </figure>
+                <figure class="sample">
+                    <img src="shoespoto/imgi_242_61di0powo-L._AC_SL1500_.jpg" alt="검은색 가죽 로퍼" width="900" height="900" loading="lazy">
+                    <figcaption>LOAFER</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <!-- DUMMY films: posters only (no video file yet), photos from shoespoto/, titles and lengths are made up.
+             Replace with Bridge Path's own films before the launch. -->
+        <section class="films" id="films" aria-labelledby="films-title">
+            <p class="label" aria-hidden="true">&sect; 02 &mdash; FILM</p>
+            <h2 id="films-title">만드는 과정을 영상으로 보여드려요</h2>
+            <p class="section-lead">샘플부터 출고 준비까지, 작업 영상을 이곳에 올려요.</p>
+
+            <div class="films-grid">
+                <figure class="film">
+                    <div class="film-frame">
+                        <img src="shoespoto/imgi_231_21191eb3-6e81-4057-9027-5a77745d0045.jpg" alt="운동화를 신은 발" width="900" height="900" loading="lazy">
+                        <span class="film-play" aria-hidden="true"></span>
+                        <span class="film-time" aria-hidden="true">00:42</span>
+                    </div>
+                    <figcaption><span>FILM 01</span>샘플 제작 과정</figcaption>
+                </figure>
+                <figure class="film">
+                    <div class="film-frame">
+                        <img src="shoespoto/imgi_182_2ef926b5c1b02b059c4cd2378730f572.png" alt="검은 구두를 신은 발" width="800" height="800" loading="lazy">
+                        <span class="film-play" aria-hidden="true"></span>
+                        <span class="film-time" aria-hidden="true">01:10</span>
+                    </div>
+                    <figcaption><span>FILM 02</span>마감과 검수</figcaption>
+                </figure>
+                <figure class="film">
+                    <div class="film-frame">
+                        <img src="shoespoto/imgi_215_161af206d6181ea55f8aa53c999ebe7e.jpg" alt="앉아 있는 사람의 구두" width="900" height="900" loading="lazy">
+                        <span class="film-play" aria-hidden="true"></span>
+                        <span class="film-time" aria-hidden="true">00:35</span>
+                    </div>
+                    <figcaption><span>FILM 03</span>출고 준비</figcaption>
+                </figure>
+            </div>
+        </section>
+
         <!-- Five steps in a row: this content really is a sequence. -->
         <section class="process" id="process" aria-labelledby="process-title">
+            <p class="label" aria-hidden="true">&sect; 03 &mdash; PROCESS</p>
             <h2 id="process-title">첫 견적에서 제품 출고까지, 다섯 단계예요</h2>
             <p class="section-lead">처음 만들어도 흐름을 놓치지 않도록 단계마다 무엇을 하는지 알려드려요.</p>
+
+            <!-- the bridge: from the idea of the customer to the product -->
+            <div class="bridge-ends" aria-hidden="true">
+                <span>YOUR IDEA</span>
+                <i></i>
+                <span>YOUR PRODUCT</span>
+            </div>
 
             <ol class="steps">
                 <li>
@@ -94,7 +195,41 @@
             </ol>
         </section>
 
+        <!-- Structure only: fill with real clients and real reviews (with their consent). Hide the two sections until then. -->
+        <section class="partners" id="partners" aria-labelledby="partners-title">
+            <p class="label" aria-hidden="true">&sect; 04 &mdash; CLIENTS</p>
+            <h2 id="partners-title">함께한 고객사</h2>
+            <ul class="logo-row">
+                <li class="logo-slot"><span>LOGO 01</span></li>
+                <li class="logo-slot"><span>LOGO 02</span></li>
+                <li class="logo-slot"><span>LOGO 03</span></li>
+                <li class="logo-slot"><span>LOGO 04</span></li>
+                <li class="logo-slot"><span>LOGO 05</span></li>
+                <li class="logo-slot"><span>LOGO 06</span></li>
+            </ul>
+        </section>
+
+        <section class="reviews" id="reviews" aria-labelledby="reviews-title">
+            <p class="label" aria-hidden="true">&sect; 05 &mdash; REVIEWS</p>
+            <h2 id="reviews-title">고객 후기</h2>
+            <ul class="review-row">
+                <li class="review-slot">
+                    <p class="review-quote">후기가 준비되면 이곳에 표시돼요.</p>
+                    <p class="review-by"><span>업종 · 직책</span></p>
+                </li>
+                <li class="review-slot">
+                    <p class="review-quote">후기가 준비되면 이곳에 표시돼요.</p>
+                    <p class="review-by"><span>업종 · 직책</span></p>
+                </li>
+                <li class="review-slot">
+                    <p class="review-quote">후기가 준비되면 이곳에 표시돼요.</p>
+                    <p class="review-by"><span>업종 · 직책</span></p>
+                </li>
+            </ul>
+        </section>
+
         <section class="guide" id="guide" aria-labelledby="guide-title">
+            <p class="label" aria-hidden="true">&sect; 06 &mdash; GUIDE</p>
             <h2 id="guide-title">궁금한 점은 이렇게 물어보세요</h2>
 
             <dl class="guide-list">
@@ -111,6 +246,16 @@
                     <dd>상세견적에 궁금한 점은 내 견적에서 300자까지 적어 질문할 수 있어요. 더 자세한 이야기가 필요하면 심층상담을 요청해 주세요. 담당자가 전화로 연락드려요.</dd>
                 </div>
             </dl>
+        </section>
+        <section class="closing" aria-labelledby="closing-title">
+            <div class="closing-inner">
+                <img class="closing-logo" src="assets/logo/logo-header-white.png" alt="Bridge Path" width="360" height="143" loading="lazy">
+                <div class="closing-text">
+                    <h2 id="closing-title">당신의 제품까지, 길을 놓아 드릴게요</h2>
+                    <p>로그인 없이 AI 가상견적으로 예상 가격 범위부터 볼 수 있어요.</p>
+                </div>
+                <a class="closing-cta" href="estimate.html">견적 시작하기</a>
+            </div>
         </section>
     </main>
 
