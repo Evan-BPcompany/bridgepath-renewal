@@ -1,69 +1,73 @@
+/* The inquiry for other products (other-inquiry.html): one step, the same spec sheet as the estimate forms.
+   Tokens: style.css, loaded before this file. */
+
 /* ==================== Inquiry Header ==================== */
 .inquiry-header {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    color: white;
-    padding: 1.5rem 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: var(--white);
+    border-bottom: 1px solid var(--line);
 }
 
 .inquiry-header .header-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
+    gap: 12px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 10px clamp(16px, 3vw, 32px);
 }
 
 .inquiry-header h1 {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     margin: 0;
+    text-align: center;
 }
 
 .back-button {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 8px 15px;
-    border-radius: 6px;
+    justify-self: start;
+    background: var(--white);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    padding: 7px 14px;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
+    font-size: 0.88rem;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .back-button:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: var(--paper);
+    border-color: var(--ink);
 }
 
 /* ==================== Inquiry Container ==================== */
 .inquiry-container {
-    max-width: 700px;
+    max-width: 760px;
     margin: 0 auto;
-    padding: 40px 20px;
-}
-
-.inquiry-content {
-    background: white;
+    padding: 48px 20px 72px;
 }
 
 .inquiry-content h2 {
-    font-size: 1.8rem;
-    color: #1e3c72;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    color: var(--ink);
     margin-bottom: 0.5rem;
 }
 
 .inquiry-description {
-    color: #666;
-    margin-bottom: 2.5rem;
+    color: var(--ink-soft);
+    margin-bottom: 2rem;
     font-size: 1rem;
     line-height: 1.6;
 }
 
 /* ==================== Inquiry Form ==================== */
 .inquiry-form {
-    background: #f8f9fa;
-    padding: 2rem;
-    border-radius: 12px;
+    background: var(--white);
+    border: 1px solid var(--line-strong);
+    padding: 24px;
 }
 
 .form-group {
@@ -79,13 +83,13 @@
 .form-group label {
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: #1e3c72;
+    color: var(--ink);
     font-size: 0.95rem;
 }
 
 .form-hint {
     font-size: 0.85rem;
-    color: #999;
+    color: var(--ink-soft);
     margin: 0;
     margin-top: -0.3rem;
     margin-bottom: 0.5rem;
@@ -93,80 +97,59 @@
 
 .form-group input,
 .form-group textarea {
-    padding: 12px 15px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    padding: 12px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 0;
+    font-size: 1rem;
     font-family: inherit;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    background-color: white;
+    color: var(--ink);
+    transition: border-color 0.15s ease;
+    background-color: var(--white);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* ==================== Image Upload ==================== */
-.image-upload-box {
-    border: 2px dashed #667eea;
-    border-radius: 8px;
-    padding: 2rem;
-    text-align: center;
-    background: rgba(102, 126, 234, 0.05);
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.image-upload-box:hover {
-    border-color: #764ba2;
-    background: rgba(102, 126, 234, 0.1);
-}
-
-.upload-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.image-upload-box p {
-    margin: 0;
-    color: #666;
-    font-size: 0.95rem;
+    outline: 2px solid var(--blue);
+    outline-offset: 1px;
+    border-color: var(--blue-deep);
 }
 
 /* ==================== Submit Button ==================== */
 .btn-submit {
     width: 100%;
     padding: 15px 30px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
+    background: var(--blue);
+    color: var(--white);
+    border: 1px solid transparent;
+    border-radius: 0;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    transition: background-color 0.15s ease;
     margin-top: 1rem;
 }
 
 .btn-submit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    background: var(--blue-deep);
+}
+
+.btn-submit:disabled,
+.btn-submit:disabled:hover {
+    background: var(--line);
+    color: var(--ink-soft);
+    cursor: not-allowed;
 }
 
 /* ==================== Success Message ==================== */
 .success-message {
     margin-top: 2rem;
-    padding: 2rem;
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-    border-radius: 8px;
-    text-align: center;
-    animation: slideDown 0.5s ease-out;
+    padding: 24px;
+    background-color: var(--white);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-top: 3px solid var(--blue);
+    text-align: left;
+    animation: slideDown 0.4s var(--ease);
 }
 
 .success-message p {
@@ -174,41 +157,15 @@
     font-size: 1rem;
 }
 
-/* ==================== Responsive Design ==================== */
-@media (max-width: 768px) {
-    .inquiry-container {
-        padding: 20px 15px;
-    }
-
-    .inquiry-content h2 {
-        font-size: 1.5rem;
-    }
-
-    .inquiry-form {
-        padding: 1.5rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .inquiry-header .header-container {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .inquiry-header h1 {
-        font-size: 1.2rem;
-    }
-
-    .inquiry-form {
-        padding: 1rem;
-    }
-}
-
 /* ==================== Customer Information and the request ==================== */
 .inquiry-form .customer-block-title {
     font-size: 1.1rem;
-    color: #1e3c72;
-    margin: 1rem 0 0.8rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 1.5rem 0 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
 }
 
 .inquiry-form .form-row {
@@ -217,25 +174,33 @@
     gap: 1rem;
 }
 
-.image-upload-box.is-disabled,
-.image-upload-box.is-disabled:hover {
-    border-color: #b8bfd8;
-    background: rgba(0, 0, 0, 0.03);
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-.btn-submit:disabled,
-.btn-submit:disabled:hover {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
+/* ==================== Responsive Design ==================== */
 @media (max-width: 768px) {
+    .inquiry-container {
+        padding: 24px 16px 56px;
+    }
+
+    .inquiry-content h2 {
+        font-size: 1.5rem;
+    }
+
     .inquiry-form .form-row {
         grid-template-columns: 1fr;
         gap: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .inquiry-header h1 {
+        font-size: 1rem;
+    }
+
+    .back-button {
+        padding: 6px 10px;
+        font-size: 0.82rem;
+    }
+
+    .inquiry-form {
+        padding: 16px;
     }
 }

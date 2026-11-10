@@ -1,4 +1,29 @@
-/* ==================== Reset & Basic ==================== */
+/* The shared base of every page but the home page (home.css carries its own copy of the tokens,
+   which its test reads). A spec sheet: square corners, hairline grid, mono labels, one blue.
+   Tokens: design-system/bridgepath/MASTER.md */
+:root {
+    --ink: #222222;
+    --ink-soft: #55595e;       /* 7:1 on white: for the small texts */
+    --blue: #5a76a8;           /* the blue of the company logo (white text on it: 4.57:1) */
+    --blue-deep: #44598a;      /* the same blue, darker: small texts and hover (6.9:1 on white) */
+    --blue-tint: #eef1f7;      /* a wash of the blue: notices and what is selected, never for text */
+    --gray: #9c9c9c;           /* lines and shapes only, never for text */
+    --line: #d9d9d9;           /* the grid: decoration */
+    --line-strong: #8a8a8a;    /* the edge of a control: 3:1 */
+    --paper: #f8f8f8;
+    --white: #ffffff;
+    --tint-sunglasses: #e6f3ee;
+    --tint-shoes: #f8f1d8;
+    --tint-golf: #ece8f8;
+    --tint-other: #fbe9df;
+    --danger: #b00020;
+    --danger-tint: #fdecea;
+    --ok: #1f6b3a;
+    --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --font: "Pretendard Variable", Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -10,420 +35,166 @@ html {
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
+    font-family: var(--font);
+    color: var(--ink);
+    background: var(--paper);
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    /* Korean breaks between words, not in the middle of one */
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 
-/* ==================== Header ==================== */
+a {
+    color: var(--blue-deep);
+    text-underline-offset: 3px;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+}
+
+:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.skip {
+    position: absolute;
+    left: 12px;
+    top: -60px;
+    background: var(--ink);
+    color: var(--white);
+    padding: 10px 14px;
+    z-index: 200;
+}
+
+.skip:focus {
+    top: 12px;
+}
+
+/* the small mono caption over a section */
+.label {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+}
+
+/* ==================== The bar at the top (the same bar as the home page) ==================== */
 .header {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    color: white;
-    padding: 1rem 0;
     position: sticky;
     top: 0;
     z-index: 100;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: var(--white);
+    border-bottom: 1px solid var(--line);
 }
 
 .header-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
     display: flex;
+    align-items: stretch;
     justify-content: space-between;
-    align-items: center;
 }
 
 .logo {
-    font-size: 1.8rem;
-    font-weight: bold;
-    letter-spacing: 1px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 52px;
+    padding: 0 clamp(16px, 3vw, 32px);
+    font-weight: 800;
+    font-size: 1.1rem;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-decoration: none;
+    white-space: nowrap;
+    border-right: 1px solid var(--line);
 }
 
 .navbar {
     display: flex;
-    gap: 2rem;
+    align-items: stretch;
 }
 
 .navbar a {
-    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 clamp(12px, 2vw, 26px);
+    min-height: 52px;
     text-decoration: none;
-    font-size: 0.95rem;
-    transition: opacity 0.3s ease;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    border-left: 1px solid var(--line);
+    transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .navbar a:hover {
-    opacity: 0.7;
+    color: var(--ink);
+    background: var(--paper);
 }
 
-/* ==================== Hero Section ==================== */
-.hero {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 120px 20px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.hero::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 500px;
-    height: 500px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 50%;
-}
-
-.hero-content {
-    max-width: 800px;
-    margin: 0 auto;
-    position: relative;
-    z-index: 1;
-    animation: slideUp 0.8s ease-out;
-}
-
-.hero h1 {
-    font-size: 2.8rem;
-    margin-bottom: 1rem;
-    font-weight: 700;
-}
-
-.hero p {
-    font-size: 1.3rem;
-    margin-bottom: 2.5rem;
-    opacity: 0.95;
-}
-
-.cta-button {
-    background-color: white;
-    color: #667eea;
-    font-size: 1rem;
+/* the login link is the one action of the bar */
+.navbar a:last-child {
+    color: var(--white);
+    background: var(--blue);
+    border-left-color: var(--blue);
     font-weight: 600;
-    padding: 15px 40px;
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.cta-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+.navbar a:last-child:hover {
+    color: var(--white);
+    background: var(--blue-deep);
 }
 
-/* ==================== About Us Section ==================== */
-.about {
-    background-color: white;
-    padding: 80px 20px;
-}
-
-.about-subtitle {
-    text-align: center;
-    color: #666;
-    font-size: 1.1rem;
-    margin-bottom: 3rem;
-}
-
-.about-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-}
-
-.about-card {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
-    text-align: center;
-    opacity: 0;
-    border-left: 4px solid #667eea;
-}
-
-.about-card.fade-in {
-    animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.about-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-}
-
-.about-icon {
-    font-size: 3.5rem;
-    margin-bottom: 1rem;
-}
-
-.about-card h3 {
-    font-size: 1.4rem;
-    margin-bottom: 1rem;
-    color: #1e3c72;
-    font-weight: 700;
-}
-
-.about-card p {
-    color: #666;
-    line-height: 1.8;
-    font-size: 0.95rem;
-}
-
-/* ==================== Services Section ==================== */
-.services {
-    background-color: #f8f9fa;
-    padding: 80px 20px;
-}
-
-.section-container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.services h2,
-.estimate h2,
-.contact h2 {
-    text-align: center;
-    font-size: 2.2rem;
-    margin-bottom: 3rem;
-    color: #1e3c72;
-    font-weight: 700;
-}
-
-.services-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-}
-
-.service-card {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
-    text-align: center;
-    opacity: 0;
-}
-
-.service-card.fade-in {
-    animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.service-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-}
-
-.card-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-.service-card h3 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-    color: #1e3c72;
-}
-
-.service-card p {
-    color: #666;
-    line-height: 1.8;
-    margin-bottom: 1.5rem;
-}
-
-.service-button {
-    background-color: #667eea;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.service-button:hover {
-    background-color: #764ba2;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-/* ==================== Estimate Form Section ==================== */
-.estimate {
-    background-color: white;
-    padding: 80px 20px;
-}
-
-.estimate-subtitle {
-    text-align: center;
-    color: #666;
-    font-size: 1.1rem;
-    margin-bottom: 3rem;
-}
-
-.estimate-form {
-    background: #f8f9fa;
-    padding: 3rem;
-    border-radius: 12px;
-    max-width: 800px;
-    margin: 0 auto;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
-
-.form-group label {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #1e3c72;
-    font-size: 0.95rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    padding: 12px 15px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-family: inherit;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    background-color: white;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* Select 드롭다운 화살표 스타일 */
-.form-group select {
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 35px;
-}
-
-.submit-button {
-    width: 100%;
-    padding: 15px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    font-size: 1rem;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.submit-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-}
-
-.success-message {
-    margin-top: 2rem;
-    padding: 2rem;
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-    border-radius: 8px;
-    text-align: center;
-    animation: slideDown 0.5s ease-out;
-}
-
-.success-message p {
-    margin: 0.5rem 0;
-    font-size: 1rem;
-}
-
-/* ==================== Contact Section ==================== */
-.contact {
-    background-color: #f8f9fa;
-    padding: 80px 20px;
-}
-
-.contact-info {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-    margin-top: 3rem;
-}
-
-.contact-item {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.contact-item h3 {
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
-    color: #1e3c72;
-}
-
-.contact-item p {
-    color: #666;
-    font-size: 1rem;
-}
-
-/* ==================== Footer ==================== */
+/* ==================== The foot (the same foot as the home page) ==================== */
 .footer {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    color: white;
-    padding: 2rem;
-    text-align: center;
+    background: var(--ink);
+    padding: 44px clamp(20px, 5vw, 64px) 52px;
+    font-size: 0.85rem;
+    color: #c4c7cb;            /* 10:1 on the ink */
 }
 
-.footer-content p {
-    margin: 0.5rem 0;
-    font-size: 0.9rem;
+.footer p {
+    margin: 4px auto 0;
+    max-width: 1240px;
 }
 
-/* ==================== Animations ==================== */
+.footer .foot-name {
+    color: var(--white);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.footer a {
+    color: #c4c7cb;
+}
+
+.footer a:hover {
+    color: var(--white);
+}
+
+.footer .foot-copy {
+    margin-top: 14px;
+}
+
+/* ==================== Motion ==================== */
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
@@ -434,7 +205,7 @@ body {
 @keyframes slideDown {
     from {
         opacity: 0;
-        transform: translateY(-20px);
+        transform: translateY(-8px);
     }
     to {
         opacity: 1;
@@ -442,79 +213,37 @@ body {
     }
 }
 
-/* ==================== Responsive Design ==================== */
-@media (max-width: 768px) {
-    .header-container {
-        flex-direction: column;
-        gap: 1rem;
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
     }
 
-    .navbar {
-        gap: 1rem;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .hero h1 {
-        font-size: 1.8rem;
-    }
-
-    .hero p {
-        font-size: 1rem;
-    }
-
-    .services h2,
-    .about h2,
-    .estimate h2,
-    .contact h2 {
-        font-size: 1.8rem;
-    }
-
-    .estimate-form {
-        padding: 1.5rem;
-    }
-
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-
-    .services-grid,
-    .about-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .about-card {
-        padding: 1.5rem;
-    }
-
-    .about-icon {
-        font-size: 2.5rem;
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
     }
 }
 
-@media (max-width: 480px) {
-    .hero {
-        padding: 60px 15px;
+/* ==================== Narrow screens ==================== */
+@media (max-width: 520px) {
+    .logo {
+        padding: 0 12px;
+        font-size: 1rem;
     }
 
-    .hero h1 {
-        font-size: 1.5rem;
+    .navbar a {
+        padding: 0 10px;
+        font-size: 0.82rem;
     }
 
-    .cta-button {
-        padding: 12px 30px;
-        font-size: 0.9rem;
+    /* four links do not fit beside the name: the link to the steps of the home page goes first */
+    .navbar a:first-child {
+        display: none;
     }
 
-    .services {
-        padding: 50px 15px;
-    }
-
-    .estimate {
-        padding: 50px 15px;
-    }
-
-    .estimate-form {
-        padding: 1rem;
+    .navbar a:nth-child(2) {
+        border-left: 0;
     }
 }

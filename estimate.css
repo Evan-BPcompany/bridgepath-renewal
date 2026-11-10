@@ -1,282 +1,286 @@
-/* ==================== Estimate Intro ==================== */
-.estimate-intro {
-    text-align: center;
-    padding: 60px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    position: relative;
-    overflow: hidden;
+/* The estimate hub (estimate.html): the four products as one hairline grid, the three steps as a table row.
+   Tokens and the bar at the top: style.css. */
+
+/* ==================== Intro and the four products ==================== */
+.estimate-intro,
+.info-section {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: clamp(48px, 6vw, 80px) clamp(20px, 5vw, 64px);
 }
 
-.estimate-intro::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 500px;
-    height: 500px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 50%;
-    z-index: 0;
+.info-section {
+    padding-top: 0;
 }
 
 .estimate-intro h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-    position: relative;
-    z-index: 1;
-    font-weight: 700;
+    font-size: clamp(2rem, 4.6vw, 3.4rem);
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
 }
 
-.intro-subtitle {
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
-    opacity: 0.95;
-    position: relative;
-    z-index: 1;
+.intro-lead {
+    margin-top: 16px;
+    max-width: 36em;
+    color: var(--ink-soft);
+    font-size: clamp(1rem, 1.5vw, 1.12rem);
 }
 
-.intro-description {
-    font-size: 1rem;
-    opacity: 0.9;
-    line-height: 1.8;
-    max-width: 600px;
-    margin: 0 auto;
-    position: relative;
-    z-index: 1;
-}
-
-/* ==================== Estimate Container ==================== */
-.estimate-section {
-    background-color: white;
-    padding-bottom: 60px;
-}
-
-.estimate-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-/* ==================== Estimate Grid ==================== */
 .estimate-grid {
+    list-style: none;
+    counter-reset: product;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-    margin-bottom: 60px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: clamp(28px, 4vw, 48px);
+    background: var(--white);
+    border: 1px solid var(--line-strong);
 }
+
+.estimate-grid li {
+    counter-increment: product;
+    display: flex;
+}
+
+.estimate-grid li + li {
+    border-left: 1px solid var(--line);
+}
+
+.estimate-grid li:nth-child(1) { --tint: var(--tint-sunglasses); }
+.estimate-grid li:nth-child(2) { --tint: var(--tint-shoes); }
+.estimate-grid li:nth-child(3) { --tint: var(--tint-golf); }
+.estimate-grid li:nth-child(4) { --tint: var(--tint-other); }
 
 .estimate-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 2rem;
-    transition: all 0.3s ease;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    animation: slideUp 0.6s ease-out;
+    flex: 1;
+    min-height: 280px;
+    padding: 20px 22px 24px;
+    color: var(--ink);
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+    animation: slideUp 0.45s var(--ease) both;
 }
 
-.estimate-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-    border-color: #667eea;
+.estimate-grid li:nth-child(2) .estimate-card { animation-delay: 0.04s; }
+.estimate-grid li:nth-child(3) .estimate-card { animation-delay: 0.08s; }
+.estimate-grid li:nth-child(4) .estimate-card { animation-delay: 0.12s; }
+
+.estimate-card:hover,
+.estimate-card:focus-visible {
+    background: var(--tint, var(--paper));
 }
 
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+/* [ 01 ] SUNGLASSES */
+.card-index {
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--blue);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    color: var(--blue-deep);
 }
 
-.card-icon {
-    font-size: 2.5rem;
+.card-index::before {
+    content: "[ 0" counter(product) " ] ";
 }
 
-.card-header h3 {
-    font-size: 1.4rem;
-    color: #1e3c72;
-    margin: 0;
+.card-name {
+    margin-top: 36px;
+    font-size: clamp(1.35rem, 2.2vw, 1.7rem);
     font-weight: 700;
+    letter-spacing: -0.03em;
 }
 
 .card-description {
-    color: #666;
-    font-size: 0.95rem;
-    line-height: 1.6;
+    margin-top: 8px;
     margin-bottom: auto;
-    margin-top: 0.5rem;
+    font-size: 0.93rem;
+    color: var(--ink-soft);
 }
 
-.card-button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-    margin-top: 1.5rem;
-}
-
-.card-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-/* ==================== Info Section ==================== */
-.info-section {
-    background-color: #f8f9fa;
-    padding: 60px 20px;
-    margin: 60px 0 0 0;
-}
-
-.info-section h2 {
-    text-align: center;
-    font-size: 2rem;
-    color: #1e3c72;
-    margin-bottom: 3rem;
+/* the action: a word and a drawn arrow, like the choices of the home page */
+.card-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
     font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--blue-deep);
+}
+
+.card-action::after {
+    content: "";
+    width: 11px;
+    height: 11px;
+    margin-right: 4px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s var(--ease);
+}
+
+.estimate-card:hover .card-action::after,
+.estimate-card:focus-visible .card-action::after {
+    transform: translateX(4px) rotate(45deg);
+}
+
+/* ==================== The three steps ==================== */
+.info-section h2 {
+    font-size: clamp(1.7rem, 3.6vw, 2.7rem);
+    line-height: 1.22;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
 }
 
 .process-grid {
-    max-width: 1200px;
-    margin: 0 auto;
+    list-style: none;
+    counter-reset: step;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: clamp(24px, 4vw, 44px);
+    background: var(--white);
+    border: 1px solid var(--line-strong);
 }
 
 .process-step {
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    counter-increment: step;
+    padding: 20px 22px 26px;
 }
 
-.step-number {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
+.process-step + .process-step {
+    border-left: 1px solid var(--line);
 }
 
-.process-step h4 {
-    font-size: 1.2rem;
-    color: #1e3c72;
-    margin-bottom: 0.5rem;
+.process-step::before {
+    content: "STEP 0" counter(step) " / 03";
+    display: block;
+    margin-bottom: 28px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+}
+
+.process-step h3 {
+    font-size: 1.15rem;
     font-weight: 700;
+    letter-spacing: -0.02em;
 }
 
 .process-step p {
-    color: #666;
-    font-size: 0.95rem;
-    line-height: 1.6;
+    margin-top: 8px;
+    font-size: 0.93rem;
+    color: var(--ink-soft);
 }
 
-/* ==================== CTA Section ==================== */
+/* ==================== The last call ==================== */
 .cta-section {
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    color: white;
-    padding: 60px 20px;
-    text-align: center;
+    background: #2f2d2c;          /* the charcoal of the logo */
+    color: var(--white);
+}
+
+.cta-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(20px, 4vw, 56px);
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: clamp(36px, 5vw, 56px) clamp(20px, 5vw, 64px);
 }
 
 .cta-section h2 {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-    font-weight: 700;
+    font-size: clamp(1.3rem, 2.6vw, 1.9rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
 }
 
 .cta-section p {
-    font-size: 1.1rem;
-    margin-bottom: 2rem;
-    opacity: 0.95;
+    margin-top: 8px;
+    color: #d5d8dc;
 }
 
 .cta-button {
-    display: inline-block;
-    background-color: white;
-    color: #667eea;
-    padding: 15px 40px;
-    border-radius: 50px;
-    font-weight: 600;
+    padding: 16px 30px;
+    background: var(--blue);
+    color: var(--white);
+    font-weight: 700;
     text-decoration: none;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+    transition: background-color 0.15s ease;
 }
 
 .cta-button:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    background: var(--blue-deep);
 }
 
-/* ==================== Responsive Design ==================== */
-@media (max-width: 768px) {
-    .estimate-intro h1 {
-        font-size: 1.8rem;
+.cta-button:focus-visible {
+    outline-color: var(--white);
+}
+
+/* ==================== Narrow screens ==================== */
+@media (max-width: 1100px) {
+    .estimate-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .intro-subtitle {
-        font-size: 1rem;
+    .estimate-grid li:nth-child(3) {
+        border-left: 0;
     }
 
-    .info-section h2 {
-        font-size: 1.6rem;
+    .estimate-grid li:nth-child(n + 3) {
+        border-top: 1px solid var(--line);
     }
 
-    .estimate-grid,
+    .estimate-card {
+        min-height: 230px;
+    }
+}
+
+@media (max-width: 900px) {
     .process-grid {
         grid-template-columns: 1fr;
     }
 
-    .cta-section h2 {
-        font-size: 1.5rem;
+    .process-step + .process-step {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+
+    .process-step::before {
+        margin-bottom: 16px;
+    }
+
+    .cta-inner {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 
-@media (max-width: 480px) {
-    .estimate-intro {
-        padding: 40px 15px;
+@media (max-width: 520px) {
+    .estimate-grid {
+        grid-template-columns: 1fr;
     }
 
-    .estimate-intro h1 {
-        font-size: 1.5rem;
-    }
-
-    .intro-subtitle {
-        font-size: 0.95rem;
-    }
-
-    .estimate-container {
-        padding: 0 15px;
+    .estimate-grid li + li {
+        border-left: 0;
+        border-top: 1px solid var(--line);
     }
 
     .estimate-card {
-        padding: 1.5rem;
+        min-height: 0;
     }
 
-    .info-section {
-        padding: 40px 15px;
-    }
-
-    .process-step {
-        padding: 1.5rem;
-    }
-
-    .cta-section {
-        padding: 40px 15px;
+    .card-name {
+        margin-top: 20px;
     }
 }
