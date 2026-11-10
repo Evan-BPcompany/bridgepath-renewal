@@ -49,8 +49,12 @@ export function createSitePagesRouter(options: SitePagesOptions): Router {
     res.type('application/javascript').set('Cache-Control', 'no-cache').send(configSource);
   });
 
-  router.get(['/', '/:file'], (req: Request, res: Response, next) => {
-    const name = req.params.file === undefined ? 'index.html' : String(req.params.file);
+  // A file of the root folder by its name, or a file of assets/ (the logo, the pictures) by its path.
+  // Either way it is served only when it is on the list, so nothing else of assets/ or of the folder
+  // can be reached, whatever the path says.
+  router.get(['/', '/:file', '/assets/*'], (req: Request, res: Response, next) => {
+    const asset = (req.params as Record<string, string | undefined>)['0'];
+    const name = asset !== undefined ? `assets/${asset}` : req.params.file === undefined ? 'index.html' : String(req.params.file);
     if (!served.has(name)) {
       next();
       return;

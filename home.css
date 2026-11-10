@@ -124,8 +124,9 @@ a { color: inherit; }
 .top-nav a:last-child:hover { color: var(--white); background: var(--blue-deep); }
 
 /* ---------- the question ---------- */
-/* full width and white: a photo in the middle that fades to white on both sides, the arch of the logo drawn large over it.
-   The photo is a dummy (sunpoto/); swap the url() for Bridge Path's own picture. */
+/* full width and white, the arch of the logo drawn large over it.
+   A photo used to sit in the middle (.hero::before, faded to white on both sides). It was a reference photo and
+   not Bridge Path's own, so it is gone since 2026-11-10; the way back is in design-system/bridgepath/MASTER.md. */
 .hero {
     position: relative;
     isolation: isolate;
@@ -136,20 +137,6 @@ a { color: inherit; }
     padding: clamp(48px, 7vw, 96px) max(clamp(20px, 5vw, 64px), calc((100% - 1240px) / 2 + 64px));
     min-height: min(78vh, 700px);
     background: var(--white);
-}
-
-/* the photo: its own light background melts into the white, the two sides fade out */
-.hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -2;
-    background: url("sunpoto/imgi_838_705a3a5d811a370b650fd2a41a624539.jpg") 50% 50% / min(1000px, 130vw) auto no-repeat, var(--white);
-    background-blend-mode: multiply;
-    opacity: 0.45;
-    pointer-events: none;
-    -webkit-mask-image: radial-gradient(ellipse 46% 62% at 50% 50%, #000 35%, transparent 100%);
-    mask-image: radial-gradient(ellipse 46% 62% at 50% 50%, #000 35%, transparent 100%);
 }
 
 /* the arch, and the column lines of a drawing */
@@ -273,7 +260,7 @@ a { color: inherit; }
     transform: translateX(4px) rotate(45deg);
 }
 
-/* three cards fanned like a pile of work: two photo cards behind, the front one carries the word of the choice */
+/* three cards fanned like a pile of work: two fact plates behind, the front one carries the word of the choice */
 .stack {
     position: relative;
     height: clamp(330px, 40vw, 480px);
@@ -291,6 +278,7 @@ a { color: inherit; }
     transition: transform 0.45s var(--ease);
 }
 
+/* a photo on a plate: unused while the plates carry facts, kept for Bridge Path's own photos */
 .stack-panel img {
     flex: 1;
     min-height: 0;
@@ -300,7 +288,34 @@ a { color: inherit; }
     mix-blend-mode: multiply;
 }
 
-/* the line under a photo, like the meta line of a work card */
+/* a fact on a plate: the figure large and light, its unit small, like the row of facts under the hero */
+.stack-fact {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    align-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--blue-deep);
+}
+
+/* the plate on the right lies over the right third of this one: its fact sits in the part that shows */
+.stack-blue .stack-fact { padding-right: 36%; }
+
+.stack-fact b {
+    font-size: clamp(2.2rem, 4.6vw, 3.6rem);
+    line-height: 1;
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+/* the line under a plate, like the meta line of a work card */
 .stack-cap {
     padding: 9px 14px 10px;
     border-top: 1px solid var(--line-strong);
@@ -317,7 +332,7 @@ a { color: inherit; }
     top: 0;
     width: 60%;
     height: 56%;
-    background: var(--tint-sunglasses);
+    background: var(--tint-shoes);
     transform: rotate(-4deg);
     transform-origin: 80% 100%;
 }
@@ -327,7 +342,7 @@ a { color: inherit; }
     top: 5%;
     width: 60%;
     height: 56%;
-    background: var(--tint-shoes);
+    background: var(--tint-golf);
     transform: rotate(3.5deg);
     transform-origin: 20% 100%;
 }

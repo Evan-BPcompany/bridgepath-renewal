@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { listFrontFiles, localReferences } = require('../../scripts/front-files.js');
+const { listFrontFiles, localReferences, cssReferences } = require('../../scripts/front-files.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -30,9 +30,10 @@ describe('the files of the customer pages to publish (npm run front:files)', () 
     expect(files).toContain('config.js');
   });
 
-  it('is only files of the root folder that exist, with no test, document, admin screen or backend file', () => {
+  it('is only files of the root folder and of assets/ that exist, with no test, document, admin screen or backend file', () => {
     for (const file of files) {
-      expect(file).not.toMatch(/[\\/]/);
+      expect(file).toMatch(/^(assets\/([^\\/]+\/)*)?[^\\/]+$/);
+      expect(file).not.toContain('..');
       expect(fs.statSync(path.join(ROOT, file)).isFile()).toBe(true);
       expect(file).not.toMatch(/\.(ts|map|md|json|sh|env)$|^jest\.|^knexfile|^package|^\./);
     }
@@ -44,16 +45,40 @@ describe('the files of the customer pages to publish (npm run front:files)', () 
     expect(files).toEqual([...files].sort());
   });
 
-  it('holds no script that the pages do not need', () => {
+  it('holds no file that neither a page nor a stylesheet of the list needs', () => {
     const loaded = new Set<string>();
     for (const page of files.filter(name => name.endsWith('.html'))) {
       for (const reference of localReferences(fs.readFileSync(path.join(ROOT, page), 'utf8'))) {
         loaded.add(reference);
       }
     }
+    for (const sheet of files.filter(name => name.endsWith('.css'))) {
+      for (const reference of cssReferences(fs.readFileSync(path.join(ROOT, sheet), 'utf8'))) {
+        loaded.add(reference);
+      }
+    }
     for (const file of files.filter(name => !name.endsWith('.html'))) {
       expect(loaded.has(file)).toBe(true);
     }
+  });
+
+  it('holds the logo of the pages and the picture that home.css loads, both in assets/', () => {
+    expect(files).toContain('assets/logo/logo-header.png');
+    expect(files).toContain('assets/logo/logo-header-white.png');
+    expect(files).toContain('assets/hero-bridge.svg');
+  });
+});
+
+describe('cssReferences', () => {
+  it('takes the files of url(), quoted or not, and leaves data:, other sites and the comments', () => {
+    const css = `
+      /* url("in-a-comment.png") and an empty url() */
+      .a { background: url("assets/a.png?v=2") no-repeat, url('assets/b.svg#mark'); }
+      .b { background-image: url(assets/c.jpg); }
+      .c { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E"); }
+      .d { background: url(https://example.com/x.png), url("//cdn.example.com/y.png"); }`;
+
+    expect(cssReferences(css)).toEqual(['assets/a.png', 'assets/b.svg', 'assets/c.jpg']);
   });
 });
 
@@ -96,6 +121,29 @@ describe('a folder with a broken page', () => {
       '../secret.js (in index.html: not a file of the root folder)',
       'gone.js (in index.html)',
       'sub/app.js (in index.html: not a file of the root folder)'
+    ]);
+  });
+
+  it('lists the files of assets/ that a page or its stylesheet uses, and names the ones that are missing or elsewhere', () => {
+    const dir = folder({
+      'index.html': '<link rel="stylesheet" href="site.css"><img src="assets/logo/mark.png"><img src="assets/gone.png"><img src="photos/shoe.jpg"><img src="assets/../secret.png">',
+      'site.css': '.a { background: url("assets/arch.svg"); } .b { background: url("assets/no-such.jpg"); } .c { background: url("../outside.png"); }',
+      'assets/logo/mark.png': '1',
+      'assets/arch.svg': '2',
+      'assets/unused.png': '3',
+      'photos/shoe.jpg': '4',
+      'secret.png': '5'
+    });
+
+    const result = listFrontFiles(dir) as { files: string[]; missing: string[] };
+
+    // assets/../secret.png is the file secret.png of the root folder: listed by the path it really has.
+    expect(result.files).toEqual(['assets/arch.svg', 'assets/logo/mark.png', 'index.html', 'secret.png', 'site.css']);
+    expect(result.missing).toEqual([
+      '../outside.png (in site.css: not a file of the root folder)',
+      'assets/gone.png (in index.html)',
+      'assets/no-such.jpg (in site.css)',
+      'photos/shoe.jpg (in index.html: not a file of the root folder)'
     ]);
   });
 

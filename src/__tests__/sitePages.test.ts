@@ -26,6 +26,19 @@ describe('the customer pages served by the server', () => {
     }
   });
 
+  it('serves the logo and the picture of the stylesheet from assets/, and nothing else by that way', async () => {
+    const logo = await request(app).get('/assets/logo/logo-header.png');
+    expect(logo.status).toBe(200);
+    expect(logo.headers['content-type']).toMatch(/image\/png/);
+    expect(logo.headers['cache-control']).toBe('no-cache');
+    // home.css loads this one with url(): no page names it.
+    expect((await request(app).get('/assets/hero-bridge.svg')).status).toBe(200);
+
+    for (const url of ['/assets/nothing.png', '/assets/', '/assets/logo/', '/assets/..%2fpackage.json', '/assets/%2e%2e/package.json', '/assets/../package.json', '/assets/logo/..%2f..%2f.env']) {
+      expect((await request(app).get(url)).status).toBe(404);
+    }
+  });
+
   it('leaves the API, the admin screen and the health check alone', async () => {
     expect((await request(app).get('/health')).status).toBe(200);
     expect((await request(app).get('/admin-ui/')).status).toBe(200);
