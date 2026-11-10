@@ -35,7 +35,7 @@ export const BASE_PRICES: ReadonlyArray<MarketPrice> = [
 export const USD_KRW = 1323.9;
 export const PRICE_DATE = '2026-10-26';
 
-const description = (price: MarketPrice): string =>
+export const description = (price: MarketPrice): string =>
   `Made-in-China.com ${PRICE_DATE}: median of ${price.listings} factory listings of ${price.suppliers} suppliers, ` +
   `USD ${price.usdMedian} at 1 USD = ${USD_KRW} KRW (factory price per ${price.category === 'shoes' ? 'pair' : 'piece'}, no shipping, duty, mold, logo or packaging)`;
 

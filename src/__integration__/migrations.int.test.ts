@@ -39,7 +39,8 @@ const ALL_MIGRATIONS = [
   '017_detailed_quotes.ts',
   '018_quote_contact_and_inquiries.ts',
   '019_kakao_notifications.ts',
-  '020_shoes_golf_tee_base_prices.ts'
+  '020_shoes_golf_tee_base_prices.ts',
+  '021_bamboo_tee_real_quote.ts'
 ];
 
 // The schema migrations, 001-013. Migration 014 only writes prices (it has its own tests at the end
@@ -1477,7 +1478,7 @@ describeIntegration('migrations 001-013', ({ url }) => {
       suite().db('base_prices').where({ category }).orderBy('product_variant').select('product_variant', 'base_price', 'is_active', 'description');
 
     beforeEach(async () => {
-      await migrateEverything(suite().db);
+      await migrateTo(20);
     });
 
     afterEach(async () => {
@@ -1486,8 +1487,8 @@ describeIntegration('migrations 001-013', ({ url }) => {
       }
     });
 
-    it('is the last migration, and writes five shoe types and three tee materials', async () => {
-      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+    it('writes five shoe types and three tee materials', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS.slice(0, 20));
 
       const shoes = (await rows('shoes')).filter(row => row.is_active);
       expect(shoes.map(row => [row.product_variant, Number(row.base_price)])).toEqual([
@@ -1533,6 +1534,38 @@ describeIntegration('migrations 001-013', ({ url }) => {
       await migrateEverything(suite().db);
       expect(await snapshotSchema(suite().db, suite().schema)).toEqual(first);
       expect((await rows('shoes')).filter(row => row.is_active)).toHaveLength(5);
+    });
+  });
+
+  // Migration 021 replaces the bamboo tee price with the first real factory quote.
+  describe('021 (the bamboo tee real quote)', () => {
+    const tees = () =>
+      suite().db('base_prices').where({ category: 'golf_products' }).whereIn('product_variant', ['Wood Tee', 'Bamboo Tee', 'Plastic Tee']).orderBy('product_variant').select('product_variant', 'base_price', 'is_active');
+
+    beforeEach(async () => {
+      await migrateEverything(suite().db);
+    });
+
+    afterEach(async () => {
+      while ((await appliedNames()).length > MIGRATIONS.length) {
+        await migrateDownOne(suite().db);
+      }
+    });
+
+    it('sets the bamboo tee to 50.4 won a tee and switches wood and plastic off', async () => {
+      expect(await appliedNames()).toEqual(ALL_MIGRATIONS);
+
+      expect((await tees()).map(row => [row.product_variant, Number(row.base_price), row.is_active])).toEqual([
+        ['Bamboo Tee', 50.4, true], ['Plastic Tee', 33.1, false], ['Wood Tee', 23.8, false]
+      ]);
+    });
+
+    it('rolls back to the listing prices of 020', async () => {
+      await migrateDownOne(suite().db);
+
+      expect((await tees()).map(row => [row.product_variant, Number(row.base_price), row.is_active])).toEqual([
+        ['Bamboo Tee', 33.1, true], ['Plastic Tee', 33.1, true], ['Wood Tee', 23.8, true]
+      ]);
     });
   });
 });
