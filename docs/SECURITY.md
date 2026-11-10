@@ -54,8 +54,12 @@ Everything passes through `src/utils/logSanitizer.ts` before it is written:
 
 | Scope | Command | State |
 |---|---|---|
-| Production | `npm run audit:prod` | 0 vulnerabilities |
-| Development | `npm run audit:dev` (fails on high/critical) | passes; **20 moderate accepted** |
+| Production | `npm run audit:prod` (`scripts/audit-prod.js`: `npm audit --omit=dev`, fails on every advisory that is not on its accepted list, whatever the severity) | passes; **1 low accepted** (2026-11-10) |
+| Development | `npm run audit:dev` (fails on high/critical) | passes; **16 moderate and 3 low accepted** (counted 2026-11-10; it was 20 moderate on 2026-10-13) |
+
+Accepted in production (2026-11-10): `deepmerge` 4.3.1, GHSA-gcqx-w48m-w2h4, low ("mergeObject() allows prototype poisoning of returned objects"). There is nothing to update to: 4.3.1 is the newest release and the advisory covers it, and the only fix npm offers is a breaking downgrade of `@sendgrid/mail` to 6.5.2 (older than the 7.7.0 that was replaced on 2026-10-13 because of three high findings). It comes in through `@sendgrid/helpers`, which calls it in one place, to merge `dynamicTemplateData`; `sendEmailViaSendGrid` (`src/services/emailWorker.ts`) sends a subject and an HTML body and never sets that. `npm audit` shows it as 4 low findings because `@sendgrid/helpers`, `@sendgrid/client` and `@sendgrid/mail` are listed with it. The acceptance is for this advisory, this package and this severity only: a higher severity, a second advisory or any other package fails the run (`auditProd.test.ts`). Re-check when `deepmerge` or `@sendgrid/mail` publishes a new version, **and before the server starts to send template e-mails with dynamic data**; take the entry out of `ACCEPTED` as soon as the run says it is no longer reported.
+
+The same day `npm audit fix` (no `--force`) closed two new findings inside the allowed ranges: `follow-redirects` 1.16.1 → 1.16.3 (high, GHSA-mrwp-f3q8-3g9p, through `axios` of the SendGrid client) and `qs` 6.16.0 → 6.16.2 (moderate, GHSA-6pq8-jhm2-2vcw, through `express`). The same run moved three development packages inside their ranges (`babel-plugin-istanbul` 8.0.0 → 8.0.2, `glob` 13.0.6 → 13.0.7, `ts-jest` 29.4.14 → 29.4.15). Only `package-lock.json` changed; `package.json` holds the same ranges as before.
 
 Accepted: `sprintf-js` 1.0.3 (denial of service through unbounded precision specifiers, GHSA-hp3w-g68c-fv3c) and the chain `argparse` → `js-yaml` → `@istanbuljs/load-nyc-config` → `babel-plugin-istanbul` → jest/ts-jest tooling. Only reachable on machines that install dev dependencies; they never format untrusted input. The only npm fix is a breaking downgrade of `ts-jest`. Re-check when jest/ts-jest are updated; remove this entry as soon as `npm run audit:dev` can run with `--audit-level=moderate`.
 
