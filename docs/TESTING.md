@@ -38,6 +38,8 @@ The deployment helpers (2026-10-26) are covered by unit tests only, as they touc
 
 Migration 020 (the shoe and golf tee base prices) has tests in `migration020.test.ts` (the figures against the script), `shoesGolfPreview.test.ts` (the arithmetic, the minimum orders, the API) and `estimateMarketPreview.dom.test.ts` (the price box); the `migrations` suite has a block for it. **Not run on PostgreSQL yet.**
 
+Migration 021 (the bamboo tee price from the first real factory quote, wood and plastic tees switched off) has tests in `migration021.test.ts`; the `migrations` suite has a block for it. **Not run on PostgreSQL yet.**
+
 The KakaoTalk notices have their own suite, **`kakao`** (the outbox, who gets a notice, the retries, the consent endpoint). Run on PostgreSQL 2026-10-26: passed (all 15 suites, 403 tests, after the migration suite was updated for 019). Its unit tests are `kakao.test.ts` and the new cases of `customerAuthRoutes.test.ts` and `customerAuthPage.dom.test.ts`.
 
 The cleanup of expired data has its own suite, **`retention`** (what is deleted and what must stay, on the six tables). Run on PostgreSQL 2026-10-26: passed (all 14 suites together: 394 tests). Its unit test (`retentionService.test.ts`) covers the statements and the schedule.

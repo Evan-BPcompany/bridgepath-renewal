@@ -106,7 +106,7 @@ Menu names change; look for the same thing under the new name.
    heroku run npm run predeploy:check
    ```
    Fix every `FAIL`. Read every `WARN`.
-5. **Migrate the database** (`001` to `020`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
+5. **Migrate the database** (`001` to `021`). **Heroku does it by itself**: the `release` line of the `Procfile` runs `npm run db:migrate:prod` before each new version goes live, with the compiled migrations of the build (`knexfile.production.js`; `knex` is a normal dependency for this reason). A migration that fails stops the release and the old version keeps running. Take a **backup first** (`heroku pg:backups:capture`). To look at it, or to run it by hand:
    ```bash
    heroku run npm run db:status:prod      # what is applied and what is not (changes nothing)
    heroku run npm run db:migrate:prod     # applies what is missing
