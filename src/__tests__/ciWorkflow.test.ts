@@ -40,7 +40,10 @@ describe('CI workflow', () => {
     for (const name of ['build', 'test', 'audit:prod', 'audit:dev', 'secret-scan', 'test:integration']) {
       expect(pkg.scripts[name]).toBeDefined();
     }
-    expect(pkg.scripts['audit:prod']).toContain('--omit=dev');
+    // The production audit is `npm audit --omit=dev` read by a script that knows the accepted advisories
+    // (auditProd.test.ts); it must stay an audit of the production dependencies only.
+    expect(pkg.scripts['audit:prod']).toBe('node scripts/audit-prod.js');
+    expect(fs.readFileSync(path.join(root, 'scripts', 'audit-prod.js'), 'utf8')).toContain("spawnSync('npm audit --omit=dev --json'");
     expect(pkg.scripts.test).not.toContain('integration');
   });
 });

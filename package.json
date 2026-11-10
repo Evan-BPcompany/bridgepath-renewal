@@ -21,7 +21,7 @@
     "db:migrate:make": "knex migrate:make",
     "db:seed": "knex seed:run --env development",
     "admin:bootstrap": "node scripts/admin-bootstrap.js",
-    "audit:prod": "npm audit --omit=dev",
+    "audit:prod": "node scripts/audit-prod.js",
     "audit:dev": "npm audit --audit-level=high",
     "secret-scan": "node scripts/secret-scan.js",
     "it:schemas": "node dist/scripts/integration-schemas.js",
