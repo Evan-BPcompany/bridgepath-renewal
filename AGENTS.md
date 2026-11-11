@@ -30,6 +30,20 @@ Bridge Path의 정적 회사소개 + OEM/ODM 제작 견적 문의 사이트(리�
 
 <!-- Everything below is maintained by hand, outside the bmad:context block. Where it differs from the block above, this section is the newer one. -->
 
+## 서비스 방향 (2026-11-11 사용자 결정)
+
+이 웹서비스는 **골프용품 소싱 에이전트**입니다. 다루는 품목은 **골프 선글라스, 골프화, 골프티** 세 가지입니다. 위 블록의 "회사소개 + OEM/ODM 제작 견적 문의 사이트"보다 이 절이 최신입니다.
+
+- 문구와 화면은 "골프용품을 소싱해 주는 에이전트" 기준으로 씁니다. 직접 제조하는 것처럼 읽히는 문구를 쓰지 않습니다. 수리/AS처럼 보이게 하지 않는 원칙은 그대로입니다.
+- **수출 대행을 약속하는 문구를 넣지 않습니다.** 장기 목표이지만 아직 제공하지 않습니다(`homePage.dom.test.ts`가 홈에서 확인).
+- **서비스 이름은 "FINDER GREEN · 파인더그린"입니다(2026-11-11 사용자 결정).** "Bridge Path(주식회사 브릿지패스)"는 운영 회사 이름이고, 고객 화면에서는 푸터의 사업자 정보에만 나옵니다. 설명 문구는 사용자가 정한 "골프 브랜드를 위한 소싱·제작 파트너"입니다. 여기서 "제작"은 협력 공장을 통한 제작을 뜻하며, 직접 제조한다고 쓰지 않는 원칙은 그대로입니다.
+  - 로고는 사용자가 넣어 준 로고 키트(`finder-green-logo-kit.zip`, 사용 안내는 그 안의 `usage-guide.md`)에서 가져와 `assets/logo/`에 둡니다. 로고 색은 Pine `#183D35`(`--brand`)입니다.
+  - 상표는 2026-11-11에 KIPRIS에서 같은 이름만 찾아봤습니다(살아 있는 동일 상표 없음). 유사 상표 판단과 출원은 하지 않았습니다.
+  - 아직 Bridge Path로 남아 있는 곳: 이메일 제목(`[Bridge Path] …`), 관리자 화면, `privacy-consent.html`, 코드 안의 `BridgePath…` 이름. 필요해지면 따로 바꿉니다.
+- 화면에 나오는 종류: 선글라스는 `sports`(골프·스포츠 선글라스)와 `sunglasses`(일반 선글라스), 신발은 골프화 하나, 골프티 하나. 그 밖의 골프용품은 `other-inquiry.html`(홈과 견적 허브의 작은 링크)로 문의만 받습니다.
+- **골프화는 임시 상태입니다.** 골프화 종류와 가격 자료가 없어서 요청은 신발 종류 `other`로 저장되고(관리자 화면에는 "기타"), 가격 상자는 "담당자가 확인"이라고 안내합니다. 서버와 API는 예전 종류(`optical`, `kids`, `sneakers`, `heels` …)를 그대로 알고 있습니다. 골프화 종류와 가격을 제대로 넣으려면 프런트 검증(`estimate-api.js`), 서버 타입(`src/utils/specification.ts`), 가격 규칙(`src/config/shoesGolfPricingRules.ts`), 기준가 마이그레이션이 함께 바뀌어야 하므로 실제 공장 견적을 받은 뒤에 합니다.
+- 디자인 기준: `design-system/bridgepath/MASTER.md`.
+
 ## 현재 구조 (수동 관리 — 위 블록의 "백엔드 없음"은 최신이 아님)
 
 이 저장소는 두 부분으로 이루어져 있습니다.
