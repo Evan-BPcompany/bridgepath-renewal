@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>맞춤형 제품 견적 - Bridge Path</title>
+    <title>골프용품 견적 - FINDER GREEN</title>
+    <link rel="icon" href="assets/logo/favicon.ico" sizes="48x48">
+    <link rel="icon" href="assets/logo/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/logo/apple-touch-icon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="estimate.css">
 </head>
@@ -11,94 +14,65 @@
 <body>
     <a class="skip" href="#start">본문으로 건너뛰기</a>
 
-    <header class="header">
-        <div class="header-container">
-            <a href="index.html" class="logo">Bridge Path</a>
-            <nav class="navbar" aria-label="주요 메뉴">
-                <a href="index.html#process">진행 과정</a>
-                <a href="index.html#guide">문의 안내</a>
+    <header class="site-bar">
+        <div class="site-bar-inner">
+            <a class="site-brand" href="index.html"><img src="assets/logo/finder-green-symbol-green.svg" alt="" width="40" height="40"><span>FINDER GREEN</span></a>
+            <nav class="site-nav" aria-label="주요 메뉴">
                 <a href="my-quotes.html">내 견적</a>
-                <a href="login.html">로그인</a>
+                <a class="nav-wide" href="login.html">로그인</a>
+                <a class="site-cta" href="estimate.html" aria-current="page"><span class="cta-long">AI 가상견적 받기</span><span class="cta-short">견적 받기</span></a>
             </nav>
         </div>
     </header>
 
-    <main id="start">
-        <section class="estimate-intro" aria-labelledby="intro-title">
-            <p class="label" aria-hidden="true">&sect; 01 &mdash; ESTIMATE</p>
-            <h1 id="intro-title">어떤 제품의 견적을 받아볼까요?</h1>
-            <p class="intro-lead">제품을 고르면 AI 가상견적이 시작돼요. 로그인 없이 예상 가격 범위를 볼 수 있어요. 확정 견적은 아니에요.</p>
-
-            <!-- The four products: the same order, names and hints as the choices of the home page. -->
-            <ul class="estimate-grid">
-                <li>
-                    <a class="estimate-card" href="sunglasses-estimate.html">
-                        <span class="card-index" aria-hidden="true">SUNGLASSES</span>
-                        <span class="card-name">선글라스</span>
-                        <span class="card-description">사진을 올리면 재질과 렌즈를 분석해요. 일반 안경테, 스포츠, 키즈, 기능성 안경도 고를 수 있어요.</span>
-                        <span class="card-action">AI 견적 시작</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="estimate-card" href="shoes-estimate.html">
-                        <span class="card-index" aria-hidden="true">SHOES</span>
-                        <span class="card-name">신발</span>
-                        <span class="card-description">운동화, 구두, 부츠, 샌들·슬리퍼. 최소 주문 600켤레.</span>
-                        <span class="card-action">AI 견적 시작</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="estimate-card" href="golf-estimate.html">
-                        <span class="card-index" aria-hidden="true">GOLF TEE</span>
-                        <span class="card-name">골프티</span>
-                        <span class="card-description">최소 주문 1,000패키지 (1패키지 50개입).</span>
-                        <span class="card-action">AI 견적 시작</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="estimate-card" href="other-inquiry.html">
-                        <span class="card-index" aria-hidden="true">OTHERS</span>
-                        <span class="card-name">그 밖의 제품</span>
-                        <span class="card-description">어떤 제품인지 알려주시면 담당자가 확인해요.</span>
-                        <span class="card-action">문의하기</span>
-                    </a>
-                </li>
-            </ul>
-        </section>
-
-        <section class="info-section" aria-labelledby="info-title">
-            <p class="label" aria-hidden="true">&sect; 02 &mdash; HOW IT WORKS</p>
-            <h2 id="info-title">견적은 이렇게 진행돼요</h2>
-
-            <ol class="process-grid">
-                <li class="process-step">
-                    <h3>제품 정보 입력</h3>
-                    <p>제품 종류, 소재, 수량을 넣어요. 선글라스는 사진을 올리면 AI가 재질과 렌즈를 추정해요.</p>
-                </li>
-                <li class="process-step">
-                    <h3>AI 가상견적 확인</h3>
-                    <p>예상 가격 범위를 바로 볼 수 있어요. 참고용 범위이고 확정 견적은 아니에요.</p>
-                </li>
-                <li class="process-step">
-                    <h3>담당자 상세견적 요청</h3>
-                    <p>회원가입 후 요청하면 담당자가 확인해 작성해요. 업무일 기준 2~3일 정도 걸릴 수 있어요.</p>
-                </li>
-            </ol>
-        </section>
-
-        <section class="cta-section" aria-labelledby="cta-title">
-            <div class="cta-inner">
-                <div>
-                    <h2 id="cta-title">더 궁금한 점이 있으신가요?</h2>
-                    <p>견적 방법과 질문·상담 방법을 홈의 문의 안내에 정리해 두었어요.</p>
-                </div>
-                <a href="index.html#guide" class="cta-button">문의 안내 보기</a>
+    <main class="flow" id="start">
+        <div class="panel">
+            <div class="panel-head">
+                <a class="panel-back" href="index.html" aria-label="홈으로 돌아가기"></a>
+                <h1>AI 가상견적 받기</h1>
             </div>
-        </section>
+
+            <div class="panel-body">
+                <p class="step-tag">Step <b>01</b> <span>제품 선택</span></p>
+                <h2 class="flow-title">어떤 골프용품의 견적을 받아볼까요?</h2>
+
+                <!-- The three products the site sources (2026-11-11): the same order, names and hints as the home page. -->
+                <ul class="pick-grid pick-three">
+                    <li>
+                        <a class="pick" href="sunglasses-estimate.html">
+                            <span class="pick-name">골프 선글라스</span>
+                            <span class="pick-hint">사진을 올리면 AI가 재질과 렌즈를 추정하고, 예상 가격 범위를 보여드려요.</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="pick" href="shoes-estimate.html">
+                            <span class="pick-name">골프화</span>
+                            <span class="pick-hint">최소 주문 600켤레. 가격은 담당자가 확인해 안내해요.</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="pick" href="golf-estimate.html">
+                            <span class="pick-name">골프티</span>
+                            <span class="pick-hint">최소 주문 1,000패키지 (1패키지 50개입). 예상 가격 범위를 바로 보여드려요.</span>
+                        </a>
+                    </li>
+                </ul>
+                <p class="more-link">다른 골프용품이 필요하신가요? <a href="other-inquiry.html">문의하기</a></p>
+
+                <ol class="flow-steps" aria-label="견적 진행 순서">
+                    <li><b>제품 선택</b></li>
+                    <li><b>이미지 또는 직접 입력</b>참고 이미지가 없어도 직접 입력해 진행할 수 있어요.</li>
+                    <li><b>가격 범위 확인 · 견적 요청</b>선글라스와 골프티는 참고용 예상 범위를 바로 보여드려요. 확정 견적은 아니에요.</li>
+                </ol>
+
+                <p class="scope-note"><b>로그인 없이</b> 예상 가격 범위 확인(선글라스·골프티)과 견적 요청 접수까지 할 수 있어요. <b>담당자 상세견적</b> 요청과 <a href="my-quotes.html">내 견적</a> 확인은 회원가입 후 로그인이 필요해요.</p>
+            </div>
+        </div>
     </main>
 
     <footer class="footer">
-        <p class="foot-name">주식회사 브릿지패스</p>
+        <p class="foot-name">FINDER GREEN · 파인더그린</p>
+        <p>운영 주식회사 브릿지패스 (Bridge Path)</p>
         <p>대표 옥보경 · 사업자등록번호 478-86-03621 · 통신판매업 신고번호 제 2025-수원팔달-0228호</p>
         <p>경기도 화성시 병점구 병점노을5로 20, 골든스퀘어2 1223호 · <a href="mailto:bptrade7@bptrade.co.kr">bptrade7@bptrade.co.kr</a></p>
         <p class="foot-copy">&copy; 2026 Bridge Path</p>

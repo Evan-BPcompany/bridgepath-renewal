@@ -229,9 +229,16 @@
         // The photo that was analysed and what came out, for the result screen.
         var current = { file: null, analysis: null };
 
-        function say(text) {
+        // state: 'busy' while the photo is analysed, 'error' when it could not be, 'done' otherwise
+        // (estimate-common.css shows the three apart; the words say the same).
+        function say(text, state) {
             statusLine.hidden = !text;
             statusLine.textContent = text || '';
+            if (text) {
+                statusLine.setAttribute('data-state', state || 'done');
+            } else {
+                statusLine.removeAttribute('data-state');
+            }
         }
 
         function labelOf(select, value) {
@@ -251,16 +258,22 @@
             select.value = value;
             filled[key] = true;
             select.dispatchEvent(new Event('change', { bubbles: true }));
-            return select.value === value;
+            if (select.value !== value) {
+                return false;
+            }
+            // Marked as an estimate of the analysis until the visitor chooses a value (the label says so).
+            select.setAttribute('data-ai-filled', 'true');
+            return true;
         }
 
         // A choice the visitor makes after a fill takes the select back. The fill's own change
         // event is dispatched while `filling` is set, so it is told apart from the visitor's.
         var filling = false;
         function takeBack(key) {
-            return function () {
+            return function (event) {
                 if (!filling) {
                     filled[key] = false;
+                    event.target.removeAttribute('data-ai-filled');
                 }
             };
         }
@@ -307,7 +320,7 @@
             // The type is checked first: a PDF is never decoded or scaled.
             var checked = checkImage(file);
             if (checked.ok || checked.kind === 'too_large') {
-                say(IMAGE_MESSAGES.analyzing);
+                say(IMAGE_MESSAGES.analyzing, 'busy');
                 file = await prepareImage(file);
                 if (mine !== sequence) {
                     return;
@@ -315,13 +328,13 @@
                 checked = checkImage(file);
             }
             if (!checked.ok) {
-                say(IMAGE_MESSAGES[checked.kind]);
+                say(IMAGE_MESSAGES[checked.kind], 'error');
                 return;
             }
 
             // The photo goes with the request whatever the analysis says: the customer chose it.
             setAttached(file);
-            say(IMAGE_MESSAGES.analyzing);
+            say(IMAGE_MESSAGES.analyzing, 'busy');
             var request = new AbortController();
             controller = request;
             var timedOut = setTimeout(function () { request.abort(); }, IMAGE_TIMEOUT_MS);
@@ -356,7 +369,7 @@
                 current = { file: file, analysis: result.analysis };
                 showAnalysis(result);
             } else {
-                say(IMAGE_MESSAGES[result.kind]);
+                say(IMAGE_MESSAGES[result.kind], 'error');
             }
         }
 

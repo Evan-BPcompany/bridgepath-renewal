@@ -90,7 +90,7 @@ describe('the pure helpers', () => {
 });
 
 describe.each([
-  ['shoes', 'shoes-estimate.html', 'sneakers', 'leather', '600', '599'],
+  ['shoes', 'shoes-estimate.html', 'other', 'leather', '600', '599'],
   ['golf', 'golf-estimate.html', 'golf_tee', 'wood', '1000', '999']
 ])('the price box of the %s page', (page, file, card, material, minimum, below) => {
   let loaded: LoadedPage | undefined;

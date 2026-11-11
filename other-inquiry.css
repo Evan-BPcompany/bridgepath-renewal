@@ -1,206 +1,100 @@
-/* The inquiry for other products (other-inquiry.html): one step, the same spec sheet as the estimate forms.
-   Tokens: style.css, loaded before this file. */
-
-/* ==================== Inquiry Header ==================== */
-.inquiry-header {
-    background: var(--white);
-    border-bottom: 1px solid var(--line);
-}
-
-.inquiry-header .header-container {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 12px;
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: 10px clamp(16px, 3vw, 32px);
-}
-
-.inquiry-header h1 {
-    font-size: 1.1rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin: 0;
-    text-align: center;
-}
-
-.back-button {
-    justify-self: start;
-    background: var(--white);
-    color: var(--ink);
-    border: 1px solid var(--line-strong);
-    padding: 7px 14px;
-    cursor: pointer;
-    font-size: 0.88rem;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.back-button:hover {
-    background: var(--paper);
-    border-color: var(--ink);
-}
-
-/* ==================== Inquiry Container ==================== */
-.inquiry-container {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 48px 20px 72px;
-}
+/* The inquiry for other products (other-inquiry.html): one step in one white panel, like the estimate forms.
+   Tokens and the panel: style.css, loaded before this file. */
 
 .inquiry-content h2 {
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-    color: var(--ink);
-    margin-bottom: 0.5rem;
+    font-size: clamp(1.2rem, 2.6vw, 1.45rem);
+    font-weight: 500;
+    margin-bottom: 6px;
 }
 
-.inquiry-description {
-    color: var(--ink-soft);
-    margin-bottom: 2rem;
-    font-size: 1rem;
-    line-height: 1.6;
-}
+.inquiry-description { color: var(--ink-soft); margin-bottom: 14px; font-size: 0.95rem; }
+
+.form-legend { margin-bottom: 20px; font-size: 0.86rem; color: var(--ink-soft); }
 
 /* ==================== Inquiry Form ==================== */
-.inquiry-form {
-    background: var(--white);
-    border: 1px solid var(--line-strong);
-    padding: 24px;
-}
+.form-group { display: flex; flex-direction: column; min-width: 0; margin-bottom: 18px; }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 1.5rem;
-}
-
-.form-group.full-width {
-    grid-column: 1 / -1;
-}
+.form-group.full-width { grid-column: 1 / -1; }
 
 .form-group label {
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 6px;
     color: var(--ink);
-    font-size: 0.95rem;
+    font-size: 0.92rem;
 }
 
-.form-hint {
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-    margin: 0;
-    margin-top: -0.3rem;
-    margin-bottom: 0.5rem;
-}
+.form-hint { font-size: 0.84rem; color: var(--ink-soft); margin: 0 0 6px; }
 
 .form-group input,
 .form-group textarea {
-    padding: 12px 14px;
+    width: 100%;
+    min-height: 48px;
+    padding: 11px 14px;
     border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     font-size: 1rem;
     font-family: inherit;
     color: var(--ink);
-    transition: border-color 0.15s ease;
     background-color: var(--white);
+    transition: border-color 0.15s ease;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
-    outline: 2px solid var(--blue);
+    outline: 3px solid var(--accent);
     outline-offset: 1px;
-    border-color: var(--blue-deep);
+    border-color: var(--ink);
 }
 
 /* ==================== Submit Button ==================== */
 .btn-submit {
     width: 100%;
-    padding: 15px 30px;
-    background: var(--blue);
+    min-height: 52px;
+    padding: 0 26px;
+    background: var(--accent);
     color: var(--white);
     border: 1px solid transparent;
-    border-radius: 0;
+    border-radius: var(--radius-s);
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
     transition: background-color 0.15s ease;
-    margin-top: 1rem;
+    margin-top: 6px;
 }
 
-.btn-submit:hover {
-    background: var(--blue-deep);
-}
+.btn-submit:hover { background: var(--ink-strong); }
 
 .btn-submit:disabled,
-.btn-submit:disabled:hover {
-    background: var(--line);
-    color: var(--ink-soft);
-    cursor: not-allowed;
-}
+.btn-submit:disabled:hover { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
 
 /* ==================== Success Message ==================== */
 .success-message {
-    margin-top: 2rem;
-    padding: 24px;
-    background-color: var(--white);
+    margin-top: 24px;
+    padding: 22px;
+    background-color: var(--note);
     color: var(--ink);
-    border: 1px solid var(--line-strong);
-    border-top: 3px solid var(--blue);
+    border-radius: var(--radius);
     text-align: left;
     animation: slideDown 0.4s var(--ease);
 }
 
-.success-message p {
-    margin: 0.5rem 0;
-    font-size: 1rem;
-}
+.success-message p { margin: 8px 0; font-size: 1rem; }
 
 /* ==================== Customer Information and the request ==================== */
 .inquiry-form .customer-block-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    margin: 1.5rem 0 1rem;
-    padding-top: 1.5rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 6px 0 14px;
+    padding-top: 22px;
     border-top: 1px solid var(--line);
 }
 
 .inquiry-form .form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
 }
 
-/* ==================== Responsive Design ==================== */
-@media (max-width: 768px) {
-    .inquiry-container {
-        padding: 24px 16px 56px;
-    }
-
-    .inquiry-content h2 {
-        font-size: 1.5rem;
-    }
-
-    .inquiry-form .form-row {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-}
-
-@media (max-width: 480px) {
-    .inquiry-header h1 {
-        font-size: 1rem;
-    }
-
-    .back-button {
-        padding: 6px 10px;
-        font-size: 0.82rem;
-    }
-
-    .inquiry-form {
-        padding: 16px;
-    }
+@media (max-width: 640px) {
+    .inquiry-form .form-row { grid-template-columns: 1fr; gap: 0; }
 }

@@ -3,28 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>골프티 AI 가상견적 - Bridge Path</title>
+    <title>골프티 AI 가상견적 - FINDER GREEN</title>
+    <link rel="icon" href="assets/logo/favicon.ico" sizes="48x48">
+    <link rel="icon" href="assets/logo/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/logo/apple-touch-icon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="estimate-common.css">
     <link rel="stylesheet" href="estimate-customer.css">
 </head>
 
 <body data-estimate-page="golf">
-    <!-- Header -->
-    <header class="estimate-header">
-        <div class="header-container">
-            <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
-            <h1>골프티 AI 가상견적</h1>
-            <div></div>
+    <a class="skip" href="#start">본문으로 건너뛰기</a>
+
+    <header class="site-bar">
+        <div class="site-bar-inner">
+            <a class="site-brand" href="index.html"><img src="assets/logo/finder-green-symbol-green.svg" alt="" width="40" height="40"><span>FINDER GREEN</span></a>
+            <nav class="site-nav" aria-label="주요 메뉴">
+                <a href="my-quotes.html">내 견적</a>
+                <a class="nav-wide" href="login.html">로그인</a>
+                <a class="site-cta" href="estimate.html"><span class="cta-long">AI 가상견적 받기</span><span class="cta-short">견적 받기</span></a>
+            </nav>
         </div>
     </header>
 
-    <div class="estimate-container">
+    <main class="flow" id="start">
+    <div class="estimate-container panel">
+        <div class="panel-head">
+            <a class="panel-back" href="estimate.html" aria-label="제품 다시 고르기"></a>
+            <h1>골프티 AI 가상견적</h1>
+        </div>
+        <div class="panel-body">
         <!-- Step Indicator -->
         <div class="step-indicator">
             <div class="step active" id="step1">
                 <span class="step-number">1</span>
-                <span class="step-name">골프티 선택</span>
+                <span class="step-name">시작 방법</span>
             </div>
             <div class="step-line"></div>
             <div class="step" id="step2">
@@ -50,7 +63,24 @@
                 </div>
             </div>
 
-            <button class="btn-primary" id="nextBtn1" disabled>다음 단계로</button>
+            <h3 class="start-title">참고할 이미지가 있으신가요?</h3>
+            <!-- The two ways to start. Both go to step 2 (estimate-common.js); the choice only decides whether
+                 step 2 opens with the upload area. -->
+            <div class="pick-grid start-grid">
+                <button class="pick" id="nextBtn1" type="button" data-start="image" disabled>
+                    <span class="pick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5L21 17"/></svg></span>
+                    <span class="pick-name">참고 이미지가 있어요</span>
+                    <span class="pick-hint">참고 이미지나 디자인 파일을 견적 요청에 첨부해요. 사진 AI 분석은 선글라스에서만 지원해요.</span>
+                </button>
+                <button class="pick" id="manualBtn" type="button" data-start="manual" disabled>
+                    <span class="pick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span>
+                    <span class="pick-name">이미지 없이 직접 입력할게요</span>
+                    <span class="pick-hint">재질과 수량을 직접 입력해 예상 가격 범위를 확인해요.</span>
+                </button>
+            </div>
+            <p class="start-note">먼저 위에서 종류를 선택해 주세요.</p>
+
+            <p class="scope-note"><b>로그인 없이</b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있어요.</p>
         </section>
 
         <!-- Step 2: Detailed Information -->
@@ -59,9 +89,15 @@
             <p class="step-description">골프티에 대한 상세 정보를 입력해주세요.</p>
 
             <div class="form-section">
-                <div class="form-group full-width">
+                <p class="mode-line mode-when-image">참고 이미지로 시작했어요. <button type="button" class="link-button" data-start="manual">이미지 없이 입력하기</button></p>
+                <p class="mode-line mode-when-manual">이미지 없이 직접 입력하고 있어요. <button type="button" class="link-button" data-start="image">참고 이미지 올리기</button></p>
+
+                <div class="form-group full-width image-only">
                     <div id="attachments"></div>
                 </div>
+
+                <h3 class="form-subtitle">사양 입력</h3>
+                <p class="form-legend">* 표시는 필수 항목이에요. 나머지는 선택 항목이에요.</p>
 
                 <div class="form-row">
                     <div class="form-group">
@@ -146,7 +182,9 @@
                 <p><a href="index.html">홈으로 돌아가기</a></p>
             </div>
         </section>
+        </div>
     </div>
+    </main>
 
     <script src="config.js"></script>
     <script src="estimate-api.js"></script>

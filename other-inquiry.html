@@ -3,29 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>기타 맞춤형 제품 AI 문의 - Bridge Path</title>
+    <title>다른 골프용품 문의 - FINDER GREEN</title>
+    <link rel="icon" href="assets/logo/favicon.ico" sizes="48x48">
+    <link rel="icon" href="assets/logo/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/logo/apple-touch-icon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="other-inquiry.css">
     <link rel="stylesheet" href="estimate-customer.css">
 </head>
 
 <body>
-    <!-- Header -->
-    <header class="inquiry-header">
-        <div class="header-container">
-            <button class="back-button" onclick="window.history.back()">← 돌아가기</button>
-            <h1>기타 맞춤형 제품 AI 문의</h1>
-            <div></div>
+    <a class="skip" href="#start">본문으로 건너뛰기</a>
+
+    <header class="site-bar">
+        <div class="site-bar-inner">
+            <a class="site-brand" href="index.html"><img src="assets/logo/finder-green-symbol-green.svg" alt="" width="40" height="40"><span>FINDER GREEN</span></a>
+            <nav class="site-nav" aria-label="주요 메뉴">
+                <a href="my-quotes.html">내 견적</a>
+                <a class="nav-wide" href="login.html">로그인</a>
+                <a class="site-cta" href="estimate.html"><span class="cta-long">AI 가상견적 받기</span><span class="cta-short">견적 받기</span></a>
+            </nav>
         </div>
     </header>
 
-    <div class="inquiry-container">
-        <div class="inquiry-content">
-            <h2>맞춤형 제품에 대해 문의해주세요</h2>
+    <main class="flow" id="start">
+    <div class="inquiry-container panel">
+        <div class="panel-head">
+            <a class="panel-back" href="estimate.html" aria-label="제품 다시 고르기"></a>
+            <h1>다른 골프용품 문의</h1>
+        </div>
+        <div class="inquiry-content panel-body">
+            <h2>어떤 골프용품이 필요하신지 알려주세요</h2>
             <p class="inquiry-description">
-                원하시는 제품에 대한 정보와 이미지를 함께 보내주시면,
-                저희 팀이 최적의 솔루션을 제안해드리겠습니다.
+                선글라스, 골프화, 골프티 말고 다른 골프용품이 필요하시면 제품 설명과 수량을 적어 보내주세요. 담당자가 소싱할 수 있는지 확인해요.
+                이 문의에는 AI 가상견적(예상 가격 범위)이 없고, 로그인 없이 접수할 수 있어요.
             </p>
+            <p class="form-legend">* 표시는 필수 항목이에요. 나머지는 선택 항목이에요.</p>
 
             <form id="inquiryForm" class="inquiry-form" novalidate>
                 <!-- Attachments: the shared component of the estimate pages -->
@@ -85,6 +98,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <script src="config.js"></script>
     <script src="estimate-api.js"></script>

@@ -1,38 +1,32 @@
-/* The shared base of every page but the home page (home.css carries its own copy of the tokens,
-   which its test reads). A spec sheet: square corners, hairline grid, mono labels, one blue.
-   Tokens: design-system/bridgepath/MASTER.md */
+/* The shared base of every page (the home page loads it before home.css). The colours are those of
+   the FINDER GREEN logo kit (2026-11-11): Pine for the text and the buttons, white panels on Ivory,
+   Sage for quiet washes. Tokens: design-system/bridgepath/MASTER.md */
 :root {
-    --ink: #222222;
-    --ink-soft: #55595e;       /* 7:1 on white: for the small texts */
-    --blue: #5a76a8;           /* the blue of the company logo (white text on it: 4.57:1) */
-    --blue-deep: #44598a;      /* the same blue, darker: small texts and hover (6.9:1 on white) */
-    --blue-tint: #eef1f7;      /* a wash of the blue: notices and what is selected, never for text */
-    --gray: #9c9c9c;           /* lines and shapes only, never for text */
-    --line: #d9d9d9;           /* the grid: decoration */
-    --line-strong: #8a8a8a;    /* the edge of a control: 3:1 */
-    --paper: #f8f8f8;
+    --ink: #183d35;            /* Pine: the text and the buttons. 11.9:1 on white, 10.6:1 on the ivory */
+    --ink-strong: #0e2a24;     /* a pine button under the pointer; the footer */
+    --ink-soft: #4f6259;       /* 6.5:1 on white, 5.8:1 on the ivory: for the small texts */
+    --accent: #183d35;         /* the main action and the small marks: Pine too (the kit has one colour) */
+    --accent-soft: #e4e9e1;    /* a wash of the Sage: never for text */
+    --sage: #a7b5a2;           /* Sage itself: a point or a ground, never for text (2.2:1 on white) */
+    --line: #e1ded2;           /* hairlines: decoration */
+    --line-strong: #788a80;    /* the edge of a control: 3.7:1 on white, 3.3:1 on the ivory */
+    --paper: #f5f2e9;          /* Ivory: the page */
     --white: #ffffff;
-    --tint-sunglasses: #e6f3ee;
-    --tint-shoes: #f8f1d8;
-    --tint-golf: #ece8f8;
-    --tint-other: #fbe9df;
+    --note: #f2efe5;           /* a quiet box on a white panel: notices, hints */
     --danger: #b00020;
     --danger-tint: #fdecea;
     --ok: #1f6b3a;
+    --brand: #183d35;          /* the pine of the FINDER GREEN logo: the name beside the mark, the closing band */
+    --radius: 2px;             /* panels and large cards: square, as in the logo kit */
+    --radius-s: 2px;           /* controls, buttons and small boxes */
     --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
     --font: "Pretendard Variable", Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
     --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-html {
-    scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
     font-family: var(--font);
@@ -45,30 +39,15 @@ body {
     overflow-wrap: break-word;
 }
 
-a {
-    color: var(--blue-deep);
-    text-underline-offset: 3px;
-}
+a { color: var(--ink); text-underline-offset: 3px; }
 
-button,
-input,
-select,
-textarea {
-    font-family: inherit;
-}
+button, input, select, textarea { font-family: inherit; }
 
-h1,
-h2,
-h3,
-h4 {
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-}
+h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
-:focus-visible {
-    outline: 2px solid var(--blue);
-    outline-offset: 2px;
-}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+[hidden] { display: none !important; }
 
 .skip {
     position: absolute;
@@ -77,25 +56,14 @@ h4 {
     background: var(--ink);
     color: var(--white);
     padding: 10px 14px;
+    border-radius: var(--radius-s);
     z-index: 200;
 }
 
-.skip:focus {
-    top: 12px;
-}
+.skip:focus { top: 12px; }
 
-/* the small mono caption over a section */
-.label {
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-bottom: 18px;
-}
-
-/* ==================== The bar at the top (the same bar as the home page) ==================== */
-.header {
+/* ==================== The bar at the top: the mark and the name, the links, one pine button ==================== */
+.site-bar {
     position: sticky;
     top: 0;
     z-index: 100;
@@ -103,147 +71,237 @@ h4 {
     border-bottom: 1px solid var(--line);
 }
 
-.header-container {
+.site-bar-inner {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    max-width: 1120px;
+    min-height: 60px;
+    margin: 0 auto;
+    padding: 0 clamp(14px, 4vw, 32px);
 }
 
-.logo {
+.site-brand {
     display: inline-flex;
     align-items: center;
-    min-height: 52px;
-    padding: 0 clamp(16px, 3vw, 32px);
-    font-weight: 800;
-    font-size: 1.1rem;
-    letter-spacing: -0.01em;
-    color: var(--ink);
+    gap: 10px;
+    min-height: 44px;
+    font-weight: 500;
+    font-size: 1.08rem;
+    letter-spacing: 0.03em;
+    color: var(--brand);
     text-decoration: none;
     white-space: nowrap;
-    border-right: 1px solid var(--line);
 }
 
-.navbar {
-    display: flex;
-    align-items: stretch;
-}
+/* The F of the logo kit, with the empty space the file keeps around it: the negative margins put
+   the letter itself on the edge of the page and next to the name. */
+.site-brand img { display: block; width: 40px; height: 40px; margin: 0 -6px 0 -8px; }
 
-.navbar a {
-    display: flex;
+.site-nav { display: flex; align-items: center; gap: clamp(2px, 1vw, 10px); }
+
+.site-nav a {
+    display: inline-flex;
     align-items: center;
-    padding: 0 clamp(12px, 2vw, 26px);
-    min-height: 52px;
-    text-decoration: none;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: var(--radius-s);
     font-size: 0.92rem;
     color: var(--ink-soft);
+    text-decoration: none;
     white-space: nowrap;
-    border-left: 1px solid var(--line);
     transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-.navbar a:hover {
+.site-nav a:hover { color: var(--ink); background: var(--note); }
+
+.site-nav .site-cta {
+    min-height: 40px;
+    margin-left: 6px;
+    padding: 0 18px;
+    border-radius: var(--radius-s);
+    background: var(--ink);
+    color: var(--white);
+    font-weight: 500;
+}
+
+.site-nav .site-cta:hover { background: var(--ink-strong); color: var(--white); }
+
+/* the short word of the button is for a phone */
+.cta-short { display: none; }
+
+/* ==================== A flow: one white panel on the ivory page ==================== */
+.flow {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: clamp(14px, 3vw, 28px) clamp(12px, 3vw, 20px) 72px;
+}
+
+.panel {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 56px;
+    padding: 0 clamp(16px, 3.5vw, 28px);
+    border-bottom: 1px solid var(--line);
+}
+
+.panel-head h1 { font-size: 1.05rem; font-weight: 600; }
+
+/* the way back: a drawn chevron in a square big enough for a thumb */
+.panel-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    margin-left: -14px;
+    border-radius: var(--radius-s);
+    text-decoration: none;
+}
+
+.panel-back::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    margin-left: 4px;
+    border-left: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+    transform: rotate(45deg);
+}
+
+.panel-back:hover { background: var(--note); }
+
+.panel-body { padding: clamp(20px, 3.5vw, 30px) clamp(16px, 3.5vw, 28px) clamp(24px, 4vw, 36px); }
+
+/* "Step 01/03": the number of the step in the pine, the count quiet */
+.step-tag { font-weight: 600; font-size: 0.95rem; }
+.step-tag b { color: var(--accent); }
+.step-tag span { color: var(--ink-soft); font-weight: 600; }
+
+/* ==================== Large cards to choose from (the products, the two ways to start) ==================== */
+.pick-grid {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.pick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 184px;
+    padding: 24px 18px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     color: var(--ink);
-    background: var(--paper);
+    font-size: 1rem;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-/* the login link is the one action of the bar */
-.navbar a:last-child {
-    color: var(--white);
-    background: var(--blue);
-    border-left-color: var(--blue);
-    font-weight: 600;
+.pick:hover:not(:disabled),
+.pick:focus-visible { border-color: var(--ink); background: var(--paper); }
+
+.pick:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.pick-icon { display: block; width: 26px; height: 26px; margin-bottom: 6px; }
+.pick-icon svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+.pick-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 1.08rem; letter-spacing: -0.025em; }
+
+.pick-name::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: rotate(45deg);
 }
 
-.navbar a:last-child:hover {
-    color: var(--white);
-    background: var(--blue-deep);
+.pick-hint { max-width: 24em; font-size: 0.86rem; line-height: 1.5; color: var(--ink-soft); }
+
+/* three cards in a row (the three products); one column on a narrow screen like the others */
+.pick-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* a way to something that is not one of the cards */
+.more-link { margin-top: 12px; font-size: 0.9rem; color: var(--ink-soft); }
+.more-link a { display: inline-block; padding: 8px 4px; font-weight: 600; }
+
+/* what can be done without an account, and what needs one */
+.scope-note {
+    margin-top: 20px;
+    padding: 12px 14px;
+    border-radius: var(--radius-s);
+    background: var(--note);
+    font-size: 0.86rem;
+    color: var(--ink-soft);
 }
+
+.scope-note b { color: var(--ink); }
 
 /* ==================== The foot (the same foot as the home page) ==================== */
 .footer {
-    background: var(--ink);
+    background: var(--ink-strong);
     padding: 44px clamp(20px, 5vw, 64px) 52px;
     font-size: 0.85rem;
-    color: #c4c7cb;            /* 10:1 on the ink */
+    color: #c9d2c6;            /* 10:1 on the dark pine */
 }
 
-.footer p {
-    margin: 4px auto 0;
-    max-width: 1240px;
-}
-
-.footer .foot-name {
-    color: var(--white);
-    font-weight: 700;
-    font-size: 1rem;
-}
-
-.footer a {
-    color: #c4c7cb;
-}
-
-.footer a:hover {
-    color: var(--white);
-}
-
-.footer .foot-copy {
-    margin-top: 14px;
-}
+.footer p { margin: 4px auto 0; max-width: 1120px; }
+.footer .foot-name { color: var(--white); font-weight: 600; font-size: 1rem; }
+.footer a { color: #c9d2c6; }
+.footer a:hover { color: var(--white); }
+.footer .foot-copy { margin-top: 14px; }
 
 /* ==================== Motion ==================== */
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 @keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    html {
-        scroll-behavior: auto;
-    }
+    html { scroll-behavior: auto; }
 
     *,
     *::before,
-    *::after {
-        animation: none !important;
-        transition: none !important;
-    }
+    *::after { animation: none !important; transition: none !important; }
 }
 
 /* ==================== Narrow screens ==================== */
-@media (max-width: 520px) {
-    .logo {
-        padding: 0 12px;
-        font-size: 1rem;
-    }
+@media (max-width: 720px) {
+    /* the links that are not needed to get on: they are in the page or behind "내 견적" */
+    .site-nav .nav-wide { display: none; }
+}
 
-    .navbar a {
-        padding: 0 10px;
-        font-size: 0.82rem;
-    }
+@media (max-width: 720px) {
+    .pick-three { grid-template-columns: 1fr; }
+    .pick-three .pick { min-height: 0; padding: 20px 16px; }
+}
 
-    /* four links do not fit beside the name: the link to the steps of the home page goes first */
-    .navbar a:first-child {
-        display: none;
-    }
+@media (max-width: 560px) {
+    .pick-grid { grid-template-columns: 1fr; }
+    .pick { min-height: 0; padding: 20px 16px; }
+}
 
-    .navbar a:nth-child(2) {
-        border-left: 0;
-    }
+@media (max-width: 420px) {
+    .site-brand { gap: 8px; font-size: 0.95rem; letter-spacing: 0.02em; }
+    .site-nav a { padding: 0 8px; font-size: 0.86rem; }
+    .site-nav .site-cta { margin-left: 2px; padding: 0 13px; }
+    .cta-long { display: none; }
+    .cta-short { display: inline; }
 }

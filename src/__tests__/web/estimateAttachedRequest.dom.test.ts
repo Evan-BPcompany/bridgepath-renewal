@@ -364,7 +364,7 @@ describe('a sunglasses request with the photo that was analysed', () => {
 describe('a request of the other pages with files', () => {
   function openShoes(): void {
     loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
-    click($('.category-card[data-category="sneakers"]'));
+    click($('.category-card[data-category="other"]'));
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
     check($('#size250'));
@@ -443,7 +443,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     await settle();
 
     expect($('#receiptSummary').hidden).toBe(false);
-    expect(row('제품 종류')).toBe('선글라스');
+    expect(row('제품 종류')).toBe('일반 선글라스');
     expect(row('프레임 재질')).toBe('아세테이트');
     expect(row('렌즈 타입')).toBe('그래디언트 렌즈');
     expect(row('수량')).toBe('500개');
@@ -493,7 +493,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
 
   it('shows what the customer wrote as text, never as markup', async () => {
     loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
-    click($('.category-card[data-category="sneakers"]'));
+    click($('.category-card[data-category="other"]'));
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
     check($('#size250'));
@@ -517,7 +517,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
 
   it('lists the product of the shoes page, with the sizes and the kind', async () => {
     loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
-    click($('.category-card[data-category="sneakers"]'));
+    click($('.category-card[data-category="other"]'));
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
     check($('#size250'));
@@ -533,7 +533,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     click($('#submitBtn'));
     await settle();
 
-    expect(row('제품 종류')).toBe('운동화');
+    expect(row('제품 종류')).toBe('골프화');
     expect(row('주요 재질')).toBe('가죽');
     expect(row('사이즈')).toBe('250, 270');
     expect(row('수량')).toBe('1,200켤레');

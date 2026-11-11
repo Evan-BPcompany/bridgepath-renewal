@@ -31,7 +31,7 @@ function click(element: any): void {
 const PAGES: Array<{ page: string; card: string; fill: () => void; required: string[] }> = [
   {
     page: 'sunglasses',
-    card: 'optical',
+    card: 'sports',
     required: ['lensType', 'frameMaterial'],
     fill: () => {
       choose($('#lensType'), 'normal');
@@ -41,7 +41,7 @@ const PAGES: Array<{ page: string; card: string; fill: () => void; required: str
   },
   {
     page: 'shoes',
-    card: 'sneakers',
+    card: 'other',
     required: ['material'],
     fill: () => {
       choose($('#material'), 'leather');
@@ -216,14 +216,14 @@ describe('estimate flow: values of the pages', () => {
   });
 
   it('reads the sizes of the shoes page from the checked boxes', () => {
-    open('shoes', 'sneakers');
+    open('shoes', 'other');
     check($('#size270'));
     check($('#size250'));
     expect(g.BridgePathFlow.collectValues('shoes').sizes).toEqual(['250', '270']);
   });
 
   it('asks for a size on the shoes page and puts the focus on the first size', () => {
-    open('shoes', 'sneakers');
+    open('shoes', 'other');
     choose($('#material'), 'leather');
     type($('#quantity'), '600');
     click($('#nextBtn2'));
@@ -246,7 +246,7 @@ describe('estimate flow: values of the pages', () => {
   });
 
   it('goes back to step 1 when no card is selected', () => {
-    open('sunglasses', 'optical');
+    open('sunglasses', 'sports');
     $$('.category-card').forEach(card => card.classList.remove('selected'));
     choose($('#lensType'), 'normal');
     choose($('#frameMaterial'), 'metal');
@@ -256,7 +256,7 @@ describe('estimate flow: values of the pages', () => {
   });
 
   it('checks the optional values too (a frame colour that is too long)', () => {
-    open('sunglasses', 'optical');
+    open('sunglasses', 'sports');
     choose($('#lensType'), 'normal');
     choose($('#frameMaterial'), 'metal');
     type($('#quantity'), '5');

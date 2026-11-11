@@ -26,15 +26,19 @@ describe('the customer pages served by the server', () => {
     }
   });
 
-  it('serves the logo and the picture of the stylesheet from assets/, and nothing else by that way', async () => {
-    const logo = await request(app).get('/assets/logo/logo-header.png');
+  it('serves the logo files that the pages use from assets/, and nothing else by that way', async () => {
+    const logo = await request(app).get('/assets/logo/finder-green-symbol-green.svg');
     expect(logo.status).toBe(200);
-    expect(logo.headers['content-type']).toMatch(/image\/png/);
+    expect(logo.headers['content-type']).toMatch(/image\/svg\+xml/);
     expect(logo.headers['cache-control']).toBe('no-cache');
-    // home.css loads this one with url(): no page names it.
-    expect((await request(app).get('/assets/hero-bridge.svg')).status).toBe(200);
+    expect((await request(app).get('/assets/logo/finder-green-signature-white.svg')).status).toBe(200);
+    const icon = await request(app).get('/assets/logo/apple-touch-icon.png');
+    expect(icon.status).toBe(200);
+    expect(icon.headers['content-type']).toMatch(/image\/png/);
+    expect((await request(app).get('/assets/logo/favicon.ico')).status).toBe(200);
 
-    for (const url of ['/assets/nothing.png', '/assets/', '/assets/logo/', '/assets/..%2fpackage.json', '/assets/%2e%2e/package.json', '/assets/../package.json', '/assets/logo/..%2f..%2f.env']) {
+    // Files that are in assets/ and that no page uses any more are not served.
+    for (const url of ['/assets/hero-bridge.svg', '/assets/logo/logo-header.png', '/assets/logo/logo-mark.png', '/assets/logo/logo-header-white.png', '/assets/nothing.png', '/assets/', '/assets/logo/', '/assets/..%2fpackage.json', '/assets/%2e%2e/package.json', '/assets/../package.json', '/assets/logo/..%2f..%2f.env']) {
       expect((await request(app).get(url)).status).toBe(404);
     }
   });

@@ -1,286 +1,39 @@
-/* The estimate hub (estimate.html): the four products as one hairline grid, the three steps as a table row.
-   Tokens and the bar at the top: style.css. */
+/* The estimate hub (estimate.html): step 01, the four products as large cards in one white panel.
+   The panel, the cards and the tokens: style.css. */
 
-/* ==================== Intro and the four products ==================== */
-.estimate-intro,
-.info-section {
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: clamp(48px, 6vw, 80px) clamp(20px, 5vw, 64px);
+.flow-title {
+    margin: 4px 0 20px;
+    font-size: clamp(1.2rem, 2.6vw, 1.45rem);
+    font-weight: 500;
 }
 
-.info-section {
-    padding-top: 0;
-}
-
-.estimate-intro h1 {
-    font-size: clamp(2rem, 4.6vw, 3.4rem);
-    line-height: 1.15;
-    font-weight: 800;
-    letter-spacing: -0.045em;
-    text-wrap: balance;
-}
-
-.intro-lead {
-    margin-top: 16px;
-    max-width: 36em;
-    color: var(--ink-soft);
-    font-size: clamp(1rem, 1.5vw, 1.12rem);
-}
-
-.estimate-grid {
+/* what follows the choice: three short lines, numbered */
+.flow-steps {
     list-style: none;
-    counter-reset: product;
+    counter-reset: flow;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: clamp(28px, 4vw, 48px);
-    background: var(--white);
-    border: 1px solid var(--line-strong);
-}
-
-.estimate-grid li {
-    counter-increment: product;
-    display: flex;
-}
-
-.estimate-grid li + li {
-    border-left: 1px solid var(--line);
-}
-
-.estimate-grid li:nth-child(1) { --tint: var(--tint-sunglasses); }
-.estimate-grid li:nth-child(2) { --tint: var(--tint-shoes); }
-.estimate-grid li:nth-child(3) { --tint: var(--tint-golf); }
-.estimate-grid li:nth-child(4) { --tint: var(--tint-other); }
-
-.estimate-card {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 280px;
-    padding: 20px 22px 24px;
-    color: var(--ink);
-    text-decoration: none;
-    transition: background-color 0.15s ease;
-    animation: slideUp 0.45s var(--ease) both;
-}
-
-.estimate-grid li:nth-child(2) .estimate-card { animation-delay: 0.04s; }
-.estimate-grid li:nth-child(3) .estimate-card { animation-delay: 0.08s; }
-.estimate-grid li:nth-child(4) .estimate-card { animation-delay: 0.12s; }
-
-.estimate-card:hover,
-.estimate-card:focus-visible {
-    background: var(--tint, var(--paper));
-}
-
-/* [ 01 ] SUNGLASSES */
-.card-index {
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--blue);
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    color: var(--blue-deep);
-}
-
-.card-index::before {
-    content: "[ 0" counter(product) " ] ";
-}
-
-.card-name {
-    margin-top: 36px;
-    font-size: clamp(1.35rem, 2.2vw, 1.7rem);
-    font-weight: 700;
-    letter-spacing: -0.03em;
-}
-
-.card-description {
-    margin-top: 8px;
-    margin-bottom: auto;
-    font-size: 0.93rem;
-    color: var(--ink-soft);
-}
-
-/* the action: a word and a drawn arrow, like the choices of the home page */
-.card-action {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    gap: 10px;
     margin-top: 28px;
-    padding-top: 14px;
+    padding-top: 22px;
     border-top: 1px solid var(--line);
-    font-weight: 700;
-    font-size: 0.95rem;
-    color: var(--blue-deep);
+    font-size: 0.9rem;
+    color: var(--ink-soft);
 }
 
-.card-action::after {
-    content: "";
-    width: 11px;
-    height: 11px;
-    margin-right: 4px;
-    border-top: 2px solid currentColor;
-    border-right: 2px solid currentColor;
-    transform: rotate(45deg);
-    transition: transform 0.2s var(--ease);
-}
-
-.estimate-card:hover .card-action::after,
-.estimate-card:focus-visible .card-action::after {
-    transform: translateX(4px) rotate(45deg);
-}
-
-/* ==================== The three steps ==================== */
-.info-section h2 {
-    font-size: clamp(1.7rem, 3.6vw, 2.7rem);
-    line-height: 1.22;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    text-wrap: balance;
-}
-
-.process-grid {
-    list-style: none;
-    counter-reset: step;
+.flow-steps li {
+    counter-increment: flow;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin-top: clamp(24px, 4vw, 44px);
-    background: var(--white);
-    border: 1px solid var(--line-strong);
+    grid-template-columns: 2.2rem minmax(0, 1fr);
 }
 
-.process-step {
-    counter-increment: step;
-    padding: 20px 22px 26px;
+.flow-steps li::before {
+    content: "0" counter(flow);
+    grid-row: 1 / span 2;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
 }
 
-.process-step + .process-step {
-    border-left: 1px solid var(--line);
-}
+.flow-steps li:first-child::before { color: var(--accent); }
 
-.process-step::before {
-    content: "STEP 0" counter(step) " / 03";
-    display: block;
-    margin-bottom: 28px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--line);
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    color: var(--ink-soft);
-}
-
-.process-step h3 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-}
-
-.process-step p {
-    margin-top: 8px;
-    font-size: 0.93rem;
-    color: var(--ink-soft);
-}
-
-/* ==================== The last call ==================== */
-.cta-section {
-    background: #2f2d2c;          /* the charcoal of the logo */
-    color: var(--white);
-}
-
-.cta-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: clamp(20px, 4vw, 56px);
-    max-width: 1240px;
-    margin: 0 auto;
-    padding: clamp(36px, 5vw, 56px) clamp(20px, 5vw, 64px);
-}
-
-.cta-section h2 {
-    font-size: clamp(1.3rem, 2.6vw, 1.9rem);
-    font-weight: 800;
-    letter-spacing: -0.035em;
-}
-
-.cta-section p {
-    margin-top: 8px;
-    color: #d5d8dc;
-}
-
-.cta-button {
-    padding: 16px 30px;
-    background: var(--blue);
-    color: var(--white);
-    font-weight: 700;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: background-color 0.15s ease;
-}
-
-.cta-button:hover {
-    background: var(--blue-deep);
-}
-
-.cta-button:focus-visible {
-    outline-color: var(--white);
-}
-
-/* ==================== Narrow screens ==================== */
-@media (max-width: 1100px) {
-    .estimate-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .estimate-grid li:nth-child(3) {
-        border-left: 0;
-    }
-
-    .estimate-grid li:nth-child(n + 3) {
-        border-top: 1px solid var(--line);
-    }
-
-    .estimate-card {
-        min-height: 230px;
-    }
-}
-
-@media (max-width: 900px) {
-    .process-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .process-step + .process-step {
-        border-left: 0;
-        border-top: 1px solid var(--line);
-    }
-
-    .process-step::before {
-        margin-bottom: 16px;
-    }
-
-    .cta-inner {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-}
-
-@media (max-width: 520px) {
-    .estimate-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .estimate-grid li + li {
-        border-left: 0;
-        border-top: 1px solid var(--line);
-    }
-
-    .estimate-card {
-        min-height: 0;
-    }
-
-    .card-name {
-        margin-top: 20px;
-    }
-}
+.flow-steps b { display: block; color: var(--ink); }

@@ -12,20 +12,33 @@ const g = globalThis as any;
 const $ = (selector: string): any => g.document.querySelector(selector);
 const $$ = (selector: string): any[] => Array.from(g.document.querySelectorAll(selector));
 const html = read('index.html');
-const css = read('home.css');
+// The home page loads the shared base (tokens, the bar at the top, the focus ring) and then its own sheet.
+const css = read('style.css') + read('home.css');
 
 describe('index.html: the question and the way in', () => {
-  it('opens with one question as the only h1, and the four ways to answer it', () => {
+  it('opens with one question as the only h1, and the three golf goods that answer it (2026-11-11)', () => {
     expect((html.match(/<h1[ >]/g) || []).length).toBe(1);
-    expect(html).toContain('어떤 제품을 만들고 싶으세요?');
+    expect(html).toContain('어떤 골프용품을 찾으세요?');
+    expect(html).toContain('골프용품 소싱 에이전트');
+    // The line of the service, as the user wrote it for FINDER GREEN (2026-11-11).
+    expect(html).toContain('<p class="hero-slogan">골프 브랜드를 위한 소싱·제작 파트너, 파인더그린</p>');
 
     const choices = [...html.matchAll(/<a href="([^"]+)" data-word="([^"]+)">/g)].map(match => [match[1], match[2]]);
     expect(choices).toEqual([
       ['sunglasses-estimate.html', '선글라스'],
-      ['shoes-estimate.html', '신발'],
-      ['golf-estimate.html', '골프티'],
-      ['other-inquiry.html', '기타']
+      ['shoes-estimate.html', '골프화'],
+      ['golf-estimate.html', '골프티']
     ]);
+  });
+
+  it('keeps the way to other golf goods as a line under the cards, not as a card', () => {
+    expect(html).toMatch(/<p class="choices-more">[^<]*<a href="other-inquiry\.html">문의하기<\/a><\/p>/);
+  });
+
+  it('is a sourcing agent: it does not say that it makes the goods itself, and promises no export service', () => {
+    const text = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, ' ');
+
+    expect(text).not.toMatch(/직접 제조|자체 공장|수출 대행|해외 수출/);
   });
 
   it('says the minimum orders next to the choices that have one', () => {
@@ -70,7 +83,11 @@ describe('index.html: the footer', () => {
   it('gives the business details as in the registration papers of the company', () => {
     const footer = html.slice(html.indexOf('<footer'), html.indexOf('</footer>'));
 
+    // The service is FINDER GREEN (2026-11-11); the company that runs it is still named in full.
+    expect(footer).toContain('FINDER GREEN · 파인더그린');
     expect(footer).toContain('주식회사 브릿지패스');
+    expect(html).toMatch(/<a class="site-brand" href="index\.html"><img src="assets\/logo\/finder-green-symbol-green\.svg" alt="" width="40" height="40"><span>FINDER GREEN<\/span><\/a>/);
+    expect(html.slice(0, html.indexOf('<footer'))).not.toMatch(/Bridge Path|브릿지패스/);
     expect(footer).toContain('대표 옥보경');
     expect(footer).toContain('사업자등록번호 478-86-03621');
     expect(footer).toContain('통신판매업 신고번호 제 2025-수원팔달-0228호');
@@ -106,25 +123,64 @@ describe('index.html: structure and files', () => {
     expect(html).toMatch(/<div class="stack" aria-hidden="true">/);
   });
 
+  it('shows no placeholder client or review: the two sections stay hidden until there is something real', () => {
+    expect(html).toMatch(/<section class="partners"[^>]*\shidden>/);
+    expect(html).toMatch(/<section class="reviews"[^>]*\shidden>/);
+    const shown = html.replace(/<section class="(?:partners|reviews)"[\s\S]*?<\/section>/g, '');
+    expect(shown).not.toMatch(/LOGO 0\d|후기가 준비되면/);
+  });
+
+  it('starts an estimate from the button of the hero and from each of the four products', () => {
+    expect(html).toMatch(/<a class="hero-cta" href="estimate\.html">/);
+    expect((html.match(/<img /g) || []).length).toBe(2); // the mark of the bar and the logo of the closing: no photo
+  });
+
   it('keeps the old sections out: no tabs, no cards of services', () => {
     expect(html).not.toMatch(/role="tab/);
     expect(html).not.toContain('service-card');
   });
 });
 
-describe('home.css: the colours of the palette, and a quality floor', () => {
-  it('uses the colours of the chosen picture, plus ink and paper, as variables', () => {
-    expect(css).toMatch(/--blue:\s*#5a76a8/i);
-    expect(css).toMatch(/--gray:\s*#9c9c9c/i);
-    expect(css).toMatch(/--ink:\s*#222222/i);
-    expect(css).toMatch(/--paper:\s*#f8f8f8/i);
+describe('style.css and home.css: the colours of the palette, and a quality floor', () => {
+  it('loads the shared base before its own sheet', () => {
+    const styles = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)].map(match => match[1]);
+    expect(styles).toEqual(['style.css', 'home.css']);
   });
 
-  it('never uses the gray for a text (it has 2.75:1 with white)', () => {
+  it('takes its colours from the FINDER GREEN logo kit: Pine on white and Ivory, Sage for washes (2026-11-11)', () => {
+    expect(css).toMatch(/--ink:\s*#183d35/i);
+    expect(css).toMatch(/--paper:\s*#f5f2e9/i);
+    expect(css).toMatch(/--accent:\s*#183d35/i);
+    expect(css).toMatch(/--sage:\s*#a7b5a2/i);
+    // The orange and the black of 2026-11-10 and the blue of the design before it are gone.
+    expect(css).not.toMatch(/--blue|#5a76a8|#c2410c|#9a330a|#222222/i);
+    // Sage is too light for a text (2.2:1 on white).
+    expect(css).not.toMatch(/(?:^|[\s;{])color:\s*(?:var\(--sage\)|#a7b5a2)/i);
+  });
+
+  it('keeps the accent for what matters: the main button and small marks, never a block of text', () => {
+    const homeOnly = read('home.css');
+    const accentText = [...homeOnly.matchAll(/([^{}]+)\{[^}]*(?:^|[\s;])color:\s*var\(--accent\)[^}]*\}/g)].map(match => match[1].trim());
+
+    // Only the generated numbers and the hover of the arrow take the accent as a colour of text or line.
+    accentText.forEach(selector => expect(selector).toMatch(/::before|::after/));
+    expect((homeOnly.match(/background:\s*var\(--accent\)/g) || []).length).toBeLessThanOrEqual(2);
+  });
+
+  it('never uses a light gray for a text', () => {
     const textColours = [...css.matchAll(/(?:^|[\s;{])color:\s*([^;]+);/g)].map(match => match[1].trim());
 
     expect(textColours).not.toContain('var(--gray)');
     expect(textColours.join(' ')).not.toMatch(/#9c9c9c/i);
+  });
+
+  it('is square and light, as in the logo kit: no pill button, no heavy weight (2026-11-11)', () => {
+    expect(css).toMatch(/--radius:\s*2px/);
+    expect(css).toMatch(/--radius-s:\s*2px/);
+    expect(css).not.toMatch(/font-weight:\s*(?:700|800|900|bold)/);
+    // The one round shape left is the wash behind the hero; no control is a pill.
+    const round = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{[^}]*border-radius:\s*999px[^}]*\}/g)].map(match => match[1].trim());
+    expect(round).toEqual(['.hero::before']);
   });
 
   it('shows the keyboard focus, respects reduced motion and has a layout for a phone', () => {
@@ -172,7 +228,7 @@ describe('the front panel (home.js)', () => {
     const links = $$('#choices a');
 
     fire(links[1], 'mouseenter');
-    expect($('#stackWord').textContent).toBe('신발');
+    expect($('#stackWord').textContent).toBe('골프화');
     expect($('#stackLabel').textContent).toBe('이 제품으로');
     fire(links[2], 'mouseenter');
     expect($('#stackWord').textContent).toBe('골프티');
@@ -191,7 +247,7 @@ describe('the front panel (home.js)', () => {
   });
 
   it('puts the word in as text', () => {
-    const link = $$('#choices a')[3];
+    const link = $$('#choices a')[2];
     link.setAttribute('data-word', '<img src=x onerror=alert(1)>');
 
     fire(link, 'mouseenter');

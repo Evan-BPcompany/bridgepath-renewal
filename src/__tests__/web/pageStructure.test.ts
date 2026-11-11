@@ -92,8 +92,8 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 
   it('has no behaviour of its own in the page script any more (no fake submit, no redirect)', () => {
     const code = read(`${page}-estimate.js`).replace(/^\s*\/\/.*$/gm, '').trim();
-    if (page === 'golf') {
-      // The golf tee is the one product of its page: the script only chooses its card.
+    if (page === 'golf' || page === 'shoes') {
+      // The golf tee and the golf shoe are the one product of their page: the script only chooses its card.
       expect(code).not.toMatch(/fetch|location|submit|innerHTML/);
       expect(code).toContain('card.click()');
     } else {

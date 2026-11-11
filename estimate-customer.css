@@ -16,7 +16,7 @@
 
 .customer-step .customer-fieldset legend {
     font-weight: 600;
-    color: var(--blue-deep);
+    color: var(--ink);
     padding: 0;
     margin-bottom: 0.5rem;
 }
@@ -36,12 +36,14 @@
 
 .customer-step .customer-choice input[type="radio"],
 .customer-step .customer-choice input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    min-height: 0;
+    height: 20px;
     padding: 0;
     margin: 0;
     flex: none;
     cursor: pointer;
+    accent-color: var(--ink);
 }
 
 .customer-step .customer-choice label {
@@ -58,13 +60,13 @@
 .customer-step .customer-consent-link {
     margin-left: 0.5rem;
     font-size: 0.9rem;
-    color: var(--blue-deep);
+    color: var(--ink);
 }
 
 .customer-step .customer-choice input:focus-visible,
 .customer-step .form-group input:focus-visible,
 .customer-step .customer-consent-link:focus-visible {
-    outline: 3px solid var(--blue-deep);
+    outline: 3px solid var(--accent);
     outline-offset: 2px;
 }
 
@@ -87,7 +89,7 @@
     margin-bottom: 1.2rem;
     padding: 0.8rem 1rem;
     border: 1px solid var(--danger);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--danger-tint);
     color: var(--danger);
     font-weight: 600;
@@ -97,25 +99,11 @@
 @media (max-width: 768px) {
     body[data-estimate-page] .step-indicator {
         flex-direction: row;
-        justify-content: center;
-        gap: 0;
+        gap: 4px 8px;
     }
 
     body[data-estimate-page] .step-indicator .step-line {
-        width: 24px;
-        height: 2px;
-        margin: 0 8px;
-    }
-
-    body[data-estimate-page] .step-indicator .step-number {
-        width: 32px;
-        height: 32px;
-        font-size: 0.9rem;
-    }
-
-    body[data-estimate-page] .step-indicator .step-name {
-        font-size: 0.75rem;
-        text-align: center;
+        width: 10px;
     }
 }
 
@@ -159,8 +147,8 @@
 .image-analysis-status {
     margin: 0.5rem 0 0;
     padding: 0.6rem 0.8rem;
-    border-radius: 0;
-    background: var(--blue-tint);
+    border-radius: var(--radius-s);
+    background: var(--note);
     font-size: 0.9rem;
     color: var(--ink);
 }
@@ -206,7 +194,7 @@
     margin: 0;
     padding: 1rem;
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--white);
     text-align: center;
 }
@@ -221,7 +209,7 @@
     margin: 0 0 1.5rem;
     padding: 1.1rem 1.2rem;
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--white);
 }
 
@@ -237,8 +225,8 @@
     width: 8px;
     height: 8px;
     margin-right: 0.5rem;
-    border-radius: 0;
-    background: var(--blue-deep);
+    border-radius: var(--radius-s);
+    background: var(--ink-strong);
 }
 
 .result-block p,
@@ -252,18 +240,18 @@
 .result-badge {
     margin-left: 0.4rem;
     padding: 0.1rem 0.6rem;
-    border: 1px solid var(--blue-deep);
-    border-radius: 0;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-s);
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--blue-deep);
+    color: var(--ink);
 }
 
 .result-note {
     margin: 0 0 0.8rem;
     padding: 0.6rem 0.8rem;
-    border-radius: 0;
-    background: var(--blue-tint);
+    border-radius: var(--radius-s);
+    background: var(--note);
 }
 
 .result-note:empty {
@@ -319,10 +307,11 @@
     font-weight: 600;
 }
 
+/* the estimated total is the one figure of the result in the pine */
 .result-table .result-total td {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--blue-deep);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--accent);
 }
 
 .result-status:empty,
@@ -359,9 +348,9 @@
 .attachments {
     margin: 0;
     padding: 1rem 1.2rem;
-    border: 1px dashed var(--blue-deep);
-    border-radius: 0;
-    background: var(--paper);
+    border: 0;
+    border-radius: var(--radius-s);
+    background: var(--note);
 }
 
 .attachments-title {
@@ -376,11 +365,12 @@
 
 .attachments-add {
     padding: 0.5rem 1.2rem;
-    border: 1px solid var(--blue-deep);
-    border-radius: 0;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-s);
     background: var(--white);
-    color: var(--blue-deep);
+    color: var(--ink);
     font-weight: 600;
+    min-height: 44px;
     cursor: pointer;
 }
 
@@ -403,7 +393,7 @@
     margin: 0 0 0.4rem;
     padding: 0.5rem 0.7rem;
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--white);
 }
 
@@ -421,10 +411,10 @@
 
 .attachments-tag {
     padding: 0.05rem 0.5rem;
-    border: 1px solid var(--blue-deep);
-    border-radius: 0;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-s);
     font-size: 0.75rem;
-    color: var(--blue-deep);
+    color: var(--ink);
 }
 
 .attachments-tag-warning {
@@ -435,7 +425,7 @@
 .attachments-remove {
     padding: 0.2rem 0.7rem;
     border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--white);
     font-size: 0.82rem;
     cursor: pointer;
@@ -464,10 +454,10 @@
 .receipt-copy {
     margin-left: 0.5rem;
     padding: 0.2rem 0.8rem;
-    border: 1px solid var(--blue-deep);
-    border-radius: 0;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-s);
     background: var(--white);
-    color: var(--blue-deep);
+    color: var(--ink);
     font-size: 0.82rem;
     cursor: pointer;
 }
@@ -482,7 +472,7 @@
     margin: 1rem 0;
     padding: 0.8rem 1rem;
     border: 1px solid var(--line);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--white);
     text-align: left;
 }
@@ -518,8 +508,8 @@
     margin-top: 28px;
     padding: 20px 22px;
     border: 1px solid var(--line);
-    border-radius: 0;
-    background: var(--blue-tint);
+    border-radius: var(--radius-s);
+    background: var(--note);
 }
 
 .detailed-card h3 {
@@ -535,7 +525,7 @@
 }
 
 .detailed-card .detailed-time {
-    color: var(--blue-deep);
+    color: var(--ink);
     font-weight: 600;
 }
 
@@ -546,7 +536,7 @@
 .detailed-login {
     margin-top: 14px;
     padding: 12px 14px;
-    border-radius: 0;
+    border-radius: var(--radius-s);
     background: var(--white);
     border: 1px solid var(--line);
 }
@@ -559,9 +549,19 @@
 .detailed-note {
     margin: 0 0 16px;
     padding: 10px 12px;
-    border-radius: 0;
-    background: var(--blue-tint);
-    color: var(--blue-deep);
+    border-radius: var(--radius-s);
+    background: var(--note);
+    color: var(--ink);
     font-size: 0.88rem;
     line-height: 1.5;
+}
+
+/* The result screen without a photo, or without the side blocks of the analysis (the manual way):
+   what is there takes the whole width. */
+.result-top:has(.result-photo[hidden]) {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.result-layout:not(:has(.result-side .result-block:not([hidden]))) {
+    grid-template-columns: minmax(0, 1fr);
 }

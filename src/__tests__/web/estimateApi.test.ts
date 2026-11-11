@@ -68,10 +68,14 @@ describe('the values of the existing forms', () => {
     expect(sizes).toEqual([...api.OPTIONS.shoeSizes]);
   });
 
-  it('the cards of the pages are the kinds of product of PAGES', () => {
+  it('every card of the pages is a kind of product of PAGES, each once', () => {
+    // Since 2026-11-11 the pages offer the golf kinds only (estimateStart.dom.test.ts names them); the
+    // request and the server still know every kind of PAGES, so a card can never send an unknown one.
     for (const [file, key] of [['sunglasses-estimate.html', 'sunglasses'], ['shoes-estimate.html', 'shoes'], ['golf-estimate.html', 'golf']]) {
       const cards = [...page(file).matchAll(/class="category-card" data-category="([^"]+)"/g)].map(match => match[1]);
-      expect(cards).toEqual([...api.PAGES[key].subtypes]);
+      expect(cards.length).toBeGreaterThan(0);
+      expect(new Set(cards).size).toBe(cards.length);
+      cards.forEach(card => expect(api.PAGES[key].subtypes).toContain(card));
     }
   });
 });

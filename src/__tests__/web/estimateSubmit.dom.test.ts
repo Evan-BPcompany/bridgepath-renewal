@@ -51,14 +51,14 @@ const CREATED = {
 const PAGES: Array<{ page: string; card: string; category: string; fill: () => void; expectSpec: Record<string, unknown> }> = [
   {
     page: 'sunglasses',
-    card: 'optical',
+    card: 'sports',
     category: 'eyewear',
     fill: () => {
       choose($('#lensType'), 'polarized');
       choose($('#frameMaterial'), 'unknown');
       type($('#quantity'), '300');
     },
-    expectSpec: { frame_type: 'optical', material: 'unknown', lens_type: 'polarized', quantity: 300 }
+    expectSpec: { frame_type: 'sports', material: 'unknown', lens_type: 'polarized', quantity: 300 }
   },
   {
     page: 'shoes',

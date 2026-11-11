@@ -10,7 +10,10 @@ body[data-auth-page] {
 .auth-header {
     display: flex;
     justify-content: space-between;
-    align-items: stretch;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    padding: 0 clamp(14px, 4vw, 32px);
     background: var(--white);
     border-bottom: 1px solid var(--line);
 }
@@ -18,33 +21,41 @@ body[data-auth-page] {
 .auth-logo {
     display: inline-flex;
     align-items: center;
-    min-height: 52px;
-    padding: 0 clamp(16px, 3vw, 32px);
-    border-right: 1px solid var(--line);
-    font-size: 1.1rem;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    color: var(--ink);
+    gap: 10px;
+    min-height: 44px;
+    font-size: 1.08rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: var(--brand);
     text-decoration: none;
     white-space: nowrap;
 }
 
+/* The same mark and name as .site-brand (style.css). */
+.auth-logo img {
+    display: block;
+    width: 40px;
+    height: 40px;
+    margin: 0 -6px 0 -8px;
+}
+
 .auth-header-link {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    min-height: 52px;
-    padding: 0 clamp(12px, 2vw, 26px);
-    background: var(--blue);
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: var(--radius-s);
+    background: var(--ink);
     color: var(--white);
     text-decoration: none;
     font-size: 0.92rem;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
     transition: background-color 0.15s ease;
 }
 
 .auth-header-link:hover {
-    background: var(--blue-deep);
+    background: var(--ink-strong);
 }
 
 .auth-main {
@@ -58,7 +69,8 @@ body[data-auth-page] {
     max-width: 420px;
     padding: 32px 28px 36px;
     background: var(--white);
-    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .auth-card h1 {
@@ -78,9 +90,9 @@ body[data-auth-page] {
 .auth-notice {
     margin: 0 0 20px;
     padding: 10px 12px;
-    border-radius: 0;
-    background: var(--blue-tint);
-    color: var(--blue-deep);
+    border-radius: var(--radius-s);
+    background: var(--note);
+    color: var(--ink);
     font-size: 0.85rem;
     line-height: 1.45;
 }
@@ -89,7 +101,7 @@ body[data-auth-page] {
     display: block;
     margin: 14px 0 6px;
     font-size: 0.85rem;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .auth-optional {
@@ -102,13 +114,13 @@ body[data-auth-page] {
     box-sizing: border-box;
     padding: 11px 12px;
     border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     font-size: 0.9rem;
 }
 
 .auth-input:focus,
 .auth-code-box:focus {
-    outline: 2px solid var(--blue);
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
 
@@ -134,11 +146,11 @@ body[data-auth-page] {
     margin-top: 16px;
     padding: 12px;
     border: 0;
-    border-radius: 0;
-    background: var(--blue);
+    border-radius: var(--radius-s);
+    background: var(--ink);
     color: var(--white);
     font-size: 0.95rem;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
 }
 
@@ -173,8 +185,8 @@ body[data-auth-page] {
 .auth-link-accent {
     display: inline;
     margin: 0;
-    color: var(--blue-deep);
-    font-weight: 700;
+    color: var(--ink);
+    font-weight: 600;
 }
 
 .auth-divider {
@@ -204,10 +216,10 @@ body[data-auth-page] {
     display: block;
     margin-bottom: 10px;
     padding: 12px;
-    border-radius: 0;
+    border-radius: var(--radius-s);
     text-align: center;
     font-size: 0.9rem;
-    font-weight: 700;
+    font-weight: 600;
     text-decoration: none;
 }
 
@@ -240,7 +252,7 @@ body[data-auth-page] {
     height: 46px;
     box-sizing: border-box;
     border: 1px solid var(--line-strong);
-    border-radius: 0;
+    border-radius: var(--radius-s);
     text-align: center;
     font-size: 1.2rem;
 }
@@ -262,7 +274,7 @@ a.auth-button {
 }
 
 .auth-button:hover:not(:disabled) {
-    background: var(--blue-deep);
+    background: var(--ink-strong);
 }
 
 .auth-button-outline:hover:not(:disabled) {
@@ -282,4 +294,13 @@ a.auth-button {
         padding: 0 12px;
         font-size: 0.82rem;
     }
+}
+
+/* the text buttons under the form: tall enough for a thumb */
+.auth-link {
+    min-height: 44px;
+}
+
+.auth-link-accent {
+    display: inline-block;
 }

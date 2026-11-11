@@ -62,10 +62,16 @@ describe('the files of the customer pages to publish (npm run front:files)', () 
     }
   });
 
-  it('holds the logo of the pages and the picture that home.css loads, both in assets/', () => {
-    expect(files).toContain('assets/logo/logo-header.png');
-    expect(files).toContain('assets/logo/logo-header-white.png');
-    expect(files).toContain('assets/hero-bridge.svg');
+  it('holds the FINDER GREEN mark of the bar at the top, the logo of the closing and the icons of the tab, all in assets/, and no file of assets/ that no page uses', () => {
+    expect(files).toContain('assets/logo/finder-green-symbol-green.svg');
+    expect(files).toContain('assets/logo/finder-green-signature-white.svg');
+    expect(files.filter(file => file.startsWith('assets/'))).toEqual([
+      'assets/logo/apple-touch-icon.png',
+      'assets/logo/favicon.ico',
+      'assets/logo/favicon.svg',
+      'assets/logo/finder-green-signature-white.svg',
+      'assets/logo/finder-green-symbol-green.svg'
+    ]);
   });
 });
 
