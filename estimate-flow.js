@@ -149,7 +149,7 @@
                 note.hidden = !detailedCustomer;
             }
             if (stepThreeHeading) {
-                stepThreeHeading.textContent = detailedCustomer ? '담당자 상세견적 요청 정보를 확인해주세요' : stepThreeTitle;
+                stepThreeHeading.textContent = detailedCustomer ? '담당자 상세견적 요청 정보를 확인하세요' : stepThreeTitle;
             }
             if (detailedCustomer && customerStep && typeof customerStep.setValues === 'function') {
                 customerStep.setValues({
@@ -251,7 +251,7 @@
                         var title = document.getElementById('successTitle');
                         var timeNote = document.getElementById('detailedSuccessNote');
                         if (title) {
-                            title.textContent = '담당자 상세견적 요청이 접수되었어요';
+                            title.textContent = '담당자 상세견적 요청 접수 완료';
                         }
                         if (timeNote) {
                             timeNote.hidden = false;

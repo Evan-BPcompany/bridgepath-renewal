@@ -15,16 +15,16 @@
     var MAX_QUANTITY = 1000000;
 
     var PAGES = Object.freeze({
-        shoes: Object.freeze({ unit: '켤레', per: '켤레당', minimum: 600, minimumText: '최소 주문 수량은 600켤레예요.' }),
-        golf: Object.freeze({ unit: '패키지', per: '1패키지(50개입)당', minimum: 1000, minimumText: '최소 주문 수량은 1,000패키지(1패키지 = 50개입)예요.' })
+        shoes: Object.freeze({ unit: '켤레', per: '켤레당', minimum: 600, minimumText: '최소 주문 수량은 600켤레입니다.' }),
+        golf: Object.freeze({ unit: '패키지', per: '1패키지(50개입)당', minimum: 1000, minimumText: '최소 주문 수량은 1,000패키지(1패키지 = 50개입)입니다.' })
     });
 
     var MESSAGES = Object.freeze({
-        loading: '예상 가격을 계산하고 있어요…',
-        unavailable: '이 조건은 예상 가격을 바로 안내하기 어려워요. 정식 견적을 요청하시면 담당자가 확인해 드려요.',
-        busy: '요청이 많아 잠시 후 다시 확인해 주세요. 정식 견적 요청은 그대로 진행할 수 있어요.',
-        failed: '예상 가격을 불러오지 못했어요. 정식 견적 요청은 그대로 진행할 수 있어요.',
-        notice: '입력하신 정보로 계산한 예상 범위이며 확정 견적이 아닙니다. 운송비·관세·금형·로고·포장 비용은 포함하지 않았어요. 정식 견적은 담당자가 확인한 뒤 안내드립니다.'
+        loading: '예상 가격을 계산하고 있습니다…',
+        unavailable: '이 조건은 예상 가격을 바로 안내하기 어렵습니다. 정식 견적을 요청하면 담당자가 확인해 드립니다.',
+        busy: '요청이 많아 잠시 후 다시 확인하세요. 정식 견적 요청은 그대로 진행할 수 있습니다.',
+        failed: '예상 가격을 불러오지 못했습니다. 정식 견적 요청은 그대로 진행할 수 있습니다.',
+        notice: '입력하신 정보로 계산한 예상 범위이며 확정 견적이 아닙니다. 운송비·관세·금형·로고·포장 비용은 포함하지 않았습니다. 정식 견적은 담당자가 확인한 뒤 안내드립니다.'
     });
 
     // "600" -> 600. Anything that is not a whole number from 1 to 1,000,000 is not a quantity yet.

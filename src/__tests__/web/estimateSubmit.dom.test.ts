@@ -186,7 +186,7 @@ describe.each(PAGES)('$page estimate page: sending the request', entry => {
     expect($('#receiptTime').textContent).toContain('2026');
     expect($('#receiptMessage').hidden).toBe(false);
     expect($('#receiptMessage').textContent).toBe(SERVER_MESSAGE);
-    expect(box.textContent).toContain('접수번호를 메모해 주세요.');
+    expect(box.textContent).toContain('접수번호를 메모하세요.');
     expect(box.querySelector('a').getAttribute('href')).toBe('index.html');
     expect(g.document.activeElement).toBe(box);
     expect($('#customerStep').style.display).toBe('none');
@@ -299,7 +299,7 @@ describe('estimate submit: what the answers look like to the visitor', () => {
 
   it('503 without consent text: says the receipt is not ready and to call or write', async () => {
     await failWith(reply(503, { code: 'PRIVACY_CONSENT_NOT_CONFIGURED' }));
-    expect(shown()).toContain('준비하고 있어요');
+    expect(shown()).toContain('준비하고 있습니다');
     expect(shown()).toContain('전화나 이메일');
   });
 
@@ -354,7 +354,7 @@ describe('estimate submit: what the answers look like to the visitor', () => {
 
   it('an answer that is not understood: a general message, no details of the answer', async () => {
     await failWith(reply(418, { token: 'SECRET-418' }));
-    expect(shown()).toContain('요청을 처리하지 못했어요');
+    expect(shown()).toContain('요청을 처리하지 못했습니다');
     expect(g.document.documentElement.outerHTML).not.toContain('SECRET-418');
   });
 

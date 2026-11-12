@@ -20,10 +20,10 @@
     var COMPLEXITY = Object.freeze({ low: '낮음', medium: '중간', high: '높음' });
 
     var TEXTS = Object.freeze({
-        recognised_from_photo: 'AI가 업로드한 사진을 분석한 결과예요. 실제와 다르면 ‘수정하기’에서 고쳐 다시 계산할 수 있어요.',
-        edited: '사진 분석 결과와 다르게 직접 고르신 값으로 계산했어요.',
-        from_form: '입력하신 값으로 계산했어요. 사진을 올리면 AI가 형태와 비용 요인도 분석해 드려요.',
-        calculating: '예상 비용을 계산하고 있어요…',
+        recognised_from_photo: 'AI가 업로드한 사진을 분석한 결과입니다. 실제와 다르면 ‘수정하기’에서 고쳐 다시 계산할 수 있습니다.',
+        edited: '사진 분석 결과와 다르게 직접 고르신 값으로 계산했습니다.',
+        from_form: '입력하신 값으로 계산했습니다. 사진을 올리면 AI가 형태와 비용 요인도 분석해 드립니다.',
+        calculating: '예상 비용을 계산하고 있습니다…',
         unknown: '잘 모르겠음'
     });
 

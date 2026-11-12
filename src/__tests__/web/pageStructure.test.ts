@@ -105,7 +105,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
     const three = section('step3-content');
     expect(three).toContain('id="successMessage" class="success-message" role="status"');
     ['receiptId', 'receiptTime', 'receiptMessage'].forEach(id => expect(three).toContain(`id="${id}"`));
-    expect(three).toContain('접수번호를 메모해 주세요.');
+    expect(three).toContain('접수번호를 메모하세요.');
     expect(three).toContain('<a href="index.html">홈으로 돌아가기</a>');
     expect(three).not.toMatch(/빠른 시간|곧 |이내|영업일|연락드리겠/);
   });
@@ -232,14 +232,14 @@ describe('other-inquiry.html', () => {
   it('has the place of the shared attachments, and no upload box of its own any more', () => {
     expect(html).toContain('<div id="attachments"></div>');
     expect(html).not.toContain('id="productImage"');
-    expect(html).not.toContain('지금은 이미지를 첨부할 수 없어요');
+    expect(html).not.toContain('지금은 이미지를 첨부할 수 없습니다');
     expect(html).not.toContain('is-disabled');
   });
 
   it('has the success screen with the places of the answer, the note and the link home, and no promise of a time', () => {
     ['receiptId', 'receiptTime', 'receiptMessage'].forEach(id => expect(html).toContain(`id="${id}"`));
     expect(html).toContain('id="successMessage" class="success-message" role="status"');
-    expect(html).toContain('접수번호를 메모해 주세요.');
+    expect(html).toContain('접수번호를 메모하세요.');
     expect(html).toContain('<a href="index.html">홈으로 돌아가기</a>');
     expect(html).not.toMatch(/빠른 시간|곧 |이내|영업일|연락드리겠/);
   });

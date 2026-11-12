@@ -118,7 +118,7 @@ describe.each(PAGES)('$page estimate page: the three steps', ({ page, card, fill
     expect(g.document.activeElement).toBe(quantity);
     expect($('#productErrorSummary').hidden).toBe(false);
     expect($('#productErrorSummary').getAttribute('role')).toBe('alert');
-    expect($('#productErrorSummary').textContent).toMatch(/^확인이 필요한 항목이 \d+개 있어요\.$/);
+    expect($('#productErrorSummary').textContent).toMatch(/^확인이 필요한 항목이 \d+개 있습니다\.$/);
   });
 
   it('rejects a quantity below 1 and above 1,000,000 and a fraction', () => {

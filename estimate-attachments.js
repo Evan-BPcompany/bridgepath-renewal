@@ -18,13 +18,13 @@
 
     var TEXTS = Object.freeze({
         title: '참고 이미지·디자인 파일 (선택)',
-        hint: 'JPG, PNG, WEBP, PDF 파일을 파일당 10MB, 최대 5개, 전체 30MB까지 첨부할 수 있어요. AI·PSD·EPS 같은 디자인 원본이나 압축 파일은 접수 후 담당자와 이메일로 주고받아 주세요.',
+        hint: 'JPG, PNG, WEBP, PDF 파일을 파일당 10MB, 최대 5개, 전체 30MB까지 첨부할 수 있습니다. AI·PSD·EPS 같은 디자인 원본이나 압축 파일은 접수 후 담당자와 이메일로 주고받으세요.',
         add: '파일 추가',
         remove: '삭제',
         auto: 'AI 분석에 쓴 사진',
-        duplicate: '같은 파일이 이미 있어요',
-        none: '첨부한 파일이 없어요.',
-        autoFailed: '분석한 사진은 첨부하지 못했어요.'
+        duplicate: '같은 파일이 이미 있습니다',
+        none: '첨부한 파일이 없습니다.',
+        autoFailed: '분석한 사진은 첨부하지 못했습니다.'
     });
 
     function api() {

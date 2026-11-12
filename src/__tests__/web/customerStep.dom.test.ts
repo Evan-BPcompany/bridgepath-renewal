@@ -49,7 +49,7 @@ describe('estimate-customer-step.js: structure', () => {
   it('shows the hint (not for consumers) and keeps it in the description of the radios', () => {
     const hint = $('#customerTypeHint');
     expect(hint.textContent).toBe(g.BridgePathEstimate.CUSTOMER_TYPE_HINT);
-    expect(hint.textContent).toContain('일반 소비자용이 아니에요');
+    expect(hint.textContent).toContain('일반 소비자용이 아닙니다');
     step.validate();
     $$('input[name="customer_type"]').forEach(radio => {
       expect(radio.getAttribute('aria-describedby')).toBe('customerTypeHint customerTypeError');
@@ -171,7 +171,7 @@ describe('estimate-customer-step.js: input and validation', () => {
     const summary = $('#customerErrorSummary');
     expect(summary.hidden).toBe(false);
     expect(summary.getAttribute('role')).toBe('alert');
-    expect(summary.textContent).toBe('확인이 필요한 항목이 4개 있어요.');
+    expect(summary.textContent).toBe('확인이 필요한 항목이 4개 있습니다.');
     expect(g.document.activeElement).toBe($('#customerTypeIndividual'));
   });
 
@@ -239,12 +239,12 @@ describe('estimate-customer-step.js: input and validation', () => {
 
   it('takes away a message as soon as its field is changed, and the summary follows', () => {
     step.validate();
-    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 4개 있어요.');
+    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 4개 있습니다.');
     type($('#customerName'), 'K');
     expect($('#customerNameError').hidden).toBe(true);
     expect($('#customerName').getAttribute('aria-invalid')).toBeNull();
     expect($('#customerName').getAttribute('aria-describedby')).toBeNull();
-    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 3개 있어요.');
+    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 3개 있습니다.');
     check($('#privacyConsent'));
     check($('#customerTypeIndividual'));
     type($('#customerEmail'), 'a');
@@ -285,7 +285,7 @@ describe('estimate-customer-step.js: input and validation', () => {
     ]);
     expect($('#customerEmailError').hidden).toBe(false);
     expect($('#customerNameError').textContent).toContain('100');
-    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 2개 있어요.');
+    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 2개 있습니다.');
     expect(g.document.activeElement).toBe($('#customerName'));
   });
 

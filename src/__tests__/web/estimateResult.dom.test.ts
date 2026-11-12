@@ -150,7 +150,7 @@ describe('the result screen without a photo', () => {
     expect($('#resultMaterial').textContent).toBe('금속 (메탈)');
     expect($('#resultLens').textContent).toBe('편광 렌즈');
     expect($('#resultQuantity').textContent).toBe('1,000개');
-    expect($('#resultRecognitionNote').textContent).toContain('입력하신 값으로 계산했어요');
+    expect($('#resultRecognitionNote').textContent).toContain('입력하신 값으로 계산했습니다');
     ['#resultPhotoBox', '#resultOverviewBox', '#resultDetailsBox', '#resultFactorsBox', '#resultRecommendBox', '#resultShapeRow', '#resultColorRow'].forEach(selector =>
       expect(isShown(selector)).toBe(false)
     );
@@ -235,8 +235,8 @@ describe('when the price cannot be shown', () => {
   it.each([
     [answer(200, { available: false, reason: 'NO_BASE_PRICE', notice: 'not a quote' }), '담당자가 확인'],
     [answer(429, { code: 'RATE_LIMITED' }), '잠시 후'],
-    [answer(500, { error: 'x' }), '불러오지 못했어요'],
-    [answer(200, { available: true, unit_price: 'free' }), '불러오지 못했어요']
+    [answer(500, { error: 'x' }), '불러오지 못했습니다'],
+    [answer(200, { available: true, unit_price: 'free' }), '불러오지 못했습니다']
   ])('shows a plain line instead of a table', async (response, text) => {
     priceAnswer = response;
     fillForm();
@@ -255,7 +255,7 @@ describe('when the price cannot be shown', () => {
     fillForm();
     await start();
 
-    expect($('#resultCostStatus').textContent).toContain('불러오지 못했어요');
+    expect($('#resultCostStatus').textContent).toContain('불러오지 못했습니다');
   });
 });
 

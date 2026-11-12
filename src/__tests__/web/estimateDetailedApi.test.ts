@@ -55,7 +55,7 @@ describe('the answer to a detailed request', () => {
     const result = api.interpretResponse({ status: 401, body: { code: 'CUSTOMER_AUTH_REQUIRED', error: 'secret detail' } });
 
     expect(result).toEqual({ kind: 'authRequired' });
-    expect(api.messageForResult(result)).toContain('로그인이 필요해요');
+    expect(api.messageForResult(result)).toContain('로그인이 필요합니다');
     expect(api.messageForResult(result)).not.toContain('secret');
   });
 

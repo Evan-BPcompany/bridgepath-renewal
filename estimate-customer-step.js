@@ -219,7 +219,7 @@
                 summary.textContent = '';
                 summary.hidden = true;
             } else {
-                summary.textContent = '확인이 필요한 항목이 ' + count + '개 있어요.';
+                summary.textContent = '확인이 필요한 항목이 ' + count + '개 있습니다.';
                 summary.hidden = false;
             }
         }

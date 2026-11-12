@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 name.textContent = file.name;
                 const note = document.createElement('p');
                 note.className = 'upload-note';
-                note.textContent = '선택됨 · 다른 사진으로 바꾸려면 다시 눌러 주세요';
+                note.textContent = '선택됨 · 다른 사진으로 바꾸려면 다시 누르세요';
                 imageUploadBox.replaceChildren(icon, name, note);
             }
         });

@@ -167,7 +167,7 @@ describe('the estimate pages against the real API', () => {
     await flush();
     expect(create).not.toHaveBeenCalled();
     expect($('#successMessage').style.display).toBe('none');
-    expect($('#submitError').textContent).toContain('준비하고 있어요');
+    expect($('#submitError').textContent).toContain('준비하고 있습니다');
     expect($('#customerName').value).toBe('Kim');
   });
 

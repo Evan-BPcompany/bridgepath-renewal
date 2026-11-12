@@ -186,15 +186,15 @@ describe('the photo of the sunglasses form', () => {
     upload();
     await settle(0);
 
-    expect($('#imageAnalysisStatus').textContent).toContain('선글라스 사진으로 보이지 않아요');
+    expect($('#imageAnalysisStatus').textContent).toContain('선글라스 사진으로 보이지 않습니다');
     expect($('#frameMaterial').value).toBe('');
   });
 
   it.each([
-    [503, '아직 사용할 수 없어요'],
+    [503, '아직 사용할 수 없습니다'],
     [429, '잠시 후'],
     [413, '5MB'],
-    [502, '분석하지 못했어요']
+    [502, '분석하지 못했습니다']
   ])('shows a plain line for a %i answer and leaves the form usable', async (status, text) => {
     route(answer(status, { code: 'X' }));
     upload();
@@ -210,7 +210,7 @@ describe('the photo of the sunglasses form', () => {
     upload();
     await settle(0);
 
-    expect($('#imageAnalysisStatus').textContent).toContain('분석하지 못했어요');
+    expect($('#imageAnalysisStatus').textContent).toContain('분석하지 못했습니다');
   });
 
   it('does not send a file that cannot be analysed', async () => {

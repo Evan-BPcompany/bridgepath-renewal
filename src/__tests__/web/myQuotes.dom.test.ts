@@ -25,7 +25,7 @@ const QUOTE = {
     { name: '케이스·클리너', quantity: 500, unit_price: 800, amount: 400000 }
   ],
   total_amount: 6400000, fx_currency: 'USD', fx_rate: 1330.79, valid_until: '2099-12-31', expired: false,
-  lead_time: '주문 후 약 6주', customer_note: '샘플 확인 후 확정해 주세요.\n문의는 담당자에게 연락해 주세요.'
+  lead_time: '주문 후 약 6주', customer_note: '샘플 확인 후 확정하세요.\n문의는 담당자에게 연락하세요.'
 };
 const ESTIMATE = { receipt_id: RECEIPT, category: 'eyewear', request_kind: 'detailed', created_at: '2026-10-21T03:00:00.000Z', quantity: 500 };
 
@@ -144,9 +144,9 @@ describe('the list', () => {
     const cards = $$('.mq-card');
     expect(cards.map(card => card.querySelector('strong').textContent)).toEqual(['BP20261021003', 'BP20261021002', 'BP20261021001']);
     expect(cards.map(card => card.querySelector('.mq-card-state').textContent)).toEqual([
-      '담당자 상세견적이 도착했어요',
-      '담당자가 확인하고 있어요 · 업무일 기준 2~3일 정도 걸릴 수 있어요',
-      '접수되었어요'
+      '담당자 상세견적 도착',
+      '담당자 확인 중 · 업무일 기준 2~3일 정도 걸릴 수 있습니다',
+      '접수되었습니다'
     ]);
     expect(cards[0].querySelector('.mq-card-state').className).toContain('mq-ready');
     expect(cards[0].querySelector('.mq-badge').textContent).toBe('담당자 상세견적 요청');
@@ -172,7 +172,7 @@ describe('the list', () => {
     await open();
 
     expect($('#error').hidden).toBe(false);
-    expect($('#error').textContent).toBe('문제가 생겼어요. 잠시 후 다시 시도해 주세요.');
+    expect($('#error').textContent).toBe('문제가 생겼습니다. 잠시 후 다시 시도하세요.');
   });
 });
 
@@ -199,7 +199,7 @@ describe('one request', () => {
     expect($$('#quoteFacts dt').map(dt => dt.textContent)).toEqual(['견적 유효기간', '납기 예상', '적용 환율']);
     expect($$('#quoteFacts dd').map(dd => dd.textContent)).toEqual(['2099-12-31까지', '주문 후 약 6주', '1 USD = 1,330.79원']);
     expect($('#noteBox').hidden).toBe(false);
-    expect($('#quoteNote').textContent).toBe('샘플 확인 후 확정해 주세요.\n문의는 담당자에게 연락해 주세요.');
+    expect($('#quoteNote').textContent).toBe('샘플 확인 후 확정하세요.\n문의는 담당자에게 연락하세요.');
     expect($('#helpReceipt').textContent).toBe(RECEIPT);
     expect($('#expired').hidden).toBe(true);
   });
@@ -219,7 +219,7 @@ describe('one request', () => {
     await open(`?r=${RECEIPT}`);
 
     expect($('#expired').hidden).toBe(false);
-    expect($('#quoteFacts dd').textContent).toBe('2020-01-01까지 (지났어요)');
+    expect($('#quoteFacts dd').textContent).toBe('2020-01-01까지 (지났습니다)');
   });
 
   it('says that the staff are on it, and that it can take 2-3 working days, while there is no quote', async () => {
@@ -228,7 +228,7 @@ describe('one request', () => {
     await open(`?r=${RECEIPT}`);
 
     expect($('#waiting').hidden).toBe(false);
-    expect($('#waiting').textContent).toContain('업무일 기준 2~3일 정도 걸릴 수 있어요');
+    expect($('#waiting').textContent).toContain('업무일 기준 2~3일 정도 걸릴 수 있습니다');
     expect($('#quote').hidden).toBe(true);
   });
 
@@ -265,7 +265,7 @@ describe('one request', () => {
     await open(`?r=${RECEIPT}`);
 
     expect($('#viewDetail').hidden).toBe(true);
-    expect($('#error').textContent).toContain('찾을 수 없는 견적이에요');
+    expect($('#error').textContent).toContain('찾을 수 없는 견적입니다');
     expect($('#error a').getAttribute('href')).toBe('my-quotes.html');
   });
 
@@ -383,7 +383,7 @@ describe('asking about the quote', () => {
       submit('#questionForm');
       await flush();
 
-      expect($('#questionError').textContent).toBe('질문을 적어 주세요.');
+      expect($('#questionError').textContent).toBe('질문을 적으세요.');
       expect(bodiesOf(POST)).toEqual([]);
     });
 
@@ -395,7 +395,7 @@ describe('asking about the quote', () => {
       submit('#questionForm');
       await flush();
 
-      expect($('#questionError').textContent).toBe('300자 이내로 적어 주세요.');
+      expect($('#questionError').textContent).toBe('300자 이내로 적으세요.');
       expect(bodiesOf(POST)).toEqual([]);
     });
 
@@ -412,7 +412,7 @@ describe('asking about the quote', () => {
       expect($('#questionText').value).toBe('');
       expect($$('.mq-thread-item')).toHaveLength(1);
       expect($('.mq-thread-item .mq-text').textContent).toBe('납기를 2주 줄일 수 있나요?');
-      expect($('.mq-thread-item .mq-pending').textContent).toBe('답변을 기다리고 있어요');
+      expect($('.mq-thread-item .mq-pending').textContent).toBe('답변을 기다리고 있습니다');
       expect($('#questionForm').hidden).toBe(true);
       expect($('#questionWaiting').hidden).toBe(false);
     });
@@ -445,9 +445,9 @@ describe('asking about the quote', () => {
     });
 
     it.each([
-      ['ALREADY_OPEN', 409, '앞서 남기신 것이 아직 처리되지 않았어요'],
-      ['TOO_MANY', 429, '더 이상 남길 수 없어요'],
-      ['NO_QUOTE', 409, '게시된 뒤에 남길 수 있어요']
+      ['ALREADY_OPEN', 409, '앞서 남기신 것이 아직 처리되지 않았습니다'],
+      ['TOO_MANY', 429, '더 이상 남길 수 없습니다'],
+      ['NO_QUOTE', 409, '게시된 뒤에 남길 수 있습니다']
     ])('says why with %s, and keeps what was typed', async (code, status, text) => {
       routes[POST] = refuse(status, code);
       await open(`?r=${RECEIPT}`);
@@ -509,7 +509,7 @@ describe('asking about the quote', () => {
 
       type('#consultPhone', '');
       submit('#consultForm');
-      expect($('#consultError').textContent).toBe('휴대폰 번호를 입력해 주세요.');
+      expect($('#consultError').textContent).toBe('휴대폰 번호를 입력하세요.');
       type('#consultPhone', 'call me');
       submit('#consultForm');
       expect($('#consultError').textContent).toContain('전화번호는 숫자 7~15자리');
@@ -532,7 +532,7 @@ describe('asking about the quote', () => {
 
       expect(bodiesOf(POST)).toEqual([{ kind: 'consultation', phone: '010-9999-8888', preferred_time: 'weekday_pm', body: '납기 이야기' }]);
       expect($('#consultState').hidden).toBe(false);
-      expect($('#consultState').textContent).toContain('심층상담을 요청했어요');
+      expect($('#consultState').textContent).toContain('심층상담 요청 완료');
       expect($('#consultState').textContent).toContain('010-9999-8888');
       expect($('#consultState').textContent).toContain('평일 오후');
       expect($('#consultState').textContent).toContain('납기 이야기');
@@ -559,7 +559,7 @@ describe('asking about the quote', () => {
 
       await open(`?r=${RECEIPT}`);
 
-      expect($('#consultState').textContent).toContain('지난 심층상담이 끝났어요 · 2026-10-24');
+      expect($('#consultState').textContent).toContain('지난 심층상담이 끝났습니다 · 2026-10-24');
       expect($('#consultState').textContent).toContain('다음 주에 샘플 보내기로 함');
       expect($('#consultOpen').hidden).toBe(false);
     });
@@ -573,7 +573,7 @@ describe('asking about the quote', () => {
       submit('#consultForm');
       await flush();
 
-      expect($('#consultError').textContent).toContain('아직 처리되지 않았어요');
+      expect($('#consultError').textContent).toContain('아직 처리되지 않았습니다');
       expect($('#consultForm').hidden).toBe(false);
     });
 
@@ -586,7 +586,7 @@ describe('asking about the quote', () => {
       type('#consultNote', '가'.repeat(301));
       submit('#consultForm');
 
-      expect($('#consultError').textContent).toBe('메모는 300자 이내로 적어 주세요.');
+      expect($('#consultError').textContent).toBe('메모는 300자 이내로 적으세요.');
       expect(bodiesOf(POST)).toEqual([]);
     });
   });

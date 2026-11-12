@@ -340,7 +340,7 @@ describe('customer details', () => {
       individual_startup: '개인·창업 준비 중',
       business_brand: '사업자·브랜드 운영 중'
     });
-    expect(api.CUSTOMER_TYPE_HINT).toContain('일반 소비자용이 아니에요');
+    expect(api.CUSTOMER_TYPE_HINT).toContain('일반 소비자용이 아닙니다');
   });
 
   it.each([undefined, null, '', '   '])('requires the customer type (%j)', value => {
@@ -959,7 +959,7 @@ describe('the texts for the visitor', () => {
   it('put a file name in as it is, without escaping: the caller shows the text with textContent', () => {
     const name = '<img src=x onerror=alert(1)>.png';
 
-    expect(api.messageForFile('too_large', name)).toBe(`${name}: 파일당 10MB까지 첨부할 수 있어요.`);
+    expect(api.messageForFile('too_large', name)).toBe(`${name}: 파일당 10MB까지 첨부할 수 있습니다.`);
     expect(api.messageFor('file_type_not_allowed', { name })).toContain(name);
   });
 
@@ -982,7 +982,7 @@ describe('the texts for the visitor', () => {
     expect(api.messageForResult({ kind: 'serverError', mayHaveBeenSaved: true })).toBe(api.messageFor('server_error_files'));
     // Files that could not be stored: not saved, the visitor can try again or leave the files out.
     expect(api.messageForResult({ kind: 'serverError', mayHaveBeenSaved: false, filesFailed: true })).toBe(api.messageFor('files_not_saved'));
-    expect(api.messageFor('files_not_saved')).toContain('접수되지 않았어요');
+    expect(api.messageFor('files_not_saved')).toContain('접수되지 않았습니다');
     expect(api.messageForResult({ kind: 'network' })).toBe(api.messageFor('network'));
     expect(api.messageForResult({ kind: 'timeout' })).toBe(api.messageFor('network'));
     expect(api.messageForResult({ kind: 'validation', general: 'specification' })).toBe(api.messageFor('specification'));
@@ -1009,7 +1009,7 @@ describe('the minimum orders', () => {
 
     expect(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '600' }).valid).toBe(true);
     expect(codesOf(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '599' }).errors)).toEqual(['quantity:quantity_min_shoes']);
-    expect(api.messageFor('quantity_min_shoes')).toBe('최소 주문 수량은 600켤레예요.');
+    expect(api.messageFor('quantity_min_shoes')).toBe('최소 주문 수량은 600켤레입니다.');
   });
 
   it('golf tees: 1,000 packages are accepted and 999 are refused with their own message', () => {

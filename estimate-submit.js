@@ -70,7 +70,7 @@
                 summary.textContent = '';
                 summary.hidden = true;
             } else {
-                summary.textContent = '확인이 필요한 항목이 ' + shown.length + '개 있어요.';
+                summary.textContent = '확인이 필요한 항목이 ' + shown.length + '개 있습니다.';
                 summary.hidden = false;
             }
         }
@@ -113,7 +113,7 @@
             if (first) {
                 first.focus();
             } else {
-                summary.textContent = '확인이 필요한 항목이 ' + shown.length + '개 있어요.';
+                summary.textContent = '확인이 필요한 항목이 ' + shown.length + '개 있습니다.';
                 summary.hidden = false;
                 summary.focus();
             }
@@ -177,12 +177,12 @@
                     }
                 };
                 if (!clipboard || typeof clipboard.writeText !== 'function') {
-                    say('직접 선택해서 복사해 주세요.');
+                    say('직접 선택해서 복사하세요.');
                     return;
                 }
                 clipboard.writeText(number).then(
-                    function () { say('복사했어요.'); },
-                    function () { say('복사하지 못했어요. 직접 선택해서 복사해 주세요.'); }
+                    function () { say('복사했습니다.'); },
+                    function () { say('복사하지 못했습니다. 직접 선택해서 복사하세요.'); }
                 );
             });
         }
@@ -207,7 +207,7 @@
                 rows.push({
                     label: '화면에 보인 예상 범위 (참고)',
                     value: '개당 약 ' + won(price.unit_price.min) + ' ~ ' + won(price.unit_price.max) +
-                        ', 총 약 ' + won(price.total_price.min) + ' ~ ' + won(price.total_price.max) + ' · 확정 견적이 아니에요'
+                        ', 총 약 ' + won(price.total_price.min) + ' ~ ' + won(price.total_price.max) + ' · 확정 견적이 아닙니다'
                 });
             }
             var types = estimate.CUSTOMER_TYPES || {};

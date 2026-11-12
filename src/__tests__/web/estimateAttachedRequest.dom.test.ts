@@ -166,7 +166,7 @@ describe('a sunglasses request with the photo that was analysed', () => {
     imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
     await settle();
 
-    expect($('#imageAnalysisStatus').textContent).toContain('아직 사용할 수 없어요');
+    expect($('#imageAnalysisStatus').textContent).toContain('아직 사용할 수 없습니다');
     expect($('#attachments .attachments-name').textContent).toBe('frame.png');
   });
 
@@ -332,7 +332,7 @@ describe('a sunglasses request with the photo that was analysed', () => {
     await settle();
 
     expect($('#submitError').hidden).toBe(false);
-    expect($('#submitError').textContent).toContain('접수되지 않았어요');
+    expect($('#submitError').textContent).toContain('접수되지 않았습니다');
     expect($('#receiptId').textContent).toBe('');
     expect($('#submitBtn').disabled).toBe(false);
     expect(g.BridgePathAttachments.instance.getFiles()).toHaveLength(1);
@@ -453,7 +453,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     expect(row('이메일')).toBe('buyer@example.com');
     expect(row('첨부 파일')).toBe('frame.png');
     expect(row('화면에 보인 예상 범위 (참고)')).toBe(
-      '개당 약 8,300원 ~ 11,300원, 총 약 4,150,000원 ~ 5,650,000원 · 확정 견적이 아니에요'
+      '개당 약 8,300원 ~ 11,300원, 총 약 4,150,000원 ~ 5,650,000원 · 확정 견적이 아닙니다'
     );
     // What was not filled in is not listed.
     expect(row('전화')).toBeUndefined();
@@ -472,7 +472,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     await settle();
 
     expect(writeText).toHaveBeenCalledWith('BP20261013001');
-    expect($('#copyReceiptNote').textContent).toBe('복사했어요.');
+    expect($('#copyReceiptNote').textContent).toBe('복사했습니다.');
   });
 
   it('asks the customer to copy by hand when the browser cannot, or refuses', async () => {
@@ -483,12 +483,12 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
 
     Object.defineProperty(g.navigator, 'clipboard', { value: undefined, configurable: true });
     click($('#copyReceipt'));
-    expect($('#copyReceiptNote').textContent).toBe('직접 선택해서 복사해 주세요.');
+    expect($('#copyReceiptNote').textContent).toBe('직접 선택해서 복사하세요.');
 
     Object.defineProperty(g.navigator, 'clipboard', { value: { writeText: jest.fn().mockRejectedValue(new Error('denied')) }, configurable: true });
     click($('#copyReceipt'));
     await settle();
-    expect($('#copyReceiptNote').textContent).toContain('복사하지 못했어요');
+    expect($('#copyReceiptNote').textContent).toContain('복사하지 못했습니다');
   });
 
   it('shows what the customer wrote as text, never as markup', async () => {

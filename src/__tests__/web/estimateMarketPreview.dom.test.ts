@@ -69,7 +69,7 @@ describe('the pure helpers', () => {
   });
 
   it('says the minimum order below it, a busy line on 429 and a failure line otherwise', () => {
-    expect(preview.interpret('shoes', 200, { available: false, reason: 'BELOW_MINIMUM', minimum_quantity: 600 })).toEqual({ kind: 'minimum', lines: ['최소 주문 수량은 600켤레예요.'] });
+    expect(preview.interpret('shoes', 200, { available: false, reason: 'BELOW_MINIMUM', minimum_quantity: 600 })).toEqual({ kind: 'minimum', lines: ['최소 주문 수량은 600켤레입니다.'] });
     expect(preview.interpret('golf', 200, { available: false, reason: 'BELOW_MINIMUM' }).lines[0]).toContain('1,000패키지');
     expect(preview.interpret('shoes', 429, null).kind).toBe('busy');
     expect(preview.interpret('shoes', 500, null).kind).toBe('failed');
@@ -178,7 +178,7 @@ describe.each([
     await settle();
 
     expect($('#marketPreview').getAttribute('data-kind')).toBe('failed');
-    expect($('#marketPreview').textContent).toContain('정식 견적 요청은 그대로 진행할 수 있어요');
+    expect($('#marketPreview').textContent).toContain('정식 견적 요청은 그대로 진행할 수 있습니다');
     expect($('#nextBtn2').disabled).toBe(false);
   });
 

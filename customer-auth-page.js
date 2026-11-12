@@ -307,7 +307,7 @@
             if (result.ok) {
                 clearCode();
                 startCooldown(typeof result.body.resend_after_seconds === 'number' ? result.body.resend_after_seconds : COOLDOWN_SECONDS);
-                notice('인증코드를 다시 보냈어요. 메일함을 확인해 주세요.');
+                notice('인증코드를 다시 보냈습니다. 메일함을 확인하세요.');
             } else {
                 showError('codeError', messageOf(result));
                 button.disabled = page.state.cooldownTimer !== null;
@@ -334,7 +334,7 @@
                 setText('resetEmailShown', normalized);
                 show('reset');
                 byId('resetCode').focus();
-                notice('가입된 이메일이라면 인증코드를 보냈어요. 메일함을 확인해 주세요.');
+                notice('가입된 이메일이라면 인증코드를 보냈습니다. 메일함을 확인하세요.');
             } else {
                 showError('resetRequestError', messageOf(result));
             }
@@ -358,7 +358,7 @@
                 byId('resetCode').value = '';
                 byId('loginEmail').value = page.state.email;
                 show('login');
-                notice('비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.');
+                notice('비밀번호를 바꿨습니다. 새 비밀번호로 로그인하세요.');
             } else {
                 showError('resetError', messageOf(result));
             }
@@ -369,7 +369,7 @@
         clearErrors();
         var result = await Auth().resetRequest(page.state.email);
         if (result.ok) {
-            notice('인증코드를 다시 보냈어요. 메일함을 확인해 주세요.');
+            notice('인증코드를 다시 보냈습니다. 메일함을 확인하세요.');
         } else {
             showError('resetError', messageOf(result));
         }
@@ -403,7 +403,7 @@
                 page.go(page.state.next);
             } else if (result.code === 'CUSTOMER_AUTH_REQUIRED') {
                 show('login');
-                notice('로그인 시간이 지났어요. 다시 로그인해 주세요.');
+                notice('로그인 시간이 지났습니다. 다시 로그인하세요.');
             } else {
                 showError('completeError', messageOf(result));
             }

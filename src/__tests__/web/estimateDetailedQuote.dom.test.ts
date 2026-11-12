@@ -93,7 +93,7 @@ describe('the detailed quote card on the result screen', () => {
     expect(isActive('#result-content')).toBe(true);
     const text = $('.detailed-card').textContent;
     expect(text).toContain('담당자 상세견적 받으러 가기');
-    expect(text).toContain('업무일 기준 2~3일 정도 걸릴 수 있어요');
+    expect(text).toContain('업무일 기준 2~3일 정도 걸릴 수 있습니다');
     expect(text).toContain('로그인한 고객만');
     expect($('#detailedBtn').textContent).toBe('담당자 상세견적 받으러 가기');
     expect($('#detailedLogin').hidden).toBe(true);
@@ -199,8 +199,8 @@ describe('a signed-in customer', () => {
 
     expect(isActive('#step3-content')).toBe(true);
     expect($('#detailedNote').hidden).toBe(false);
-    expect($('#detailedNote').textContent).toContain('업무일 기준 2~3일 정도 걸릴 수 있어요');
-    expect($('#step3-content h2').textContent).toBe('담당자 상세견적 요청 정보를 확인해주세요');
+    expect($('#detailedNote').textContent).toContain('업무일 기준 2~3일 정도 걸릴 수 있습니다');
+    expect($('#step3-content h2').textContent).toBe('담당자 상세견적 요청 정보를 확인하세요');
     expect($('#customerName').value).toBe('김구매');
     expect($('#customerEmail').value).toBe('buyer@example.com');
     expect($('#customerPhone').value).toBe('010-1234-5678');
@@ -225,7 +225,7 @@ describe('a signed-in customer', () => {
       customer_type: 'business_brand', category: 'eyewear'
     });
     expect($('#successMessage').style.display).toBe('block');
-    expect($('#successTitle').textContent).toBe('담당자 상세견적 요청이 접수되었어요');
+    expect($('#successTitle').textContent).toBe('담당자 상세견적 요청 접수 완료');
     expect($('#detailedSuccessNote').hidden).toBe(false);
     expect($$('#receiptSummaryList dt').map(item => item.textContent)).toContain('요청 종류');
     expect($$('#receiptSummaryList dd').map(item => item.textContent)).toContain('담당자 상세견적');
@@ -240,7 +240,7 @@ describe('a signed-in customer', () => {
     await settle();
 
     expect($('#submitError').hidden).toBe(false);
-    expect($('#submitError').textContent).toContain('로그인이 필요해요');
+    expect($('#submitError').textContent).toContain('로그인이 필요합니다');
     expect($('#successMessage').style.display).toBe('none');
     expect($('#customerName').value).toBe('김구매');
     expect($('#submitBtn').disabled).toBe(false);
@@ -253,7 +253,7 @@ describe('a signed-in customer', () => {
     await settle();
 
     expect($('#detailedNote').hidden).toBe(true);
-    expect($('#step3-content h2').textContent).toBe('고객 정보를 입력해주세요');
+    expect($('#step3-content h2').textContent).toBe('고객 정보를 입력하세요');
     $('#privacyConsent').checked = true;
     click($('#submitBtn'));
     await settle();
@@ -261,7 +261,7 @@ describe('a signed-in customer', () => {
     const [, init] = callsTo('/api/estimates')[0];
     expect(init.credentials).toBe('omit');
     expect(JSON.parse(init.body)).not.toHaveProperty('request_kind');
-    expect($('#successTitle').textContent).toBe('견적 요청이 접수되었어요');
+    expect($('#successTitle').textContent).toBe('견적 요청 접수 완료');
     expect($('#detailedSuccessNote').hidden).toBe(true);
   });
 });

@@ -76,12 +76,12 @@
     // What the customer is told about a request. Never an internal status: only whether a quote is there.
     function stateText(item) {
         if (item.has_quote) {
-            return '담당자 상세견적이 도착했어요';
+            return '담당자 상세견적 도착';
         }
         if (item.request_kind === 'detailed') {
-            return '담당자가 확인하고 있어요 · 업무일 기준 2~3일 정도 걸릴 수 있어요';
+            return '담당자 확인 중 · 업무일 기준 2~3일 정도 걸릴 수 있습니다';
         }
-        return '접수되었어요';
+        return '접수되었습니다';
     }
 
     function drawList(items) {
@@ -139,7 +139,7 @@
 
             var facts = byId('quoteFacts');
             clear(facts);
-            fact(facts, '견적 유효기간', quote.valid_until ? quote.valid_until + '까지' + (quote.expired ? ' (지났어요)' : '') : '');
+            fact(facts, '견적 유효기간', quote.valid_until ? quote.valid_until + '까지' + (quote.expired ? ' (지났습니다)' : '') : '');
             fact(facts, '납기 예상', quote.lead_time);
             fact(facts, '적용 환율', quote.fx_currency && quote.fx_rate ? '1 ' + quote.fx_currency + ' = ' + Number(quote.fx_rate).toLocaleString('ko-KR', { maximumFractionDigits: 4 }) + '원' : '');
 
@@ -158,17 +158,17 @@
     var QUESTION_MAX = 300;
 
     var INQUIRY_ERRORS = Object.freeze({
-        ALREADY_OPEN: '앞서 남기신 것이 아직 처리되지 않았어요. 처리된 뒤에 다시 남겨 주세요.',
-        NO_QUOTE: '담당자 상세견적이 게시된 뒤에 남길 수 있어요.',
-        TOO_MANY: '이 견적에는 더 이상 남길 수 없어요. 아래 담당자 연락처로 직접 연락해 주세요.',
-        ESTIMATE_NOT_FOUND: '찾을 수 없는 견적이에요.'
+        ALREADY_OPEN: '앞서 남기신 것이 아직 처리되지 않았습니다. 처리된 뒤에 다시 남기세요.',
+        NO_QUOTE: '담당자 상세견적이 게시된 뒤에 남길 수 있습니다.',
+        TOO_MANY: '이 견적에는 더 이상 남길 수 없습니다. 아래 담당자 연락처로 직접 연락하세요.',
+        ESTIMATE_NOT_FOUND: '찾을 수 없는 견적입니다.'
     });
 
     function inquiryMessage(result) {
         if (result.code === 'VALIDATION_ERROR' && result.body && Array.isArray(result.body.details) && result.body.details[0]) {
             var field = result.body.details[0].field;
             if (field === 'body') {
-                return '내용을 확인해 주세요. 300자 이내로 적어 주세요.';
+                return '내용을 확인하세요. 300자 이내로 적으세요.';
             }
             if (field === 'phone') {
                 return Auth().messageFor('phone_invalid');
@@ -236,7 +236,7 @@
                 row.appendChild(el('p', 'mq-meta', '담당자 답변 · ' + dateOf(item.handled_at)));
                 row.appendChild(el('p', 'mq-text mq-answer', item.answer));
             } else {
-                row.appendChild(el('p', 'mq-meta mq-pending', '답변을 기다리고 있어요'));
+                row.appendChild(el('p', 'mq-meta mq-pending', '답변을 기다리고 있습니다'));
             }
             thread.appendChild(row);
         });
@@ -253,13 +253,13 @@
         byId('consultOpen').hidden = Boolean(open);
         byId('consultForm').hidden = true;
         if (open) {
-            state.appendChild(el('strong', '', '심층상담을 요청했어요'));
-            state.appendChild(el('p', '', '담당자가 확인한 뒤 ' + open.phone + '(으)로 전화드려요. · 편한 시간: ' + (PREFERRED[open.preferred_time] || '아무 때나')));
+            state.appendChild(el('strong', '', '심층상담 요청 완료'));
+            state.appendChild(el('p', '', '담당자가 확인한 뒤 ' + open.phone + '(으)로 전화드립니다. · 편한 시간: ' + (PREFERRED[open.preferred_time] || '아무 때나')));
             if (open.body) {
                 state.appendChild(el('p', 'mq-meta', '남기신 메모: ' + open.body));
             }
         } else if (done) {
-            state.appendChild(el('strong', '', '지난 심층상담이 끝났어요 · ' + dateOf(done.handled_at)));
+            state.appendChild(el('strong', '', '지난 심층상담이 끝났습니다 · ' + dateOf(done.handled_at)));
             if (done.answer) {
                 state.appendChild(el('p', 'mq-meta', '담당자 메모: ' + done.answer));
             }
@@ -289,11 +289,11 @@
             byId('questionError').hidden = true;
             var text = byId('questionText').value.trim();
             if (text === '') {
-                showFormError('questionError', '질문을 적어 주세요.');
+                showFormError('questionError', '질문을 적으세요.');
                 return;
             }
             if (Array.from(text).length > QUESTION_MAX) {
-                showFormError('questionError', '300자 이내로 적어 주세요.');
+                showFormError('questionError', '300자 이내로 적으세요.');
                 return;
             }
             if (busy) {
@@ -343,7 +343,7 @@
             }
             var note = byId('consultNote').value.trim();
             if (Array.from(note).length > QUESTION_MAX) {
-                showFormError('consultError', '메모는 300자 이내로 적어 주세요.');
+                showFormError('consultError', '메모는 300자 이내로 적으세요.');
                 return;
             }
             if (busy) {
@@ -383,10 +383,10 @@
             var result = await Auth().setKakaoNotify(wanted);
             box.disabled = false;
             if (result.ok) {
-                message.textContent = wanted ? '카카오톡 알림을 받을게요.' : '카카오톡 알림을 끌게요.';
+                message.textContent = wanted ? '카카오톡 알림을 받습니다.' : '카카오톡 알림을 끕니다.';
             } else {
                 box.checked = !wanted;
-                message.textContent = '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+                message.textContent = '저장하지 못했습니다. 잠시 후 다시 시도하세요.';
             }
         });
     }
@@ -429,7 +429,7 @@
             } else if (one.status === 404) {
                 show('detail');
                 byId('viewDetail').hidden = true;
-                showError('찾을 수 없는 견적이에요. 접수번호를 확인해 주세요. ');
+                showError('찾을 수 없는 견적입니다. 접수번호를 확인하세요. ');
                 var link = el('a', '', '← 내 견적 목록');
                 link.setAttribute('href', 'my-quotes.html');
                 byId('error').appendChild(link);

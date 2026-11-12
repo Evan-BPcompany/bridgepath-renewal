@@ -170,7 +170,7 @@ describe('the inquiry page of the other products against the real API', () => {
 
     expect(create).not.toHaveBeenCalled();
     expect($('#successMessage').style.display).toBe('none');
-    expect($('#submitError').textContent).toContain('준비하고 있어요');
+    expect($('#submitError').textContent).toContain('준비하고 있습니다');
     expect($('#productDescription').value).toBe('맞춤형 텀블러 (로고 인쇄)');
     expect($('#customerName').value).toBe('Lee');
   });

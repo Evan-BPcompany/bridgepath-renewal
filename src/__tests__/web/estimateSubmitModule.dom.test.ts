@@ -58,7 +58,7 @@ describe('estimate-submit.js: createProductErrors', () => {
     expect($('#a').getAttribute('aria-describedby')).toBe('productError-quantity');
     expect($('#a').getAttribute('aria-invalid')).toBe('true');
     expect($('#a').closest('.form-group').contains($('#productError-quantity'))).toBe(true);
-    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 2개 있어요.');
+    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 2개 있습니다.');
     expect(g.document.activeElement).toBe($('#a'));
   });
 
@@ -66,7 +66,7 @@ describe('estimate-submit.js: createProductErrors', () => {
     const errors = make();
     errors.show([{ field: 'quantity', code: 'quantity_invalid' }, { field: 'quantity', code: 'invalid' }, { field: 'unknown', code: 'invalid' }]);
     expect(g.document.querySelectorAll('.field-error').length).toBe(1);
-    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 1개 있어요.');
+    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 1개 있습니다.');
     errors.show([{ field: 'unknown', code: 'invalid' }]);
     expect($('#productErrorSummary').hidden).toBe(false);
     expect(g.document.activeElement).toBe($('#productErrorSummary'));
@@ -78,7 +78,7 @@ describe('estimate-submit.js: createProductErrors', () => {
     $('#a').dispatchEvent(new g.Event('input', { bubbles: true }));
     expect($('#productError-quantity')).toBeNull();
     expect($('#a').getAttribute('aria-invalid')).toBeNull();
-    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 1개 있어요.');
+    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 1개 있습니다.');
     $('#b').dispatchEvent(new g.Event('change', { bubbles: true }));
     expect($('#productErrorSummary').hidden).toBe(true);
   });

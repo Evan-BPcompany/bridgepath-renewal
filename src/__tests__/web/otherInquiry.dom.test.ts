@@ -91,7 +91,7 @@ describe('other-inquiry page: the form', () => {
 
   it('mounts the shared attachments, empty and usable', () => {
     expect($('#attachments .attachments-add').disabled).toBe(false);
-    expect($('#attachments .attachments-summary').textContent).toBe('첨부한 파일이 없어요.');
+    expect($('#attachments .attachments-summary').textContent).toBe('첨부한 파일이 없습니다.');
     expect($('#productImage')).toBeNull();
   });
 
@@ -109,11 +109,11 @@ describe('other-inquiry page: checking before sending', () => {
     await flush();
     expect(fetchMock).not.toHaveBeenCalled();
     expect($('#productErrorSummary').hidden).toBe(false);
-    expect($('#productErrorSummary').textContent).toMatch(/^확인이 필요한 항목이 2개 있어요\.$/);
+    expect($('#productErrorSummary').textContent).toMatch(/^확인이 필요한 항목이 2개 있습니다\.$/);
     expect($('#productDescription').getAttribute('aria-invalid')).toBe('true');
     expect($('#quantity').getAttribute('aria-invalid')).toBe('true');
     expect($('#customerErrorSummary').hidden).toBe(false);
-    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 4개 있어요.');
+    expect($('#customerErrorSummary').textContent).toBe('확인이 필요한 항목이 4개 있습니다.');
     expect(g.document.activeElement).toBe($('#productDescription'));
     expect(alertMock).not.toHaveBeenCalled();
   });
@@ -165,7 +165,7 @@ describe('other-inquiry page: checking before sending', () => {
     type($('#quantity'), '10');
     expect($('#quantity').getAttribute('aria-invalid')).toBeNull();
     expect($('#productError-quantity')).toBeNull();
-    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 1개 있어요.');
+    expect($('#productErrorSummary').textContent).toBe('확인이 필요한 항목이 1개 있습니다.');
     type($('#productDescription'), 'x');
     expect($('#productErrorSummary').hidden).toBe(true);
   });
@@ -260,7 +260,7 @@ describe('other-inquiry page: the answer', () => {
     expect($('#receiptId').textContent).toBe('BP-20261015-0007');
     expect($('#receiptTime').textContent).toContain('2026');
     expect($('#receiptMessage').textContent).toBe(SERVER_MESSAGE);
-    expect(box.textContent).toContain('접수번호를 메모해 주세요.');
+    expect(box.textContent).toContain('접수번호를 메모하세요.');
     expect(box.querySelector('a').getAttribute('href')).toBe('index.html');
     expect($('#inquiryForm').style.display).toBe('none');
     expect(g.document.activeElement).toBe(box);
@@ -331,7 +331,7 @@ describe('other-inquiry page: when it does not work', () => {
 
   it('503: says it is not ready and to call or write', async () => {
     await failWith(reply(503, { code: 'PRIVACY_CONSENT_NOT_CONFIGURED' }));
-    expect(shown()).toContain('준비하고 있어요');
+    expect(shown()).toContain('준비하고 있습니다');
     expect(shown()).toContain('전화나 이메일');
   });
 
@@ -380,7 +380,7 @@ describe('other-inquiry page: when it does not work', () => {
 
   it('an answer that is not understood, or a 201 without a receipt, is not a success', async () => {
     await failWith(reply(418, { token: 'SECRET-418' }));
-    expect(shown()).toContain('요청을 처리하지 못했어요');
+    expect(shown()).toContain('요청을 처리하지 못했습니다');
     expect(g.document.documentElement.outerHTML).not.toContain('SECRET-418');
     fetchMock.mockResolvedValue(reply(201, { created_at: '2026-10-15T00:00:00Z' }));
     submitForm();

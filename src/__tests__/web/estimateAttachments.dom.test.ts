@@ -39,7 +39,7 @@ const problems = (): string[] => $$('.attachments-problems p').map(element => el
 describe('the attachments component', () => {
   it('starts empty, with the rules written out and nothing to send', () => {
     expect(attachments.getFiles()).toEqual([]);
-    expect($('.attachments-summary').textContent).toBe('첨부한 파일이 없어요.');
+    expect($('.attachments-summary').textContent).toBe('첨부한 파일이 없습니다.');
     expect($('.attachments-hint').textContent).toContain('JPG, PNG, WEBP, PDF');
     expect($('.attachments-hint').textContent).toContain('10MB');
     expect($('.attachments-hint').textContent).toContain('최대 5개');
@@ -79,7 +79,7 @@ describe('the attachments component', () => {
     attachments.addFiles(['1', '2', '3', '4', '5', '6'].map(n => file(`${n}.png`)));
 
     expect(names()).toHaveLength(5);
-    expect(problems()).toEqual(['파일은 최대 5개까지 첨부할 수 있어요.']);
+    expect(problems()).toEqual(['파일은 최대 5개까지 첨부할 수 있습니다.']);
   });
 
   it('takes 30 MB together at most', () => {
@@ -95,7 +95,7 @@ describe('the attachments component', () => {
 
     expect(names()).toEqual(['logo.png', 'logo.png']);
     expect($$('.attachments-tag-warning')).toHaveLength(1);
-    expect($('.attachments-tag-warning').textContent).toBe('같은 파일이 이미 있어요');
+    expect($('.attachments-tag-warning').textContent).toBe('같은 파일이 이미 있습니다');
   });
 
   it('removes a file, keeps the focus on the add button, and drops a duplicate mark that is no longer true', () => {
@@ -177,7 +177,7 @@ describe('the attachments component', () => {
     attachments.reset();
 
     expect(attachments.getFiles()).toEqual([]);
-    expect($('.attachments-summary').textContent).toBe('첨부한 파일이 없어요.');
+    expect($('.attachments-summary').textContent).toBe('첨부한 파일이 없습니다.');
   });
 
   describe('the photo that the AI analysed', () => {
@@ -216,7 +216,7 @@ describe('the attachments component', () => {
       attachments.setAutoFile(file('glasses.jpg', 100, 'image/jpeg'));
 
       expect(names()).toEqual(['1.png', '2.png', '3.png', '4.png', '5.png']);
-      expect(problems()).toEqual(['분석한 사진은 첨부하지 못했어요.']);
+      expect(problems()).toEqual(['분석한 사진은 첨부하지 못했습니다.']);
     });
   });
 

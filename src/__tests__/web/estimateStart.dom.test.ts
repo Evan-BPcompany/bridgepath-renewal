@@ -46,8 +46,8 @@ describe.each(PAGES)('the two ways to start on the $page page', ({ page, card })
     const buttons = $$('#step1-content .start-grid button[data-start]');
 
     expect(buttons.map(button => [button.id, button.getAttribute('data-start')])).toEqual([['nextBtn1', 'image'], ['manualBtn', 'manual']]);
-    expect($('#nextBtn1 .pick-name').textContent).toBe('참고 이미지가 있어요');
-    expect($('#manualBtn .pick-name').textContent).toBe('이미지 없이 직접 입력할게요');
+    expect($('#nextBtn1 .pick-name').textContent).toBe('참고 이미지 있음');
+    expect($('#manualBtn .pick-name').textContent).toBe('이미지 없이 직접 입력');
     if (page === 'sunglasses') {
       // The golf tee page and the golf shoe page have one kind and choose it themselves.
       expect(buttons.every(button => button.disabled)).toBe(true);
@@ -117,21 +117,21 @@ describe.each(PAGES)('the two ways to start on the $page page', ({ page, card })
 
 describe('what the two ways say and hide', () => {
   it('says on the shoes and golf tee pages that the photo analysis is for sunglasses only', () => {
-    expect(readRoot('sunglasses-estimate.html')).toContain('AI가 재질과 렌즈를 추정해 항목을 채워 줘요');
+    expect(readRoot('sunglasses-estimate.html')).toContain('AI가 재질과 렌즈를 추정해 항목을 채워 줍니다');
     for (const page of ['shoes', 'golf']) {
       const html = readRoot(`${page}-estimate.html`);
-      expect(html).toContain('사진 AI 분석은 선글라스에서만 지원해요');
+      expect(html).toContain('사진 AI 분석은 선글라스에서만 지원합니다');
       expect(html).not.toContain('id="imageUploadBox"');
     }
   });
 
   it('says what needs no account and when one is needed', () => {
-    expect(readRoot('sunglasses-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b>[^<]*견적 요청까지 접수할 수 있어요\. <b>담당자 상세견적<\/b>[^<]*로그인이 필요해요\.<\/p>/);
-    expect(readRoot('golf-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있어요\.<\/p>/);
+    expect(readRoot('sunglasses-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b>[^<]*견적 요청까지 접수할 수 있습니다\. <b>담당자 상세견적<\/b>[^<]*로그인이 필요합니다\.<\/p>/);
+    expect(readRoot('golf-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있습니다\.<\/p>/);
     // The golf shoe page has no price to show yet, and says so instead of promising a range.
     const shoes = readRoot('shoes-estimate.html');
-    expect(shoes).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 견적 요청까지 접수할 수 있어요\. 골프화는 아직 예상 가격 범위를 바로 안내하지 못해요\.[^<]*<\/p>/);
-    expect(shoes.slice(shoes.indexOf('id="step1-content"'), shoes.indexOf('id="step2-content"'))).not.toContain('예상 가격 범위를 확인해요');
+    expect(shoes).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 견적 요청까지 접수할 수 있습니다\. 골프화는 아직 예상 가격 범위를 바로 안내하지 못합니다\.[^<]*<\/p>/);
+    expect(shoes.slice(shoes.indexOf('id="step1-content"'), shoes.indexOf('id="step2-content"'))).not.toContain('예상 가격 범위를 확인합니다');
   });
 
   it('offers the kinds of the golf sourcing direction only (2026-11-11)', () => {

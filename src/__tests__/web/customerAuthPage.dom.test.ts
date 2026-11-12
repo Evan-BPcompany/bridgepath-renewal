@@ -126,11 +126,11 @@ describe('login.html in jsdom (fake API)', () => {
     it('says what went wrong after a Google/Kakao sign-in, in words, from a fixed code only', async () => {
       await open({}, '?error=email_missing');
       expect($('#notice').hidden).toBe(false);
-      expect($('#notice').textContent).toContain('이메일 정보를 받지 못했어요');
+      expect($('#notice').textContent).toContain('이메일 정보를 받지 못했습니다');
       page!.dispose();
 
       await open({}, '?error=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E');
-      expect($('#notice').textContent).toBe('문제가 생겼어요. 잠시 후 다시 시도해 주세요.');
+      expect($('#notice').textContent).toBe('문제가 생겼습니다. 잠시 후 다시 시도하세요.');
       expect($('#notice img')).toBeNull();
     });
 
@@ -152,13 +152,13 @@ describe('login.html in jsdom (fake API)', () => {
       expect($('#completeConsentRow').hidden).toBe(false);
 
       submit('#completeForm');
-      expect($('#completeError').textContent).toBe('휴대폰 번호를 입력해 주세요.');
+      expect($('#completeError').textContent).toBe('휴대폰 번호를 입력하세요.');
       type('#completePhone', 'call me');
       submit('#completeForm');
       expect($('#completeError').textContent).toContain('전화번호는 숫자 7~15자리');
       type('#completePhone', '010-1234-5678');
       submit('#completeForm');
-      expect($('#completeError').textContent).toBe('개인정보 수집·이용에 동의해 주세요.');
+      expect($('#completeError').textContent).toBe('개인정보 수집·이용에 동의하세요.');
       expect(api.calls.some(call => call.path === '/me/complete')).toBe(false);
 
       g.fetch = fakeApi({ 'POST /me/complete': ok({ customer: CUSTOMER }) }).impl;
@@ -200,7 +200,7 @@ describe('login.html in jsdom (fake API)', () => {
       await flush();
 
       expect(visibleSteps()).toEqual(['login']);
-      expect($('#notice').textContent).toContain('로그인 시간이 지났어요');
+      expect($('#notice').textContent).toContain('로그인 시간이 지났습니다');
     });
   });
 
@@ -212,12 +212,12 @@ describe('login.html in jsdom (fake API)', () => {
       type('#loginEmail', 'nope');
       type('#loginPassword', 'x');
       submit('#loginForm');
-      expect($('#loginError').textContent).toBe('이메일 형식을 확인해 주세요.');
+      expect($('#loginError').textContent).toBe('이메일 형식을 확인하세요.');
 
       type('#loginEmail', 'buyer@example.com');
       type('#loginPassword', '');
       submit('#loginForm');
-      expect($('#loginError').textContent).toBe('비밀번호를 입력해 주세요.');
+      expect($('#loginError').textContent).toBe('비밀번호를 입력하세요.');
 
       await flush();
       expect(api.calls).toEqual([]);
@@ -238,10 +238,10 @@ describe('login.html in jsdom (fake API)', () => {
     });
 
     it.each([
-      [refuse(401, 'INVALID_CREDENTIALS'), '이메일 또는 비밀번호가 맞지 않아요.'],
-      [refuse(429, 'ACCOUNT_LOCKED'), '로그인에 여러 번 실패해서 잠시 잠겼어요. 잠시 후 다시 시도해 주세요.'],
-      [{ status: 429, body: { error: 'Too many requests' } }, '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.'],
-      [{ status: 500, body: undefined }, '문제가 생겼어요. 잠시 후 다시 시도해 주세요.']
+      [refuse(401, 'INVALID_CREDENTIALS'), '이메일 또는 비밀번호가 맞지 않습니다.'],
+      [refuse(429, 'ACCOUNT_LOCKED'), '로그인에 여러 번 실패해서 잠시 잠겼습니다. 잠시 후 다시 시도하세요.'],
+      [{ status: 429, body: { error: 'Too many requests' } }, '요청이 너무 많습니다. 잠시 후 다시 시도하세요.'],
+      [{ status: 500, body: undefined }, '문제가 생겼습니다. 잠시 후 다시 시도하세요.']
     ])('shows the reason for %j and stays', async (answer, text) => {
       await open({ 'POST /login': answer });
 
@@ -265,7 +265,7 @@ describe('login.html in jsdom (fake API)', () => {
       submit('#loginForm');
       await flush();
 
-      expect($('#loginError').textContent).toContain('서버에 연결하지 못했어요');
+      expect($('#loginError').textContent).toContain('서버에 연결하지 못했습니다');
       expect($('#loginSubmit').disabled).toBe(false);
     });
 
@@ -279,7 +279,7 @@ describe('login.html in jsdom (fake API)', () => {
 
       expect(visibleSteps()).toEqual(['code']);
       expect($('#codeEmail').textContent).toBe('buyer@example.com');
-      expect($('#notice').textContent).toContain('이메일 인증이 아직 끝나지 않았어요');
+      expect($('#notice').textContent).toContain('이메일 인증이 아직 끝나지 않았습니다');
     });
 
     it('asks a Google/Kakao customer without a phone for it before going on', async () => {
@@ -336,12 +336,12 @@ describe('login.html in jsdom (fake API)', () => {
     });
 
     it.each([
-      [{ '#signupEmail': 'nope' }, '이메일 형식을 확인해 주세요.'],
-      [{ '#signupPassword': 'abc' }, '비밀번호는 8자 이상으로 입력해 주세요.'],
-      [{ '#signupPassword': 'abcdefgh' }, '비밀번호에는 글자와 숫자가 모두 들어가야 해요.'],
-      [{ '#signupName': '  ' }, '이름을 입력해 주세요.'],
-      [{ '#signupPhone': '' }, '휴대폰 번호를 입력해 주세요.'],
-      [{ '#signupPhone': 'call me' }, '전화번호는 숫자 7~15자리로 입력해 주세요. 숫자, 공백, +, -, ( )만 쓸 수 있어요.']
+      [{ '#signupEmail': 'nope' }, '이메일 형식을 확인하세요.'],
+      [{ '#signupPassword': 'abc' }, '비밀번호는 8자 이상으로 입력하세요.'],
+      [{ '#signupPassword': 'abcdefgh' }, '비밀번호에는 글자와 숫자가 모두 들어가야 합니다.'],
+      [{ '#signupName': '  ' }, '이름을 입력하세요.'],
+      [{ '#signupPhone': '' }, '휴대폰 번호를 입력하세요.'],
+      [{ '#signupPhone': 'call me' }, '전화번호는 숫자 7~15자리로 입력하세요. 숫자, 공백, +, -, ( )만 쓸 수 있습니다.']
     ])('refuses %j with a message, asking nothing', async (change, message) => {
       const api = await open();
       api.calls.length = 0;
@@ -364,7 +364,7 @@ describe('login.html in jsdom (fake API)', () => {
       $('#signupConsent').checked = false;
       submit('#signupForm');
 
-      expect($('#signupError').textContent).toBe('개인정보 수집·이용에 동의해 주세요.');
+      expect($('#signupError').textContent).toBe('개인정보 수집·이용에 동의하세요.');
       expect(api.calls).toEqual([]);
     });
 
@@ -429,7 +429,7 @@ describe('login.html in jsdom (fake API)', () => {
       submit('#signupForm');
       await flush();
 
-      expect($('#signupError').textContent).toBe('이미 가입된 이메일이에요. 로그인해 주세요.');
+      expect($('#signupError').textContent).toBe('이미 가입된 이메일입니다. 로그인하세요.');
       expect(visibleSteps()).toEqual(['signup']);
     });
 
@@ -516,9 +516,9 @@ describe('login.html in jsdom (fake API)', () => {
     });
 
     it.each([
-      ['INVALID_CODE', '인증코드가 맞지 않아요. 다시 확인해 주세요.'],
-      ['CODE_EXPIRED', '인증코드가 만료됐어요. 코드를 다시 받아 주세요.'],
-      ['TOO_MANY_ATTEMPTS', '인증코드를 여러 번 틀렸어요. 코드를 다시 받아 주세요.']
+      ['INVALID_CODE', '인증코드가 맞지 않습니다. 다시 확인하세요.'],
+      ['CODE_EXPIRED', '인증코드가 만료됐습니다. 코드를 다시 받으세요.'],
+      ['TOO_MANY_ATTEMPTS', '인증코드를 여러 번 틀렸습니다. 코드를 다시 받으세요.']
     ])('shows %s, empties the boxes and does not sign in', async (code, text) => {
       await atCodeStep({ 'POST /verify-email': refuse(400, code) });
 
@@ -540,7 +540,7 @@ describe('login.html in jsdom (fake API)', () => {
       await flush();
 
       expect(api.calls.find(call => call.path === '/resend-code')!.body).toEqual({ email: 'buyer@example.com' });
-      expect($('#notice').textContent).toBe('인증코드를 다시 보냈어요. 메일함을 확인해 주세요.');
+      expect($('#notice').textContent).toBe('인증코드를 다시 보냈습니다. 메일함을 확인하세요.');
       expect($('#codeResend').disabled).toBe(true);
       expect($('#codeResend').textContent).toBe('인증코드 재전송 (60초)');
     });
@@ -553,7 +553,7 @@ describe('login.html in jsdom (fake API)', () => {
       click('#codeResend');
       await flush();
 
-      expect($('#codeError').textContent).toBe('이메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.');
+      expect($('#codeError').textContent).toBe('이메일을 보내지 못했습니다. 잠시 후 다시 시도하세요.');
       expect($('#codeResend').disabled).toBe(false);
     });
   });
@@ -586,7 +586,7 @@ describe('login.html in jsdom (fake API)', () => {
       expect($('#resetPassword').value).toBe('');
       expect(visibleSteps()).toEqual(['login']);
       expect($('#loginEmail').value).toBe('buyer@example.com');
-      expect($('#notice').textContent).toBe('비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.');
+      expect($('#notice').textContent).toBe('비밀번호를 바꿨습니다. 새 비밀번호로 로그인하세요.');
     });
 
     it('checks the e-mail, then the code and the new password, before asking the server', async () => {
@@ -596,7 +596,7 @@ describe('login.html in jsdom (fake API)', () => {
 
       type('#resetEmail', 'nope');
       submit('#resetRequestForm');
-      expect($('#resetRequestError').textContent).toBe('이메일 형식을 확인해 주세요.');
+      expect($('#resetRequestError').textContent).toBe('이메일 형식을 확인하세요.');
 
       g.fetch = fakeApi({ 'POST /password-reset/request': ok({}) }).impl;
       type('#resetEmail', 'buyer@example.com');
@@ -607,11 +607,11 @@ describe('login.html in jsdom (fake API)', () => {
       type('#resetCode', '12');
       type('#resetPassword', 'brand-new-1');
       submit('#resetForm');
-      expect($('#resetError').textContent).toBe('인증코드 6자리를 모두 입력해 주세요.');
+      expect($('#resetError').textContent).toBe('인증코드 6자리를 모두 입력하세요.');
       type('#resetCode', '123456');
       type('#resetPassword', 'short');
       submit('#resetForm');
-      expect($('#resetError').textContent).toBe('비밀번호는 8자 이상으로 입력해 주세요.');
+      expect($('#resetError').textContent).toBe('비밀번호는 8자 이상으로 입력하세요.');
       expect(g.fetch).not.toHaveBeenCalled();
     });
 
@@ -627,7 +627,7 @@ describe('login.html in jsdom (fake API)', () => {
       submit('#resetForm');
       await flush();
 
-      expect($('#resetError').textContent).toBe('인증코드가 맞지 않아요. 다시 확인해 주세요.');
+      expect($('#resetError').textContent).toBe('인증코드가 맞지 않습니다. 다시 확인하세요.');
       expect(visibleSteps()).toEqual(['reset']);
     });
   });
