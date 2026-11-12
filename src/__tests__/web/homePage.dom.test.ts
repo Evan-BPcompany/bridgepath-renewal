@@ -262,3 +262,198 @@ describe('the front panel (home.js)', () => {
     expect(() => g.BridgePathHome.init()).not.toThrow();
   });
 });
+
+describe('the stepper on the five steps (home.js)', () => {
+  let loaded: LoadedPage | undefined;
+
+  const start = (): void => {
+    loaded = loadPage('index.html', ['home.js']);
+  };
+
+  afterEach(() => {
+    loaded?.dispose();
+    loaded = undefined;
+    delete g.BridgePathHome;
+    delete g.matchMedia;
+  });
+
+  const items = (): any[] => $$('#process .steps li');
+  const views = (): any[] => $$('#process .step-view');
+  const ended = (bar: any): void => {
+    const event = new g.Event('animationend', { bubbles: true });
+    event.animationName = 'fill';
+    bar.dispatchEvent(event);
+  };
+
+  it('shows the first step and its view, and marks the section so the panel and the controls appear', () => {
+    start();
+
+    expect($('#process').classList.contains('js-stepper')).toBe(true);
+    expect(items().map(item => item.classList.contains('is-active'))).toEqual([true, false, false, false, false]);
+    expect(views().map(view => view.classList.contains('is-active'))).toEqual([true, false, false, false, false]);
+    expect($('#process .steps').classList.contains('is-running')).toBe(true);
+  });
+
+  it('keeps one view for each step, so the panel can follow the list', () => {
+    expect(html.match(/class="step-view/g)?.length).toBe(5);
+    expect(html.match(/<li>\s*<h3>/g)?.length).toBe(5);
+  });
+
+  it('jumps to a step that is picked, with the steps before it done', () => {
+    start();
+
+    items()[2].querySelector('.step-pick').click();
+
+    expect(items().map(item => item.classList.contains('is-active'))).toEqual([false, false, true, false, false]);
+    expect(items().map(item => item.classList.contains('is-done'))).toEqual([true, true, false, false, false]);
+    expect(views()[2].classList.contains('is-active')).toBe(true);
+    expect(items()[2].querySelector('.step-pick').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('moves on when the line under the shown step has filled, once through, and stops at the end', () => {
+    start();
+
+    items().forEach(item => ended(item.querySelector('.step-bar')));
+
+    expect(items().every(item => item.classList.contains('is-done'))).toBe(true);
+    expect($('#process .steps').classList.contains('is-running')).toBe(false);
+    expect($('#process .step-toggle').textContent).toBe('처음부터 다시 보기');
+
+    $('#process .step-toggle').click();
+
+    expect(items()[0].classList.contains('is-active')).toBe(true);
+    expect($('#process .steps').classList.contains('is-running')).toBe(true);
+  });
+
+  it('pauses and plays again with the button, and says which it will do', () => {
+    start();
+    const toggle = $('#process .step-toggle');
+
+    expect(toggle.textContent).toBe('자동 넘김 멈춤');
+    toggle.click();
+    expect($('#process .steps').classList.contains('is-paused')).toBe(true);
+    expect(toggle.textContent).toBe('자동 넘김 재생');
+    toggle.click();
+    expect($('#process .steps').classList.contains('is-paused')).toBe(false);
+  });
+
+  it('does not advance by itself for a visitor who asked for less motion, and hides the pause button', () => {
+    g.matchMedia = () => ({ matches: true });
+    start();
+
+    expect($('#process .steps').classList.contains('is-running')).toBe(false);
+    expect($('#process .step-toggle').hidden).toBe(true);
+    items()[3].querySelector('.step-pick').click();
+    expect(views()[3].classList.contains('is-active')).toBe(true);
+  });
+
+  it('does nothing, and does not fail, on a page without the steps', () => {
+    start();
+    g.document.body.innerHTML = '<p>other page</p>';
+
+    expect(() => g.BridgePathHome.init()).not.toThrow();
+  });
+});
+
+describe('the finder ring, the figures and the samples beside the ways to ask (home.js)', () => {
+  let loaded: LoadedPage | undefined;
+
+  afterEach(() => {
+    loaded?.dispose();
+    loaded = undefined;
+    delete g.BridgePathHome;
+    delete g.matchMedia;
+    delete g.IntersectionObserver;
+    delete g.requestAnimationFrame;
+  });
+
+  it('puts a ring around the row that has the pointer, and takes it away when the pointer leaves', () => {
+    loaded = loadPage('index.html', ['home.js']);
+    const link = $$('#choices a')[1];
+
+    link.dispatchEvent(new g.Event('mouseenter'));
+    expect($('#choices').classList.contains('has-ring')).toBe(true);
+    expect($('#choices').style.getPropertyValue('--ring-y')).toMatch(/px$/);
+
+    link.dispatchEvent(new g.Event('mouseleave'));
+    expect($('#choices').classList.contains('has-ring')).toBe(false);
+  });
+
+  it('shows only the figures the company gave, in the page itself', () => {
+    const figures = html.slice(html.indexOf('<section class="figures"'), html.indexOf('</section>', html.indexOf('<section class="figures"')));
+
+    expect([...figures.matchAll(/<figcaption>([^<]+)<\/figcaption>/g)].map(match => match[1])).toEqual([
+      '골프화 최소 주문',
+      '골프티 최소 주문, 1패키지는 50개입',
+      '담당자 상세견적, 업무일 기준'
+    ]);
+    expect(figures).toContain('>600<');
+    expect(figures).toContain('>1,000<');
+    expect(figures).toContain('>2~3<');
+  });
+
+  it('counts the figures up once when they come into view and ends on the number of the page', () => {
+    const frames: Array<(now: number) => void> = [];
+    let report: (entries: Array<{ isIntersecting: boolean }>) => void = () => undefined;
+    g.IntersectionObserver = class {
+      constructor(callback: (entries: Array<{ isIntersecting: boolean }>) => void) {
+        report = callback;
+      }
+      observe(): void {}
+      disconnect(): void {}
+    };
+    g.requestAnimationFrame = (callback: (now: number) => void) => frames.push(callback);
+    loaded = loadPage('index.html', ['home.js']);
+    const counted = $$('.figures [data-count]');
+
+    expect(counted.map(node => node.textContent)).toEqual(['600', '1,000']);
+
+    report([{ isIntersecting: true }]);
+    frames.shift()?.(0);
+    expect(counted.map(node => node.textContent)).toEqual(['0', '0']);
+    frames.shift()?.(450);
+    expect(Number(counted[0].textContent)).toBeGreaterThan(300);
+    expect(Number(counted[0].textContent)).toBeLessThan(600);
+    frames.shift()?.(900);
+    expect(counted.map(node => node.textContent)).toEqual(['600', '1,000']);
+    expect(frames).toHaveLength(0);
+  });
+
+  it('leaves the figures as they are for a visitor who asked for less motion', () => {
+    g.matchMedia = () => ({ matches: true });
+    g.IntersectionObserver = class {
+      observe(): void {}
+      disconnect(): void {}
+    };
+    g.requestAnimationFrame = () => 0;
+    loaded = loadPage('index.html', ['home.js']);
+
+    expect($$('.figures [data-count]').map(node => node.textContent)).toEqual(['600', '1,000']);
+  });
+
+  it('shows the sample of the way to ask that is picked or under the pointer, and marks that way', () => {
+    loaded = loadPage('index.html', ['home.js']);
+    const entries = $$('#guide .guide-list > div');
+    const views = $$('#guide .guide-view');
+    const picks = $$('#guide .guide-pick');
+
+    expect($('#guide').classList.contains('js-guide')).toBe(true);
+    expect(views.map(view => view.classList.contains('is-active'))).toEqual([true, false, false]);
+
+    picks[2].click();
+    expect(views.map(view => view.classList.contains('is-active'))).toEqual([false, false, true]);
+    expect(entries.map(entry => entry.classList.contains('is-active'))).toEqual([false, false, true]);
+    expect(picks.map(pick => pick.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true']);
+
+    entries[1].dispatchEvent(new g.Event('mouseenter'));
+    expect(views[1].classList.contains('is-active')).toBe(true);
+  });
+
+  it('keeps the guide to its three ways to ask, with no sample taking the place of a term', () => {
+    const guide = html.slice(html.indexOf('id="guide"'), html.indexOf('</main>'));
+
+    expect([...guide.matchAll(/<dt>([^<]+)<\/dt>/g)].map(match => match[1])).toEqual(['AI 가상견적', '담당자 상세견적', '질문과 상담']);
+    expect(html.match(/class="guide-pick"/g)?.length).toBe(3);
+    expect(html.match(/class="guide-view"/g)?.length).toBe(3);
+  });
+});

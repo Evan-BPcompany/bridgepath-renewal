@@ -11,12 +11,22 @@
     --line: #e1ded2;           /* hairlines: decoration */
     --line-strong: #788a80;    /* the edge of a control: 3.7:1 on white, 3.3:1 on the ivory */
     --paper: #f5f2e9;          /* Ivory: the page */
-    --white: #ffffff;
+    --white: #fcfbf6;          /* white with a trace of the ivory: never the absolute white */
+    --on-brand-soft: #c9d2c6;  /* the quiet text on the pine: 7.5:1 on the pine, 10:1 on the dark pine */
     --note: #f2efe5;           /* a quiet box on a white panel: notices, hints */
     --danger: #b00020;
     --danger-tint: #fdecea;
     --ok: #1f6b3a;
     --brand: #183d35;          /* the pine of the FINDER GREEN logo: the name beside the mark, the closing band */
+    --space-2xs: 4px;
+    --space-xs: 8px;
+    --space-sm: 12px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 40px;
+    --space-2xl: 64px;
+    --space-3xl: 96px;
+    --space-4xl: 144px;
     --radius: 2px;             /* panels and large cards: square, as in the logo kit */
     --radius-s: 2px;           /* controls, buttons and small boxes */
     --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -45,6 +55,9 @@ button, input, select, textarea { font-family: inherit; }
 
 h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
+/* without this they fall back to the browser's 700, which the design does not use */
+h1, h2, h3, h4, b, strong, th { font-weight: 600; }
+
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 [hidden] { display: none !important; }
@@ -55,7 +68,7 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     top: -60px;
     background: var(--ink);
     color: var(--white);
-    padding: 10px 14px;
+    padding: var(--space-sm) var(--space-md);
     border-radius: var(--radius-s);
     z-index: 200;
 }
@@ -75,17 +88,17 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-sm);
     max-width: 1120px;
     min-height: 60px;
     margin: 0 auto;
-    padding: 0 clamp(14px, 4vw, 32px);
+    padding: 0 clamp(var(--space-md), 4vw, 32px);
 }
 
 .site-brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-xs);
     min-height: 44px;
     font-weight: 500;
     font-size: 1.08rem;
@@ -97,15 +110,15 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
 /* The F of the logo kit, with the empty space the file keeps around it: the negative margins put
    the letter itself on the edge of the page and next to the name. */
-.site-brand img { display: block; width: 40px; height: 40px; margin: 0 -6px 0 -8px; }
+.site-brand img { display: block; width: 40px; height: 40px; margin: 0 calc(var(--space-2xs) * -1) 0 calc(var(--space-xs) * -1); }
 
-.site-nav { display: flex; align-items: center; gap: clamp(2px, 1vw, 10px); }
+.site-nav { display: flex; align-items: center; gap: clamp(var(--space-2xs), 1vw, var(--space-xs)); }
 
 .site-nav a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    padding: 0 10px;
+    padding: 0 var(--space-sm);
     border-radius: var(--radius-s);
     font-size: 0.92rem;
     color: var(--ink-soft);
@@ -118,8 +131,8 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
 .site-nav .site-cta {
     min-height: 40px;
-    margin-left: 6px;
-    padding: 0 18px;
+    margin-left: var(--space-xs);
+    padding: 0 var(--space-md);
     border-radius: var(--radius-s);
     background: var(--ink);
     color: var(--white);
@@ -135,21 +148,21 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 .flow {
     max-width: 760px;
     margin: 0 auto;
-    padding: clamp(14px, 3vw, 28px) clamp(12px, 3vw, 20px) 72px;
+    padding: clamp(var(--space-md), 3vw, 28px) clamp(var(--space-sm), 3vw, 20px) 72px;
 }
 
 .panel {
     background: var(--white);
     border-radius: var(--radius);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 2px color-mix(in oklab, var(--ink-strong) 8%, transparent);
 }
 
 .panel-head {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-2xs);
     min-height: 56px;
-    padding: 0 clamp(16px, 3.5vw, 28px);
+    padding: 0 clamp(var(--space-md), 3.5vw, 28px);
     border-bottom: 1px solid var(--line);
 }
 
@@ -162,7 +175,7 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     justify-content: center;
     width: 44px;
     height: 44px;
-    margin-left: -14px;
+    margin-left: calc(var(--space-md) * -1);
     border-radius: var(--radius-s);
     text-decoration: none;
 }
@@ -171,7 +184,7 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     content: "";
     width: 9px;
     height: 9px;
-    margin-left: 4px;
+    margin-left: var(--space-2xs);
     border-left: 2px solid var(--ink);
     border-bottom: 2px solid var(--ink);
     transform: rotate(45deg);
@@ -179,7 +192,7 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
 .panel-back:hover { background: var(--note); }
 
-.panel-body { padding: clamp(20px, 3.5vw, 30px) clamp(16px, 3.5vw, 28px) clamp(24px, 4vw, 36px); }
+.panel-body { padding: clamp(20px, 3.5vw, 32px) clamp(var(--space-md), 3.5vw, 28px) clamp(var(--space-lg), 4vw, 36px); }
 
 /* "Step 01/03": the number of the step in the pine, the count quiet */
 .step-tag { font-weight: 600; font-size: 0.95rem; }
@@ -191,7 +204,7 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     list-style: none;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: var(--space-sm);
 }
 
 .pick {
@@ -199,10 +212,10 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--space-xs);
     width: 100%;
     min-height: 184px;
-    padding: 24px 18px;
+    padding: var(--space-lg) var(--space-md);
     background: var(--white);
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -219,10 +232,10 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
 .pick:disabled { cursor: not-allowed; opacity: 0.45; }
 
-.pick-icon { display: block; width: 26px; height: 26px; margin-bottom: 6px; }
+.pick-icon { display: block; width: 26px; height: 26px; margin-bottom: var(--space-2xs); }
 .pick-icon svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
-.pick-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 1.08rem; letter-spacing: -0.025em; }
+.pick-name { display: inline-flex; align-items: center; gap: var(--space-xs); font-weight: 600; font-size: 1.08rem; letter-spacing: -0.025em; }
 
 .pick-name::after {
     content: "";
@@ -239,13 +252,13 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 .pick-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* a way to something that is not one of the cards */
-.more-link { margin-top: 12px; font-size: 0.9rem; color: var(--ink-soft); }
-.more-link a { display: inline-block; padding: 8px 4px; font-weight: 600; }
+.more-link { margin-top: var(--space-sm); font-size: 0.9rem; color: var(--ink-soft); }
+.more-link a { display: inline-block; padding: var(--space-xs) var(--space-2xs); font-weight: 600; }
 
 /* what can be done without an account, and what needs one */
 .scope-note {
     margin-top: 20px;
-    padding: 12px 14px;
+    padding: var(--space-sm) var(--space-md);
     border-radius: var(--radius-s);
     background: var(--note);
     font-size: 0.86rem;
@@ -257,16 +270,32 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 /* ==================== The foot (the same foot as the home page) ==================== */
 .footer {
     background: var(--ink-strong);
-    padding: 44px clamp(20px, 5vw, 64px) 52px;
+    padding: 44px clamp(20px, 5vw, var(--space-2xl)) 52px;
     font-size: 0.85rem;
-    color: #c9d2c6;            /* 10:1 on the dark pine */
+    color: var(--on-brand-soft);
 }
 
-.footer p { margin: 4px auto 0; max-width: 1120px; }
+.footer p { margin: var(--space-2xs) auto 0; max-width: 1120px; }
 .footer .foot-name { color: var(--white); font-weight: 600; font-size: 1rem; }
-.footer a { color: #c9d2c6; }
+.footer a { color: var(--on-brand-soft); }
 .footer a:hover { color: var(--white); }
-.footer .foot-copy { margin-top: 14px; }
+.footer .foot-copy { margin-top: var(--space-md); }
+
+/* the home page's foot: the name on the left, the business details one to a line on the right */
+.foot-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: var(--space-lg);
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.foot-inner p { margin: 0; max-width: none; }
+.foot-details p + p { margin-top: var(--space-2xs); }
+
+@media (max-width: 720px) {
+    .foot-inner { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* ==================== Motion ==================== */
 @keyframes slideDown {
@@ -274,12 +303,22 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* Reduce, not remove: for a visitor who asked for less motion nothing travels across the screen
+   (movement jumps to its end), but a colour or an opacity may still change, quickly. A page that wants a
+   quiet fade for them (home.css) sets it on its own selector with !important, which wins over this. */
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
 
     *,
     *::before,
-    *::after { animation: none !important; transition: none !important; }
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-property: color, background-color, border-color, opacity !important;
+        transition-duration: 0.15s !important;
+        transition-delay: 0s !important;
+    }
 }
 
 /* ==================== Narrow screens ==================== */
@@ -290,18 +329,18 @@ h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.025em; }
 
 @media (max-width: 720px) {
     .pick-three { grid-template-columns: 1fr; }
-    .pick-three .pick { min-height: 0; padding: 20px 16px; }
+    .pick-three .pick { min-height: 0; padding: 20px var(--space-md); }
 }
 
 @media (max-width: 560px) {
     .pick-grid { grid-template-columns: 1fr; }
-    .pick { min-height: 0; padding: 20px 16px; }
+    .pick { min-height: 0; padding: 20px var(--space-md); }
 }
 
 @media (max-width: 420px) {
-    .site-brand { gap: 8px; font-size: 0.95rem; letter-spacing: 0.02em; }
-    .site-nav a { padding: 0 8px; font-size: 0.86rem; }
-    .site-nav .site-cta { margin-left: 2px; padding: 0 13px; }
+    .site-brand { gap: var(--space-xs); font-size: 0.95rem; letter-spacing: 0.02em; }
+    .site-nav a { padding: 0 var(--space-xs); font-size: 0.86rem; }
+    .site-nav .site-cta { margin-left: 2px; padding: 0 var(--space-sm); }
     .cta-long { display: none; }
     .cta-short { display: inline; }
 }

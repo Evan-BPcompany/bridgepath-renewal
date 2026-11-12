@@ -1,69 +1,104 @@
-/* The home page. The tokens, the bar at the top, the foot and the focus ring come from style.css, which
-   index.html loads first; this file holds what only the home page has.
-   One clear title, one short line, one main button, and under them the four products themselves:
-   the board is the real first step of an estimate, not a picture of one. No photo is used until
-   Bridge Path has its own (design-system/bridgepath/MASTER.md, "사진"). */
+/* Hallmark · shape: Counter page, rows instead of cards · genre: editorial · theme: brand · redesign: full
+ * paper: oklch(96% 0.012 92) · accent: oklch(33% 0.045 177) · display: Pretendard Variable · body: Pretendard Variable · hero: Counter · nav: kept (edge-aligned bar, shared by every page) · footer: colophon block · signature: the product board on a pine slab, whose big word follows the pointer
+ * axes: ivory/sans-light/pine · posture: Committed (the pine slab and the closing band are surface colour) · contrast: pass · fold: pass · job: request a quote · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V3 · weakest: V, the palette is fixed by the logo kit and there are no photos, so the page differs by composition only; the three sections each took a different skeleton (counter, rows beside a head, hairline columns on a wash) */
+/* Hallmark · dropped .facts (한눈에 보기) · every figure in it is stated where it does work: the minimum orders in the product rows, 2~3 business days in the guide, the five steps in the list; the other two were counts of the page's own content */
+/* Hallmark · reworded "골프 선글라스, 골프화, 골프티를 소싱해 드려요. 제품을 고르면 로그인 없이 견적이 시작돼요." to "로그인 없이 시작해요" · the three goods are the rows beside it, and the slogan is the one sentence of the hero (58) */
+/* Hallmark · reworded "첫 견적에서 제품 출고까지, 다섯 단계예요" to "첫 견적부터 출고까지" and cut "처음 만들어도 흐름을 놓치지 않도록 단계마다 무엇을 하는지 알려드려요." · the list shows the five steps and the line said nothing the steps do not */
+/* Hallmark · reworded the h1 "어떤 골프용품을 찾으세요?" to "골프 아이디어를 필드까지" (the user's choice, 2026-11-12) · the question moves to the head of the board, where it asks for the choice below it; the closing "아이디어가 필드에 나올 때까지" became "견적은 제품 선택부터 시작합니다" so the idea is not said twice */
+/* Hallmark · motion: one entrance of the hero, a line that draws under the row that has the pointer, a stepper on the five steps (the shown step moves on every five seconds, once through, and stops on hover, focus or the pause button; a ball and a hole on the track follow it), the green behind the slab drifting with the scroll · no loops; for a visitor who asked for less motion nothing advances by itself and the pieces fade in place (style.css reduces, it does not remove) */
+/* Hallmark · motion, second round: a finder ring that glides to the product row with the pointer, three figures that count up once, a switcher of three samples beside the ways to ask (all of it manual or one-shot, no loops) */
+/* Hallmark · answered F8 · the user asked for a livelier home (2026-11-12): the scroll effects are the green drifting behind the slab and the closing settling in; the stepper is not a scroll effect */
+/* Hallmark · hero-review: in-thread · finish-review: in-thread · 2 findings · 1 resolved (the "other goods" link was 38px tall, now 46px) 1 unresolved (the pale disc behind the slab is decoration; it stays only because homePage.dom.test.ts pins .hero::before as the one round shape) */
+/* Hallmark · reworded every "~해요" line of the home page · the user found the chatty polite ending machine-made (2026-11-12): list items and hints are now fragments ("예상 범위 확인"), running explanations and disclaimers keep their meaning in "~합니다" sentences */
+/* Hallmark · reworded "궁금한 점은 이렇게 물어보세요" to "AI로 먼저, 담당자와 이어서" · the three items are not questions but the order a customer goes through them */
+/* Hallmark · reworded "가격 범위 확인 · 견적 요청" to "가격 범위 확인과 견적 요청" and "로그인 없이 견적부터 시작해 보세요" (closing) to "제품을 고르면 견적이 시작돼요" · 63 names the dot, 69 the third repeat of the login line */
 
-html { scroll-padding-top: 76px; }
+/* The home page. The tokens, the bar at the top and the focus ring come from style.css, which index.html loads
+   first; this file holds what only the home page has. No photo is used until FINDER GREEN has its own
+   (design-system/bridgepath/MASTER.md, "사진"): the board is the real first step of an estimate. */
+:root {
+    --text-sm: 0.875rem;
+    --text-md: 1rem;
+    --text-lg: 1.5rem;
+    --text-title: clamp(1.25rem, 0.8vw + 1rem, 1.75rem);
+    --text-section: clamp(2rem, 1rem + 2.2vw, 3rem);
+    --text-display: clamp(2.5rem, 1.2rem + 3vw, 3.5rem);
+    --text-figure: clamp(2.75rem, 1.4rem + 3.6vw, 4.75rem);
+    --container: 1120px;
+    --gutter: clamp(16px, 4vw, 32px);
+    --rule: color-mix(in oklab, var(--ink) 22%, transparent);
+    --rule-on-brand: color-mix(in oklab, var(--paper) 24%, transparent);
+    --wash-on-brand: color-mix(in oklab, var(--paper) 9%, transparent);
+    --wash: color-mix(in oklab, var(--ink) 5%, transparent);
+}
 
-body { overflow-x: clip; }
+html, body { overflow-x: clip; }
 
-/* ---------- the question ---------- */
+html { scroll-padding-top: var(--space-3xl); }
+
+/* ---------- the question and the board ---------- */
 .hero {
     position: relative;
     isolation: isolate;
-    padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 32px) clamp(40px, 6vw, 72px);
-    overflow: hidden;
+    display: grid;
+    align-items: center;
+    min-height: calc(100svh - 61px);
+    padding-block: var(--space-2xl);
+    overflow: clip;
 }
 
-/* a warm wash behind the board: the one large shape of the page */
+/* the green seen from above: one flat disc behind the top right of the slab */
 .hero::before {
     content: "";
     position: absolute;
-    left: 50%;
-    bottom: -8%;
     z-index: -1;
-    width: min(1180px, 150vw);
-    height: 62%;
+    top: -140px;
+    left: calc(50% + 190px);
+    width: 560px;
+    height: 560px;
     border-radius: 999px;
-    background: radial-gradient(closest-side, var(--accent-soft) 0%, rgba(228, 233, 225, 0) 100%);
-    transform: translateX(-50%);
+    background: var(--accent-soft);
     pointer-events: none;
+    animation: fade 1200ms var(--ease) 300ms backwards;
 }
 
-.hero-text { max-width: 760px; margin: 0 auto; text-align: center; }
-
-.hero-slogan {
-    display: inline-flex;
+.hero-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
     align-items: center;
-    gap: 8px;
-    font-size: 0.92rem;
-    font-weight: 500;
-}
-
-.hero-slogan::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 0;
-    background: var(--accent);
+    gap: var(--space-2xl);
+    width: 100%;
+    max-width: var(--container);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
 }
 
 .hero h1 {
-    margin-top: 14px;
-    font-size: clamp(2.1rem, 5.6vw, 3.6rem);
+    max-width: 9em;
+    font-size: var(--text-display);
     line-height: 1.16;
     font-weight: 400;
     letter-spacing: -0.035em;
     text-wrap: balance;
+    overflow-wrap: break-word;
+    min-width: 0;
 }
 
-.hero-lead {
-    max-width: 30em;
-    margin: 16px auto 0;
-    text-wrap: balance;
+.hero-slogan {
+    max-width: 22em;
+    margin-top: var(--space-lg);
+    font-size: clamp(1rem, 0.4vw + 0.95rem, 1.2rem);
     color: var(--ink-soft);
-    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    text-wrap: balance;
+}
+
+.hero-action {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-md) var(--space-lg);
+    margin-top: var(--space-xl);
 }
 
 /* the one main button of the page */
@@ -72,255 +107,693 @@ body { overflow-x: clip; }
     align-items: center;
     justify-content: center;
     min-height: 52px;
-    margin-top: 26px;
-    padding: 0 30px;
+    padding-inline: var(--space-lg);
     border-radius: var(--radius-s);
     background: var(--accent);
     color: var(--white);
     font-weight: 500;
     font-size: 1.02rem;
     text-decoration: none;
+    white-space: nowrap;
     transition: background-color 0.15s ease;
 }
 
 .hero-cta:hover { background: var(--ink-strong); }
 
-/* ---------- the board: step 01 of an estimate ---------- */
+.hero-cta:active { background: var(--ink-strong); transform: translateY(1px); }
+
+.hero-note { font-size: var(--text-sm); color: var(--ink-soft); }
+
+/* ---------- the entrance: the hero comes up once, one piece after another ---------- */
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(var(--space-md)); } }
+
+.hero h1 { animation: rise 700ms var(--ease) backwards; }
+.hero-slogan { animation: rise 700ms var(--ease) 120ms backwards; }
+.hero-action { animation: rise 700ms var(--ease) 240ms backwards; }
+.hero-board { animation: rise 800ms var(--ease) 200ms backwards; }
+
+/* the board: step one of an estimate, on a slab of pine */
 .hero-board {
-    max-width: 1000px;
-    margin: clamp(32px, 5vw, 56px) auto 0;
-    padding: clamp(18px, 3vw, 28px);
-    background: var(--white);
-    border-radius: var(--radius);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 18px 48px rgba(24, 61, 53, 0.08);
-}
-
-.choices {
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 14px;
-}
-
-/* other golf goods: a line, not a card */
-.choices-more { margin-top: 12px; font-size: 0.9rem; color: var(--ink-soft); }
-.choices-more a { display: inline-block; padding: 8px 4px; font-weight: 600; }
-
-.choices li { display: flex; }
-
-.choices a {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    gap: 6px;
-    min-height: 148px;
-    padding: 18px 18px 16px;
-    border: 1px solid var(--line);
+    padding: var(--space-xl);
     border-radius: var(--radius);
-    color: var(--ink);
-    text-decoration: none;
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    background: var(--brand);
+    color: var(--paper);
 }
 
-.choice-name { font-size: clamp(1.15rem, 2vw, 1.35rem); font-weight: 600; letter-spacing: -0.03em; }
+.board-title {
+    font-size: var(--text-title);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.3;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
 
-.choice-hint { font-size: 0.86rem; line-height: 1.5; color: var(--ink-soft); }
+.choices { position: relative; list-style: none; }
 
-/* the arrow sits at the foot of the card */
+/* the finder: a ring that glides to the row that has the pointer or the focus and sits around its arrow
+   (home.js sets --ring-y); it is only there while a row is picked */
+.choices::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    right: -14px;
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--sage);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(var(--ring-y, 0px)) scale(0.6);
+    transition: transform 350ms var(--ease), opacity 200ms ease;
+}
+
+.choices.has-ring::before {
+    opacity: 1;
+    transform: translateY(var(--ring-y, 0px)) scale(1);
+}
+
+.choices li + li { border-top: 1px solid var(--rule-on-brand); }
+
+.choices a {
+    position: relative;
+    display: block;
+    margin-inline: calc(var(--space-lg) * -1);
+    padding: var(--space-lg) calc(var(--space-xl) + var(--space-md)) var(--space-lg) var(--space-lg);
+    color: inherit;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+}
+
+.choice-name {
+    display: block;
+    font-size: var(--text-title);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.3;
+}
+
+.choice-hint {
+    display: block;
+    max-width: 34em;
+    margin-top: var(--space-xs);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    color: var(--on-brand-soft);
+}
+
+/* the arrow sits at the right of the row */
 .choices a::after {
     content: "";
-    align-self: flex-end;
+    position: absolute;
+    top: calc(50% - 5px);
+    right: var(--space-lg);
     width: 9px;
     height: 9px;
-    margin: auto 4px 2px 0;
-    border-top: 2px solid var(--ink);
-    border-right: 2px solid var(--ink);
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
     transform: rotate(45deg);
-    transition: transform 0.2s var(--ease), border-color 0.15s ease;
+    transition: transform 0.2s var(--ease);
 }
+
+/* a line draws under the row that has the pointer or the focus */
+.choices a::before {
+    content: "";
+    position: absolute;
+    right: var(--space-lg);
+    bottom: 0;
+    left: var(--space-lg);
+    height: 2px;
+    background: var(--sage);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 400ms var(--ease);
+}
+
+.choices a:hover::before,
+.choices a:focus-visible::before { transform: scaleX(1); }
 
 .choices a:hover,
-.choices a:focus-visible { border-color: var(--ink); background: var(--paper); }
+.choices a:focus-visible { background: var(--wash-on-brand); }
+
+.choices a:active { background: var(--rule-on-brand); }
 
 .choices a:hover::after,
-.choices a:focus-visible::after { border-color: var(--accent); transform: translateX(4px) rotate(45deg); }
+.choices a:focus-visible::after { transform: translateX(4px) rotate(45deg); }
 
-/* what comes after the choice: the product in words, then the two steps that follow */
-.stack {
-    display: flex;
-    align-items: center;
-    gap: clamp(16px, 3vw, 32px);
-    margin-top: 14px;
-    padding: 14px 18px;
-    border-radius: var(--radius);
-    background: var(--paper);
+/* other golf goods: a line under the rows, not a row */
+.choices-more {
+    margin-top: var(--space-md);
+    font-size: var(--text-sm);
+    color: var(--on-brand-soft);
 }
 
-.stack-card { display: flex; flex-direction: column; min-width: 7.5em; }
+.choices-more a {
+    display: inline-block;
+    padding: var(--space-sm) var(--space-xs);
+    color: var(--paper);
+    font-weight: 600;
+}
 
-.stack-label { font-size: 0.78rem; color: var(--ink-soft); }
+/* what comes after the choice: the product in words, then the steps that follow */
+.stack {
+    display: grid;
+    gap: var(--space-md);
+    margin-top: var(--space-xl);
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--rule-on-brand);
+}
 
-.stack-word { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.3; }
+.stack-card { display: flex; flex-direction: column; }
+
+.stack-label { font-size: var(--text-sm); color: var(--on-brand-soft); }
+
+.stack-word {
+    font-size: var(--text-section);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+    line-height: 1.2;
+}
 
 .stack-flow {
     list-style: none;
     counter-reset: flow;
     display: flex;
     flex-wrap: wrap;
-    gap: 8px clamp(14px, 2.5vw, 28px);
-    padding-left: clamp(16px, 3vw, 32px);
-    border-left: 1px solid var(--line);
-    font-size: 0.9rem;
-    color: var(--ink-soft);
+    gap: var(--space-xs) var(--space-lg);
+    font-size: var(--text-sm);
+    color: var(--on-brand-soft);
 }
 
-.stack-flow li { counter-increment: flow; display: inline-flex; align-items: baseline; gap: 8px; }
+.stack-flow li { counter-increment: flow; display: inline-flex; align-items: baseline; gap: var(--space-xs); }
 
 .stack-flow li::before {
     content: "0" counter(flow);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    color: var(--ink);
+    color: var(--paper);
 }
 
-.stack-flow li:first-child::before { color: var(--accent); }
+.hero-board a:focus-visible,
+.closing a:focus-visible { outline-color: var(--paper); }
 
-/* ---------- facts ---------- */
-.facts { padding: 0 clamp(16px, 4vw, 32px); }
+/* ---------- the five steps: a stepper, the list on the left and what happens in the step on the right ---------- */
+.process {
+    max-width: var(--container);
+    margin-inline: auto;
+    padding: var(--space-4xl) var(--gutter);
+}
 
-.facts dl {
+.process h2 { margin-bottom: var(--space-2xl); }
+
+/* without script it is only the list; with script (home.js puts .js-stepper on the section) a panel joins it */
+.js-stepper .stepper {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 12px;
-    max-width: 1000px;
-    margin: 0 auto;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+    gap: var(--space-2xl);
 }
 
-.facts dl > div {
-    display: flex;
-    flex-direction: column-reverse;
-    justify-content: flex-end;
-    gap: 6px;
-    padding: 20px 12px;
-    text-align: center;
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
-
-.facts dt { font-size: 0.82rem; color: var(--ink-soft); }
-
-.facts .num {
-    font-size: clamp(1.9rem, 3.8vw, 2.8rem);
-    line-height: 1;
-    font-weight: 400;
-    letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
-}
-
-.facts .unit { margin-left: 4px; font-size: 0.95rem; font-weight: 500; color: var(--ink-soft); }
-
-/* ---------- sections ---------- */
-.process,
-.guide {
-    max-width: 1064px;
-    margin: 0 auto;
-    padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 32px) 0;
-}
-
-.guide { padding-bottom: clamp(56px, 8vw, 96px); }
 
 .process h2,
 .guide h2 {
-    font-size: clamp(1.6rem, 3.4vw, 2.3rem);
-    line-height: 1.25;
+    max-width: 12em;
+    font-size: var(--text-section);
+    line-height: 1.2;
     font-weight: 400;
     letter-spacing: -0.03em;
     text-wrap: balance;
+    overflow-wrap: break-word;
+    min-width: 0;
 }
 
-.section-lead { margin-top: 10px; color: var(--ink-soft); }
-
-/* ---------- the five steps: a row of numbers, no boxes ---------- */
+/* The track: a line down the list, a node on every step, a ball and a hole. Without script every node is lit and
+   the ball sits in the hole (the whole way, finished); with script they follow the step that is shown. */
 .steps {
+    --steps-pad: var(--space-xl);
+    position: relative;
+    max-width: 40rem;
     list-style: none;
     counter-reset: step;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: clamp(16px, 2.5vw, 28px);
-    margin-top: clamp(28px, 4vw, 44px);
+    padding-left: var(--steps-pad);
+    padding-bottom: var(--space-md);
 }
 
-.steps li { counter-increment: step; padding-top: 16px; border-top: 2px solid var(--ink); }
+.steps::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    bottom: 28px;
+    left: 9px;
+    width: 2px;
+    background: var(--rule);
+}
+
+/* the ball (14px) and the hole (20px): two layers of one box, the ball on top */
+.steps::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    bottom: 16px;
+    left: 0;
+    width: 20px;
+    background:
+        radial-gradient(circle, var(--brand) 0 6.5px, transparent 7px) 3px calc(100% - 3px) / 14px 14px no-repeat,
+        radial-gradient(circle, var(--paper) 0 6px, var(--brand) 6.5px 9px, transparent 9.5px) 0 100% / 20px 20px no-repeat;
+}
+
+.js-stepper .steps::after {
+    background-position: 3px var(--ball-y, 3px), 0 100%;
+    transition: background-position 600ms var(--ease);
+}
+
+.steps li:last-child { border-bottom: 1px solid var(--rule); }
+
+.steps li {
+    position: relative;
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: var(--space-2xl) minmax(0, 1fr);
+    column-gap: var(--space-md);
+    padding-block: var(--space-lg);
+    border-top: 1px solid var(--rule);
+}
 
 .steps li::before {
     content: "0" counter(step);
-    display: block;
-    margin-bottom: 10px;
-    font-size: 0.9rem;
-    font-weight: 600;
+    grid-row: 1 / span 2;
+    font-size: var(--text-lg);
+    line-height: 1.3;
     font-variant-numeric: tabular-nums;
     color: var(--accent);
 }
 
-.steps h3 { font-size: 1.12rem; font-weight: 600; }
+.steps li::after {
+    content: "";
+    position: absolute;
+    top: 32px;
+    left: calc(var(--steps-pad) * -1 + 2px);
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--brand);
+    border-radius: 50%;
+    background-color: var(--brand);
+}
 
-.steps p { margin-top: 6px; font-size: 0.93rem; color: var(--ink-soft); }
+.steps h3 { font-size: var(--text-title); font-weight: 600; line-height: 1.3; }
 
-/* ---------- how to ask: three white cards ---------- */
+.steps p { max-width: 36em; margin-top: var(--space-2xs); font-size: var(--text-md); color: var(--ink-soft); }
+
+/* the stepper: what is not shown yet is quiet, what is done is lit, the bar under the shown step fills */
+.step-pick,
+.step-bar,
+.step-toggle,
+.step-panel { display: none; }
+
+.js-stepper .step-pick {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.step-pick:hover { background: var(--wash); }
+
+.step-pick:active { background: var(--rule); }
+
+.step-pick:focus-visible { outline-offset: -3px; }
+
+.js-stepper .steps li:not(.is-active)::before,
+.js-stepper .steps li:not(.is-active) h3 { color: var(--ink-soft); }
+
+.js-stepper .steps li::before,
+.js-stepper .steps h3 { transition: color 0.3s ease; }
+
+.js-stepper .steps li::after {
+    background-color: var(--paper);
+    border-color: var(--rule);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.js-stepper .steps li.is-done::after,
+.js-stepper .steps li.is-active::after {
+    background-color: var(--brand);
+    border-color: var(--brand);
+}
+
+.js-stepper .step-bar {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    background: var(--brand);
+    transform: scaleX(0);
+    transform-origin: left;
+}
+
+.js-stepper .steps li.is-done .step-bar { transform: scaleX(1); }
+
+/* it fills over five seconds (home.js moves on when it ends); out of sight, on hover or focus, or paused, it waits */
+.js-stepper .steps li.is-active .step-bar {
+    animation: fill 5000ms linear forwards;
+    animation-play-state: paused;
+}
+
+.js-stepper .steps.is-running:not(.is-paused) li.is-active .step-bar { animation-play-state: running; }
+
+.js-stepper .stepper:is(:hover, :focus-within) .steps li.is-active .step-bar { animation-play-state: paused !important; }
+
+.js-stepper .step-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: var(--space-lg);
+    padding-inline: var(--space-md);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-s);
+    background: var(--white);
+    color: var(--ink);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.step-toggle:hover { background: var(--paper); }
+
+.step-toggle:active { background: var(--accent-soft); }
+
+/* the panel: every view in the same cell, so it keeps the height of the tallest and the page does not jump */
+.js-stepper .step-panel {
+    display: grid;
+    padding: var(--space-xl);
+    border-radius: var(--radius);
+    background: var(--accent-soft);
+}
+
+.step-view { grid-area: 1 / 1; }
+
+.js-stepper .step-view {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(var(--space-xs));
+    transition: opacity 300ms var(--ease), transform 300ms var(--ease), visibility 0s linear 300ms;
+}
+
+.js-stepper .step-view.is-active {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+}
+
+.view-title { font-size: var(--text-title); font-weight: 600; letter-spacing: -0.03em; line-height: 1.3; }
+
+.view-rows { margin-top: var(--space-lg); border-top: 1px solid var(--rule); }
+
+.view-rows > div {
+    display: grid;
+    grid-template-columns: minmax(0, 8em) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--space-md);
+    padding-block: var(--space-md);
+    border-bottom: 1px solid var(--rule);
+}
+
+.view-rows dt { font-size: var(--text-sm); color: var(--ink-soft); }
+
+.view-rows dd { font-size: 1.25rem; font-weight: 500; line-height: 1.4; letter-spacing: -0.02em; }
+
+/* ---------- how to ask: three columns on a wash, divided by hairlines ---------- */
+.guide { background: var(--accent-soft); }
+
+.guide-inner {
+    max-width: var(--container);
+    margin-inline: auto;
+    padding: var(--space-3xl) var(--gutter);
+}
+
 .guide-list {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: clamp(24px, 4vw, 40px);
+    gap: var(--space-lg);
+    margin-top: var(--space-2xl);
 }
 
-.guide-list > div {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 24px;
-    background: var(--white);
-    border-radius: var(--radius);
-}
+.guide-list > div + div { padding-left: var(--space-lg); border-left: 1px solid var(--rule); }
 
-.guide-list dt { font-weight: 600; font-size: 1.12rem; letter-spacing: -0.02em; }
+.guide-list dt { font-size: var(--text-title); font-weight: 600; letter-spacing: -0.03em; line-height: 1.3; }
 
-.guide-list dd { color: var(--ink-soft); font-size: 0.95rem; }
+.guide-list dd { max-width: 34em; margin-top: var(--space-sm); font-size: var(--text-md); color: var(--ink-soft); }
 
 .guide-list a { font-weight: 600; }
 
+/* ---------- the figures: only numbers the company gave, counted up once when they come into view ---------- */
+.figures {
+    max-width: var(--container);
+    margin-inline: auto;
+    padding: var(--space-3xl) var(--gutter);
+}
+
+.figure-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    list-style: none;
+}
+
+.figure-list li { padding-inline: var(--space-lg); }
+
+.figure-list li:first-child { padding-left: 0; }
+
+.figure-list li + li { border-left: 1px solid var(--rule); }
+
+.figure {
+    font-size: var(--text-figure);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+}
+
+.figure .unit {
+    margin-left: var(--space-xs);
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--ink-soft);
+}
+
+.figure-list figcaption {
+    margin-top: var(--space-sm);
+    font-size: var(--text-sm);
+    color: var(--ink-soft);
+}
+
+/* ---------- the three ways to ask: with script, a sample of each beside them ---------- */
+.guide-panel { display: none; }
+
+.js-guide .guide-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    column-gap: var(--space-2xl);
+    align-items: start;
+}
+
+.js-guide .guide-inner h2 { grid-column: 1 / -1; }
+
+.js-guide .guide-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+.js-guide .guide-list > div,
+.js-guide .guide-list > div + div {
+    position: relative;
+    padding: var(--space-lg) 0 var(--space-lg) var(--space-md);
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+}
+
+.js-guide .guide-list > div:last-child { border-bottom: 1px solid var(--rule); }
+
+.js-guide .guide-list > div::before {
+    content: "";
+    position: absolute;
+    top: var(--space-lg);
+    bottom: var(--space-lg);
+    left: 0;
+    width: 2px;
+    background: var(--brand);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 300ms var(--ease);
+}
+
+.js-guide .guide-list > div.is-active::before { transform: scaleY(1); }
+
+.js-guide .guide-list dt { transition: color 0.3s ease; }
+
+.js-guide .guide-list > div:not(.is-active) dt { color: var(--ink-soft); }
+
+.js-guide .guide-panel {
+    display: block;
+    margin-top: var(--space-2xl);
+    padding: var(--space-xl);
+    border-radius: var(--radius);
+    background: var(--white);
+}
+
+.guide-tabs { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+
+.guide-pick {
+    min-height: 44px;
+    padding-inline: var(--space-md);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-s);
+    background: transparent;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.guide-pick:hover { background: var(--accent-soft); }
+
+.guide-pick:active { background: var(--rule); }
+
+.guide-pick[aria-pressed="true"] {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--paper);
+}
+
+.guide-views { display: grid; margin-top: var(--space-lg); }
+
+.guide-view { grid-area: 1 / 1; }
+
+.js-guide .guide-view {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(var(--space-xs));
+    transition: opacity 300ms var(--ease), transform 300ms var(--ease), visibility 0s linear 300ms;
+}
+
+.js-guide .guide-view.is-active {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+}
+
+.sample-row,
+.sample-result {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-md);
+    padding-block: var(--space-md);
+    border-bottom: 1px solid var(--rule);
+}
+
+.sample-row span,
+.sample-result span { color: var(--ink-soft); }
+
+.sample-row strong,
+.sample-result strong { font-weight: 500; text-align: right; }
+
+.sample-empty { color: var(--ink-soft); }
+
+.sample-result { margin-top: var(--space-md); padding-inline: var(--space-md); background: var(--note); border-bottom: 0; }
+
+.sample-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+
+.sample-table th,
+.sample-table td { padding: var(--space-sm) var(--space-xs); border-bottom: 1px solid var(--rule); text-align: left; }
+
+.sample-table thead th { color: var(--ink-soft); font-weight: 500; }
+
+.sample-table td[colspan] { padding-block: var(--space-xl); color: var(--ink-soft); }
+
+.sample-box {
+    min-height: 120px;
+    padding: var(--space-md);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-s);
+    color: var(--ink-soft);
+}
+
+.sample-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-md); }
+
+.sample-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: var(--space-md);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-s);
+    font-size: var(--text-sm);
+}
+
+.sample-note { margin-top: var(--space-lg); font-size: var(--text-sm); color: var(--ink-soft); }
+
 /* ---------- closing: the last call, with the logo ---------- */
-.closing { background: var(--brand); color: var(--white); }  /* the pine of the logo */
+.closing { background: var(--brand); color: var(--paper); }  /* the pine of the logo */
 
 .closing-inner {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: clamp(20px, 4vw, 56px);
-    max-width: 1064px;
-    margin: 0 auto;
-    padding: clamp(36px, 5vw, 56px) clamp(16px, 4vw, 32px);
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: end;
+    gap: var(--space-2xl);
+    max-width: var(--container);
+    margin-inline: auto;
+    padding: var(--space-3xl) var(--gutter);
 }
 
-.closing-logo { display: block; width: clamp(180px, 18vw, 220px); height: auto; }  /* the kit asks for 180px or more */
-
 .closing h2 {
-    font-size: clamp(1.3rem, 2.6vw, 1.9rem);
-    line-height: 1.3;
+    max-width: 10em;
+    font-size: var(--text-section);
+    line-height: 1.2;
     font-weight: 400;
     letter-spacing: -0.03em;
     text-wrap: balance;
+    overflow-wrap: break-word;
+    min-width: 0;
 }
 
-.closing p { margin-top: 6px; color: #d6ddd3; }
+.closing p { max-width: 28em; margin-top: var(--space-md); color: var(--on-brand-soft); }
+
+.closing-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xl);
+}
+
+.closing-logo { display: block; width: 220px; height: auto; }  /* the kit asks for 180px or more */
 
 .closing-cta {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-height: 52px;
-    padding: 0 28px;
+    padding-inline: var(--space-lg);
     border-radius: var(--radius-s);
-    background: var(--white);
+    background: var(--paper);
     color: var(--ink);
     font-weight: 500;
     text-decoration: none;
@@ -330,31 +803,88 @@ body { overflow-x: clip; }
 
 .closing-cta:hover { background: var(--accent-soft); }
 
-.closing-cta:focus-visible { outline-color: var(--white); }
+.closing-cta:active { background: var(--sage); }
+
+/* ---------- moving with the scroll (Chrome and Edge; elsewhere it is simply there) ---------- */
+@keyframes settle { from { opacity: 0; transform: translateY(var(--space-md)); } }
+@keyframes drift { to { transform: translateY(var(--space-2xl)) scale(1.12); } }
+@keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@supports (animation-timeline: view()) {
+    /* the field behind the slab moves slower than the page and grows a little */
+    .hero::before {
+        animation: fade 1200ms var(--ease) 300ms backwards, drift linear both;
+        animation-timeline: auto, scroll(root);
+        animation-range: normal, 0 100svh;
+    }
+
+    .closing-text,
+    .closing-side {
+        animation: settle linear both;
+        animation-timeline: view();
+        animation-range: entry 10% entry 80%;
+    }
+}
+
+/* ---------- less motion: nothing travels, the pieces fade where they stand and the steps do not advance by themselves ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .hero h1,
+    .hero-slogan,
+    .hero-action,
+    .hero-board { animation: fade 500ms var(--ease) backwards !important; }
+
+    .hero::before {
+        animation: fade 800ms var(--ease) backwards !important;
+        animation-timeline: auto !important;
+        animation-range: normal !important;
+    }
+
+    /* no automatic advance (home.js does not start it either): the shown step simply has its line */
+    .js-stepper .steps li.is-active .step-bar {
+        animation: none !important;
+        transform: scaleX(1);
+    }
+
+    .closing-text,
+    .closing-side {
+        animation: fade linear both !important;
+        animation-timeline: view() !important;
+        animation-range: entry 10% entry 80% !important;
+    }
+}
 
 /* ---------- narrower screens ---------- */
 @media (max-width: 900px) {
-    .choices { grid-template-columns: 1fr; gap: 8px; }
-    .choices a { min-height: 0; }
-    .choices a::after { margin-top: 6px; }
-    .facts dl { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
-    .steps { grid-template-columns: 1fr; gap: 0; }
-    .steps li { display: grid; grid-template-columns: 3rem minmax(0, 1fr); padding: 16px 0; border-top: 1px solid var(--line); }
-    .steps li:first-child { border-top: 2px solid var(--ink); }
-    .steps li::before { grid-row: 1 / span 2; margin: 3px 0 0; }
-    .steps li > * { grid-column: 2; }
-    .guide-list { grid-template-columns: 1fr; }
-    .closing-inner { grid-template-columns: 1fr; justify-items: start; }
+    .choices a::before { right: var(--space-md); left: var(--space-md); }
+    .hero { min-height: 0; padding-block: var(--space-xl) var(--space-2xl); }
+    .hero::before { display: none; }
+    .hero-inner { grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
+    .hero-board { padding: var(--space-lg); }
+    .choices a { margin-inline: calc(var(--space-md) * -1); padding-inline: var(--space-md) var(--space-xl); }
+    .choices a::after { right: var(--space-md); }
+    .process { padding-block: var(--space-3xl); }
+    .process h2 { margin-bottom: var(--space-xl); }
+    .js-stepper .stepper { grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
+    .guide-inner { padding-block: var(--space-2xl); }
+    .js-guide .guide-inner { grid-template-columns: minmax(0, 1fr); }
+    .js-guide .guide-panel { margin-top: var(--space-xl); padding: var(--space-lg); }
+    .figures { padding-block: var(--space-2xl); }
+    .figure-list { grid-template-columns: minmax(0, 1fr); }
+    .figure-list li,
+    .figure-list li:first-child { padding: var(--space-lg) 0; }
+    .figure-list li + li { border-left: 0; border-top: 1px solid var(--rule); }
+    .guide-list { grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); margin-top: var(--space-xl); }
+    .guide-list > div + div { padding: var(--space-lg) 0 0; border-left: 0; border-top: 1px solid var(--rule); }
+    .closing-inner { grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); padding-block: var(--space-2xl); }
 }
 
 @media (max-width: 520px) {
-    .hero-cta { width: 100%; max-width: 340px; }
-    .choices { grid-template-columns: 1fr; gap: 8px; }
-    .choices a { min-height: 0; padding: 16px; }
-    .choices a::after { margin-top: 6px; }
-    /* the strip under the cards is decoration: a phone shows the cards only */
-    .stack { display: none; }
-    .facts dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .facts dl > div { padding: 14px 8px; }
+    .steps { --steps-pad: 32px; }
+    .js-stepper .step-panel { padding: var(--space-lg); }
+    .view-rows > div { grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); }
+    .hero-cta,
     .closing-cta { width: 100%; }
+    /* the strip under the rows is decoration: a phone shows the rows only */
+    .stack { display: none; }
+    .steps li { grid-template-columns: var(--space-xl) minmax(0, 1fr); }
 }
