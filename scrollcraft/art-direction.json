@@ -1,0 +1,11 @@
+{
+  "_about": "One art direction for every still of the home page (2026-11-13). baze.mjs still --art <scene> <out.png> sends preamble + scene. Change the look here, not in a command line. No text, logos or people in any scene: the page says it is AI mood imagery in its footer.",
+  "preamble": "Editorial still life photograph for a quiet, premium golf manufacturing studio. A warm ivory linen cloth over a pale oak workbench, soft north-window daylight from the left, gentle diffuse shadows falling to the right, a restrained palette of deep green, warm ivory and sage only, 50mm lens, shallow depth of field, real material texture, calm and tidy. No text, no letters, no numbers, no logos, no brand marks, no watermark, no people, no faces, no hands.",
+  "scenes": {
+    "material": "Top-down flat lay on the bench: fanned fabric and mesh swatches in ivory, sage and deep green, two clear tinted lens samples, small blocks of pale beech wood and a folded leather offcut. Nothing is printed on any item.",
+    "spec": "A pair of plain black sport sunglasses lying on the bench beside a blank sheet of paper that has only a few thin pencil guide lines and no writing, a wooden pencil, a folded measuring tape and three small colour chips in deep green, ivory and sage.",
+    "sample": "A single white and pale grey golf shoe sample, plain and without any logo, standing on the bench next to a small cut piece of its mesh material and a steel caliper, seen from a low three-quarter angle.",
+    "production": "A shallow wooden tray of freshly turned natural wood golf tees with a small pile of pale wood shavings beside it, an out-of-focus lathe in the soft background.",
+    "dispatch": "Plain kraft cardboard boxes with no printing, two of them open to show neatly lined up finished wooden golf tees and a pair of sunglasses in soft ivory tissue paper, an empty clipboard with a blank grid, a steel caliper, seen from a slightly raised front angle."
+  }
+}

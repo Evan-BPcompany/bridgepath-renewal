@@ -17,3 +17,14 @@ uploads-dev/
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# The image tool of the home page (scrollcraft/): what it needs to run again is committed (baze.mjs, art-direction.json,
+# the brief, the five raw photos of the steps); its installed packages, scratch folder and the unused raw files are not.
+scrollcraft/node_modules/
+scrollcraft/lab/
+scrollcraft/builds/*/assets/
+scrollcraft/builds/*/raw/*
+!scrollcraft/builds/*/raw/process-*.png
+
+# Originals of pictures: the site uses the webp files in assets/media; the user's source PNGs stay on their computer.
+assets/media/*.png
