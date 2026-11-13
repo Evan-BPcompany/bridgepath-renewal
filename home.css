@@ -8,7 +8,17 @@
 /* Hallmark · reworded the h1 "어떤 골프용품을 찾으세요?" to "골프 아이디어를 필드까지" (the user's choice, 2026-11-12) · the question moves to the head of the board, where it asks for the choice below it; the closing "아이디어가 필드에 나올 때까지" became "견적은 제품 선택부터 시작합니다" so the idea is not said twice */
 /* Hallmark · motion: one entrance of the hero, a line that draws under the row that has the pointer, a stepper on the five steps (the shown step moves on every five seconds, once through, and stops on hover, focus or the pause button; a ball and a hole on the track follow it), the green behind the slab drifting with the scroll · no loops; for a visitor who asked for less motion nothing advances by itself and the pieces fade in place (style.css reduces, it does not remove) */
 /* Hallmark · motion, second round: a finder ring that glides to the product row with the pointer, three figures that count up once, a switcher of three samples beside the ways to ask (all of it manual or one-shot, no loops) */
-/* Hallmark · answered F8 · the user asked for a livelier home (2026-11-12): the scroll effects are the green drifting behind the slab and the closing settling in; the stepper is not a scroll effect */
+/* Hallmark · imagery: a five-second mood clip behind the hero (plays once, holds its last frame; the poster for less motion) and three small mood shots beside the product rows, all made with AI (BAZE gateway, 2026-11-13), no product claim, no logo; the footer says so · 83 holds: the three shots are 96px, the clip is the only large picture */
+/* Hallmark · polish (2026-11-13, reference-led-design and frontend-design): the headline a step larger, the hero melts into the next section, less air around the stepper and a panel as tall as its list, the three conditions closing the process under a hairline, no sample panel on a phone, the AI line under the name in the foot · references used for principles only: a headline beside a quieter explanatory column and ruled rows (Anthropic), restraint and one calm image moment (Fora) */
+/* Hallmark · polish, second round (web-design-guidelines, impeccable, vercel performance rules): no coloured bar beside the guide entries, one name for the one action, the above-the-fold shots load at once, figures and units never split, theme-color and translate="no" · the display voice is still the system Korean sans: a self-hosted face is the open decision (impeccable "refuse" list) */
+/* Hallmark · the one-line hints under the three product names are gone (the user, 2026-11-13); the minimum orders and the way each is priced are said once, in the figures and in the guide */
+/* Hallmark · the three figures (600켤레, 1,000패키지, 2~3일) became "최소 주문 수량을 줄여 드립니다" (the user, 2026-11-13): a row per product, the usual minimum as a bar and the lower one as its filled part, the number counting down once; the old minimums are gone from the step panel · the sentence says what the agent does, the note under it keeps the numbers from reading as a promise */
+/* Hallmark · the order-size section is three cases of a negotiation now (the user, 2026-11-13): a photo, the factory minimum in a pale number, a line that says how much lower, the lower start in a large Pine number marked as an example; the photo only settles from 1.04 to 1 on entry, nothing moves it on hover (the pale minimum steps back instead); the eyebrow the user suggested is left out (Hallmark F54 and impeccable both ban it, the heading says it) */
+/* Hallmark · the board is "빠른 AI 가상견적이 가능한 대표 품목" now (the user, 2026-11-13): the three products are the quick AI estimate, not everything FINDER GREEN sources; under them a quieter block (hairline, no photo, no chevron) says other goods are sourced too and leads to the staff inquiry, which has no AI estimate; the old one-line "문의하기" link is gone */
+/* Hallmark · the five steps have a photo each now (2026-11-13, one art direction in scrollcraft/art-direction.json: ivory linen on a pale oak bench, window daylight, Pine and Sage only): the photo sits on top of the step panel and fades with the text; AI mood images, no text or logo in any of them */
+/* Hallmark · colour roles (2026-11-13, the user chose option A): Pine for the brand surfaces and the main action, ivory as the ground, sage wash for the five steps (a full-width section) and for the selected state of the ways to ask, and one muted gold (--gold) only on the lower order sizes and the line down to them; the ways to ask moved from a sage section to the ivory so no ground repeats next to itself; the bluish, violet or neon colours stay out */
+/* Hallmark · the copy of the five steps was rewritten (2026-11-13, the user): a lead under the title, one short description per step on the left, and in each card a description plus three rows (small label, plain sentence); the rows are 17px now, not 22px, and the photo 16:9, so a card with three rows stays about as tall as before; nothing about the stepper itself changed */
+/* Hallmark · answered F8 · the closing settling in is the only scroll effect left */
 /* Hallmark · hero-review: in-thread · finish-review: in-thread · 2 findings · 1 resolved (the "other goods" link was 38px tall, now 46px) 1 unresolved (the pale disc behind the slab is decoration; it stays only because homePage.dom.test.ts pins .hero::before as the one round shape) */
 /* Hallmark · reworded every "~해요" line of the home page · the user found the chatty polite ending machine-made (2026-11-12): list items and hints are now fragments ("예상 범위 확인"), running explanations and disclaimers keep their meaning in "~합니다" sentences */
 /* Hallmark · reworded "궁금한 점은 이렇게 물어보세요" to "AI로 먼저, 담당자와 이어서" · the three items are not questions but the order a customer goes through them */
@@ -23,7 +33,7 @@
     --text-lg: 1.5rem;
     --text-title: clamp(1.25rem, 0.8vw + 1rem, 1.75rem);
     --text-section: clamp(2rem, 1rem + 2.2vw, 3rem);
-    --text-display: clamp(2.5rem, 1.2rem + 3vw, 3.5rem);
+    --text-display: clamp(2.5rem, 1.1rem + 3.4vw, 3.75rem);
     --text-figure: clamp(2.75rem, 1.4rem + 3.6vw, 4.75rem);
     --container: 1120px;
     --gutter: clamp(16px, 4vw, 32px);
@@ -44,12 +54,14 @@ html { scroll-padding-top: var(--space-3xl); }
     display: grid;
     align-items: center;
     min-height: calc(100svh - 61px);
-    padding-block: var(--space-2xl);
+    padding-block: var(--space-xl);
     overflow: clip;
 }
 
-/* the green seen from above: one flat disc behind the top right of the slab */
+/* The pale disc of the first design. The clip behind the hero replaced it, so it is not shown; the rule stays only
+   because homePage.dom.test.ts pins .hero::before as the one round shape of the page. */
 .hero::before {
+    display: none;
     content: "";
     position: absolute;
     z-index: -1;
@@ -60,7 +72,30 @@ html { scroll-padding-top: var(--space-3xl); }
     border-radius: 999px;
     background: var(--accent-soft);
     pointer-events: none;
-    animation: fade 1200ms var(--ease) 300ms backwards;
+}
+
+/* the clip: a mood shot made with AI, behind everything; the poster is what shows until (and unless) it plays */
+.hero-video {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 60%;
+    animation: fade 1200ms var(--ease) backwards;
+}
+
+/* the scrim lies only where the text sits: solid ivory under the headline, gone before the slab */
+.hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(180deg, transparent calc(100% - 160px), var(--paper)),
+        linear-gradient(90deg, var(--paper) 0, var(--paper) 30%, transparent 72%);
+    pointer-events: none;
 }
 
 .hero-inner {
@@ -181,29 +216,33 @@ html { scroll-padding-top: var(--space-3xl); }
 
 .choices a {
     position: relative;
-    display: block;
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--space-md);
     margin-inline: calc(var(--space-lg) * -1);
-    padding: var(--space-lg) calc(var(--space-xl) + var(--space-md)) var(--space-lg) var(--space-lg);
+    padding: var(--space-md) calc(var(--space-xl) + var(--space-md)) var(--space-md) var(--space-lg);
     color: inherit;
     text-decoration: none;
     transition: background-color 0.15s ease;
 }
 
+/* a mood shot made with AI, not a picture of a product anyone sells */
+.choice-photo {
+    grid-row: 1;
+    width: 96px;
+    height: 72px;
+    border-radius: var(--radius-s);
+    object-fit: cover;
+}
+
 .choice-name {
+    grid-column: 2;
     display: block;
     font-size: var(--text-title);
     font-weight: 500;
     letter-spacing: -0.03em;
     line-height: 1.3;
-}
-
-.choice-hint {
-    display: block;
-    max-width: 34em;
-    margin-top: var(--space-xs);
-    font-size: var(--text-sm);
-    line-height: 1.55;
-    color: var(--on-brand-soft);
 }
 
 /* the arrow sits at the right of the row */
@@ -245,25 +284,49 @@ html { scroll-padding-top: var(--space-3xl); }
 .choices a:hover::after,
 .choices a:focus-visible::after { transform: translateX(4px) rotate(45deg); }
 
-/* other golf goods: a line under the rows, not a row */
-.choices-more {
+/* other golf goods: a quieter block under the rows (no photo, no chevron, a hairline above): the rows are the quick AI
+   estimate, this is the way to ask the staff about anything else */
+.board-other {
     margin-top: var(--space-md);
-    font-size: var(--text-sm);
-    color: var(--on-brand-soft);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--rule-on-brand);
 }
 
-.choices-more a {
-    display: inline-block;
-    padding: var(--space-sm) var(--space-xs);
-    color: var(--paper);
-    font-weight: 600;
+.other-title {
+    font-size: var(--text-md);
+    font-weight: 500;
 }
+
+.other-text {
+    margin-top: var(--space-2xs);
+    font-size: var(--text-sm);
+    color: var(--on-brand-soft);
+    text-wrap: pretty;
+}
+
+.other-text span { display: block; margin-top: var(--space-2xs); }
+
+.other-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: var(--space-sm);
+    padding-inline: var(--space-md);
+    border: 1px solid var(--rule-on-brand);
+    border-radius: var(--radius-s);
+    color: var(--paper);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.other-link:hover { background: var(--wash-on-brand); border-color: var(--paper); }
 
 /* what comes after the choice: the product in words, then the steps that follow */
 .stack {
     display: grid;
     gap: var(--space-md);
-    margin-top: var(--space-xl);
+    margin-top: var(--space-lg);
     padding-top: var(--space-lg);
     border-top: 1px solid var(--rule-on-brand);
 }
@@ -303,18 +366,26 @@ html { scroll-padding-top: var(--space-3xl); }
 
 /* ---------- the five steps: a stepper, the list on the left and what happens in the step on the right ---------- */
 .process {
-    max-width: var(--container);
-    margin-inline: auto;
-    padding: var(--space-4xl) var(--gutter);
+    /* a sage wash from edge to edge; the content keeps the width of the container */
+    padding: var(--space-3xl) max(var(--gutter), calc((100% - var(--container)) / 2 + var(--gutter)));
+    background: var(--accent-soft);
 }
 
-.process h2 { margin-bottom: var(--space-2xl); }
+.process h2 { margin-bottom: 0; }
+
+.process-lead {
+    max-width: 38em;
+    margin: var(--space-md) 0 var(--space-2xl);
+    font-size: var(--text-md);
+    color: var(--ink-soft);
+    text-wrap: pretty;
+}
 
 /* without script it is only the list; with script (home.js puts .js-stepper on the section) a panel joins it */
 .js-stepper .stepper {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-    align-items: start;
+    align-items: stretch;
     gap: var(--space-2xl);
 }
 
@@ -328,13 +399,15 @@ html { scroll-padding-top: var(--space-3xl); }
 }
 
 .process h2,
-.guide h2 {
+.guide h2,
+.figures h2 {
     max-width: 12em;
     font-size: var(--text-section);
     line-height: 1.2;
     font-weight: 400;
     letter-spacing: -0.03em;
     text-wrap: balance;
+    font-variant-numeric: tabular-nums;
     overflow-wrap: break-word;
     min-width: 0;
 }
@@ -371,7 +444,7 @@ html { scroll-padding-top: var(--space-3xl); }
     width: 20px;
     background:
         radial-gradient(circle, var(--brand) 0 6.5px, transparent 7px) 3px calc(100% - 3px) / 14px 14px no-repeat,
-        radial-gradient(circle, var(--paper) 0 6px, var(--brand) 6.5px 9px, transparent 9.5px) 0 100% / 20px 20px no-repeat;
+        radial-gradient(circle, var(--accent-soft) 0 6px, var(--brand) 6.5px 9px, transparent 9.5px) 0 100% / 20px 20px no-repeat;
 }
 
 .js-stepper .steps::after {
@@ -445,7 +518,7 @@ html { scroll-padding-top: var(--space-3xl); }
 .js-stepper .steps h3 { transition: color 0.3s ease; }
 
 .js-stepper .steps li::after {
-    background-color: var(--paper);
+    background-color: var(--accent-soft);
     border-color: var(--rule);
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -502,12 +575,34 @@ html { scroll-padding-top: var(--space-3xl); }
 /* the panel: every view in the same cell, so it keeps the height of the tallest and the page does not jump */
 .js-stepper .step-panel {
     display: grid;
-    padding: var(--space-xl);
+    grid-template-rows: 1fr;
+    overflow: clip;
     border-radius: var(--radius);
+    background: var(--white);
+}
+
+/* the photo of the step runs to the edges of the panel and changes with the text (they are one view); AI mood image */
+/* the photo takes the height the list on the left leaves over (the panel is as tall as the list), and never less than 16:9 */
+.view-photo {
+    position: relative;
+    flex: 1 0 auto;
+    aspect-ratio: 16 / 9;
+    overflow: clip;
     background: var(--accent-soft);
 }
 
-.step-view { grid-area: 1 / 1; }
+.view-photo img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.view-body { padding: var(--space-lg) var(--space-xl) var(--space-xl); }
+
+.step-view { grid-area: 1 / 1; display: flex; flex-direction: column; }
 
 .js-stepper .step-view {
     opacity: 0;
@@ -523,30 +618,38 @@ html { scroll-padding-top: var(--space-3xl); }
     transition-delay: 0s;
 }
 
-.view-title { font-size: var(--text-title); font-weight: 600; letter-spacing: -0.03em; line-height: 1.3; }
+.view-title { font-size: clamp(1.5rem, 0.8rem + 1.6vw, 2rem); font-weight: 500; letter-spacing: -0.03em; line-height: 1.3; }
 
-.view-rows { margin-top: var(--space-lg); border-top: 1px solid var(--rule); }
+.view-desc {
+    margin-top: var(--space-sm);
+    font-size: var(--text-md);
+    line-height: 1.6;
+    color: var(--ink-soft);
+    text-wrap: pretty;
+}
+
+.view-rows { margin-top: var(--space-md); border-top: 1px solid var(--rule); }
 
 .view-rows > div {
     display: grid;
     grid-template-columns: minmax(0, 8em) minmax(0, 1fr);
     align-items: baseline;
     gap: var(--space-md);
-    padding-block: var(--space-md);
+    padding-block: var(--space-sm);
     border-bottom: 1px solid var(--rule);
 }
 
 .view-rows dt { font-size: var(--text-sm); color: var(--ink-soft); }
 
-.view-rows dd { font-size: 1.25rem; font-weight: 500; line-height: 1.4; letter-spacing: -0.02em; }
+.view-rows dd { font-size: 1.0625rem; font-weight: 500; line-height: 1.45; letter-spacing: -0.01em; text-wrap: pretty; }
 
 /* ---------- how to ask: three columns on a wash, divided by hairlines ---------- */
-.guide { background: var(--accent-soft); }
-
 .guide-inner {
     max-width: var(--container);
     margin-inline: auto;
     padding: var(--space-3xl) var(--gutter);
+    /* one hairline at the top, as wide as the content: the ivory of the order size above has no other edge */
+    background: linear-gradient(var(--rule), var(--rule)) center top / calc(100% - var(--gutter) * 2) 1px no-repeat;
 }
 
 .guide-list {
@@ -564,45 +667,218 @@ html { scroll-padding-top: var(--space-3xl); }
 
 .guide-list a { font-weight: 600; }
 
-/* ---------- the figures: only numbers the company gave, counted up once when they come into view ---------- */
+/* ---------- the order size: three cases of a negotiation, each going from the factory's usual minimum to a lower start ---------- */
 .figures {
     max-width: var(--container);
     margin-inline: auto;
     padding: var(--space-3xl) var(--gutter);
 }
 
-.figure-list {
+.figures-head { max-width: 46rem; }
+
+.figures h2 { max-width: 20em; }
+
+.figures-lead {
+    max-width: 32em;
+    margin-top: var(--space-lg);
+    font-size: var(--text-md);
+    color: var(--ink-soft);
+}
+
+.moq-list {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2xl);
+    align-items: start;
+    margin-top: var(--space-2xl);
     list-style: none;
 }
 
-.figure-list li { padding-inline: var(--space-lg); }
+.moq:nth-child(1) { --i: 0; }
+.moq:nth-child(2) { --i: 1; }
+.moq:nth-child(3) { --i: 2; }
 
-.figure-list li:first-child { padding-left: 0; }
-
-.figure-list li + li { border-left: 1px solid var(--rule); }
-
-.figure {
-    font-size: var(--text-figure);
-    font-weight: 400;
-    line-height: 1.1;
-    letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
+/* the cases step down the page, as the numbers do */
+@media (min-width: 901px) {
+    .moq:nth-child(2) { margin-top: var(--space-xl); }
+    .moq:nth-child(3) { margin-top: var(--space-2xl); }
 }
 
-.figure .unit {
+.moq-photo {
+    aspect-ratio: 4 / 3;
+    overflow: clip;
+    background: var(--accent-soft);
+}
+
+.moq:nth-child(2) .moq-photo { aspect-ratio: 1; }
+
+.moq-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.moq:nth-child(2) .moq-photo img { object-position: 68% 50%; }
+
+.moq-body { padding-top: var(--space-lg); }
+
+.moq-name {
+    font-size: var(--text-title);
+    font-weight: 500;
+}
+
+.moq-pack {
+    margin-top: var(--space-2xs);
+    font-size: var(--text-sm);
+    color: var(--ink-soft);
+}
+
+.moq-base { margin-top: var(--space-lg); }
+
+.moq-tag {
+    display: block;
+    margin-bottom: var(--space-2xs);
+    font-size: var(--text-sm);
+    color: var(--ink-soft);
+}
+
+.moq-num {
+    display: block;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.moq-num .unit {
     margin-left: var(--space-xs);
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: 500;
     letter-spacing: 0;
     color: var(--ink-soft);
 }
 
-.figure-list figcaption {
-    margin-top: var(--space-sm);
+.moq-base .moq-num {
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(1.75rem, 1.2rem + 1.4vw, 2.5rem);
+    color: var(--ink-soft);
+}
+
+/* the line from the factory's number to the lower one: it ends in an arrow, and says how much lower */
+.moq-bridge {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 3.5rem;
+    margin: var(--space-sm) 0 var(--space-sm) var(--space-xs);
+    padding-left: var(--space-lg);
+    font-size: var(--text-sm);
+    color: var(--ink);
+}
+
+.moq-bridge::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--gold);
+    transform-origin: top;
+}
+
+.moq-bridge::after {
+    content: "";
+    position: absolute;
+    left: -4px;
+    bottom: 1px;
+    width: 9px;
+    height: 9px;
+    border-right: 1px solid var(--gold);
+    border-bottom: 1px solid var(--gold);
+    transform: rotate(45deg);
+}
+
+/* the gold of the page: the lower order size and the line down to it, nothing else */
+.moq-now .moq-num {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-figure);
+    color: var(--gold);
+}
+
+.figures-note {
+    max-width: 40em;
+    margin-top: var(--space-2xl);
     font-size: var(--text-sm);
     color: var(--ink-soft);
+}
+
+/* With script and without a wish for less motion (home.js adds .js-figures, then .is-counting when the list comes into view):
+   a case after the one before it, 100ms apart; in a case the usual minimum first, then the line draws, then the lower number. */
+.js-figures .moq,
+.js-figures .moq-base,
+.js-figures .moq-bridge span,
+.js-figures .moq-now { opacity: 0; }
+
+.js-figures .moq { transform: translateY(var(--space-md)); }
+.js-figures .moq-now { transform: translateY(var(--space-xs)); }
+.js-figures .moq-bridge::before { transform: scaleY(0); }
+.js-figures .moq-bridge::after { opacity: 0; }
+.js-figures .moq-photo img { transform: scale(1.04); }
+
+.js-figures.is-counting .moq {
+    opacity: 1;
+    transform: none;
+    transition: opacity 600ms var(--ease) calc(var(--i) * 100ms), transform 600ms var(--ease) calc(var(--i) * 100ms);
+}
+
+.js-figures.is-counting .moq-photo img {
+    transform: none;
+    transition: transform 900ms var(--ease) calc(var(--i) * 100ms);
+}
+
+.js-figures.is-counting .moq-base {
+    opacity: 1;
+    transition: opacity 500ms var(--ease) calc(var(--i) * 100ms + 150ms);
+}
+
+.js-figures.is-counting .moq-bridge::before {
+    transform: none;
+    transition: transform 450ms var(--ease) calc(var(--i) * 100ms + 400ms);
+}
+
+.js-figures.is-counting .moq-bridge::after {
+    opacity: 1;
+    transition: opacity 200ms var(--ease) calc(var(--i) * 100ms + 800ms);
+}
+
+.js-figures.is-counting .moq-bridge span {
+    opacity: 1;
+    transition: opacity 400ms var(--ease) calc(var(--i) * 100ms + 700ms);
+}
+
+.js-figures.is-counting .moq-now {
+    opacity: 1;
+    transform: none;
+    transition: opacity 500ms var(--ease) calc(var(--i) * 100ms + 850ms), transform 500ms var(--ease) calc(var(--i) * 100ms + 850ms);
+}
+
+/* under the pointer the usual minimum steps back from the lower number (the photo sits still: Hallmark 11) */
+@media (hover: hover) {
+    .moq-base .moq-num { transition: opacity 400ms var(--ease); }
+    .figures .moq:hover .moq-base .moq-num { opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .js-figures .moq,
+    .js-figures .moq-base,
+    .js-figures .moq-bridge span,
+    .js-figures .moq-bridge::after,
+    .js-figures .moq-now { opacity: 1 !important; transform: none !important; transition: none !important; }
+    .js-figures .moq-bridge::before,
+    .js-figures .moq-photo img { transform: none !important; transition: none !important; }
 }
 
 /* ---------- the three ways to ask: with script, a sample of each beside them ---------- */
@@ -625,36 +901,31 @@ html { scroll-padding-top: var(--space-3xl); }
 .js-guide .guide-list > div,
 .js-guide .guide-list > div + div {
     position: relative;
-    padding: var(--space-lg) 0 var(--space-lg) var(--space-md);
+    padding: var(--space-lg) var(--space-md);
     border-left: 0;
     border-top: 1px solid var(--rule);
 }
 
 .js-guide .guide-list > div:last-child { border-bottom: 1px solid var(--rule); }
 
-.js-guide .guide-list > div::before {
-    content: "";
-    position: absolute;
-    top: var(--space-lg);
-    bottom: var(--space-lg);
-    left: 0;
-    width: 2px;
-    background: var(--brand);
-    transform: scaleY(0);
-    transform-origin: top;
-    transition: transform 300ms var(--ease);
-}
+.js-guide .guide-list > div { transition: border-color 0.3s ease, background-color 0.3s ease; }
 
-.js-guide .guide-list > div.is-active::before { transform: scaleY(1); }
+/* the way to ask that is shown: a sage fill (the selected state of this page), the Pine rule stays */
+.js-guide .guide-list > div.is-active { border-top-color: var(--brand); background: var(--accent-soft); }
 
-.js-guide .guide-list dt { transition: color 0.3s ease; }
+.js-guide .guide-list dt,
+.js-guide .guide-list dd { transition: color 0.3s ease; }
 
-.js-guide .guide-list > div:not(.is-active) dt { color: var(--ink-soft); }
+.js-guide .guide-list > div:not(.is-active) dt,
+.js-guide .guide-list > div:not(.is-active) dd { color: var(--ink-soft); }
+
+.js-guide .guide-list > div.is-active dd { color: var(--ink); }
 
 .js-guide .guide-panel {
     display: block;
     margin-top: var(--space-2xl);
     padding: var(--space-xl);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--white);
 }
@@ -673,14 +944,15 @@ html { scroll-padding-top: var(--space-3xl); }
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.guide-pick:hover { background: var(--accent-soft); }
+.guide-pick:hover { background: var(--wash); }
 
 .guide-pick:active { background: var(--rule); }
 
 .guide-pick[aria-pressed="true"] {
     border-color: var(--brand);
-    background: var(--brand);
-    color: var(--paper);
+    background: var(--accent-soft);
+    color: var(--ink);
+    font-weight: 600;
 }
 
 .guide-views { display: grid; margin-top: var(--space-lg); }
@@ -751,6 +1023,9 @@ html { scroll-padding-top: var(--space-3xl); }
 
 .sample-note { margin-top: var(--space-lg); font-size: var(--text-sm); color: var(--ink-soft); }
 
+/* ---------- the foot: the line about the pictures stands under the name, apart from the registry ---------- */
+.foot-brand .foot-note { max-width: 22em; margin-top: var(--space-md); font-size: var(--text-sm); }
+
 /* ---------- closing: the last call, with the logo ---------- */
 .closing { background: var(--brand); color: var(--paper); }  /* the pine of the logo */
 
@@ -807,17 +1082,9 @@ html { scroll-padding-top: var(--space-3xl); }
 
 /* ---------- moving with the scroll (Chrome and Edge; elsewhere it is simply there) ---------- */
 @keyframes settle { from { opacity: 0; transform: translateY(var(--space-md)); } }
-@keyframes drift { to { transform: translateY(var(--space-2xl)) scale(1.12); } }
 @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 @supports (animation-timeline: view()) {
-    /* the field behind the slab moves slower than the page and grows a little */
-    .hero::before {
-        animation: fade 1200ms var(--ease) 300ms backwards, drift linear both;
-        animation-timeline: auto, scroll(root);
-        animation-range: normal, 0 100svh;
-    }
-
     .closing-text,
     .closing-side {
         animation: settle linear both;
@@ -831,13 +1098,8 @@ html { scroll-padding-top: var(--space-3xl); }
     .hero h1,
     .hero-slogan,
     .hero-action,
-    .hero-board { animation: fade 500ms var(--ease) backwards !important; }
-
-    .hero::before {
-        animation: fade 800ms var(--ease) backwards !important;
-        animation-timeline: auto !important;
-        animation-range: normal !important;
-    }
+    .hero-board,
+    .hero-video { animation: fade 500ms var(--ease) backwards !important; }
 
     /* no automatic advance (home.js does not start it either): the shown step simply has its line */
     .js-stepper .steps li.is-active .step-bar {
@@ -857,22 +1119,38 @@ html { scroll-padding-top: var(--space-3xl); }
 @media (max-width: 900px) {
     .choices a::before { right: var(--space-md); left: var(--space-md); }
     .hero { min-height: 0; padding-block: var(--space-xl) var(--space-2xl); }
-    .hero::before { display: none; }
+    .hero::after {
+        background:
+            linear-gradient(180deg, transparent calc(100% - 120px), var(--paper)),
+            color-mix(in oklab, var(--paper) 84%, transparent);
+    }
     .hero-inner { grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
     .hero-board { padding: var(--space-lg); }
     .choices a { margin-inline: calc(var(--space-md) * -1); padding-inline: var(--space-md) var(--space-xl); }
     .choices a::after { right: var(--space-md); }
     .process { padding-block: var(--space-3xl); }
-    .process h2 { margin-bottom: var(--space-xl); }
+    .process-lead { margin-bottom: var(--space-xl); }
     .js-stepper .stepper { grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); }
     .guide-inner { padding-block: var(--space-2xl); }
     .js-guide .guide-inner { grid-template-columns: minmax(0, 1fr); }
-    .js-guide .guide-panel { margin-top: var(--space-xl); padding: var(--space-lg); }
+    .js-guide .guide-panel { display: none; }
+    .js-guide .guide-list > div.is-active { border-top-color: var(--rule); background: transparent; }
+    .js-guide .guide-list > div:not(.is-active) dt { color: var(--ink); }
+    .js-guide .guide-list > div.is-active dd { color: var(--ink-soft); }
     .figures { padding-block: var(--space-2xl); }
-    .figure-list { grid-template-columns: minmax(0, 1fr); }
-    .figure-list li,
-    .figure-list li:first-child { padding: var(--space-lg) 0; }
-    .figure-list li + li { border-left: 0; border-top: 1px solid var(--rule); }
+    .moq-list {
+        display: flex;
+        gap: var(--space-md);
+        margin: var(--space-xl) calc(var(--gutter) * -1) 0;
+        padding: 0 var(--gutter) var(--space-md);
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: var(--gutter);
+        scrollbar-width: thin;
+    }
+    .moq { flex: 0 0 min(78vw, 22rem); scroll-snap-align: start; }
+    .moq:nth-child(2) .moq-photo { aspect-ratio: 4 / 3; }
     .guide-list { grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); margin-top: var(--space-xl); }
     .guide-list > div + div { padding: var(--space-lg) 0 0; border-left: 0; border-top: 1px solid var(--rule); }
     .closing-inner { grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); padding-block: var(--space-2xl); }
@@ -880,10 +1158,13 @@ html { scroll-padding-top: var(--space-3xl); }
 
 @media (max-width: 520px) {
     .steps { --steps-pad: 32px; }
-    .js-stepper .step-panel { padding: var(--space-lg); }
+    .choices a { grid-template-columns: 56px minmax(0, 1fr); }
+    .choice-photo { width: 56px; height: 42px; }
+    .view-body { padding: var(--space-md) var(--space-lg) var(--space-lg); }
     .view-rows > div { grid-template-columns: minmax(0, 1fr); gap: var(--space-2xs); }
     .hero-cta,
-    .closing-cta { width: 100%; }
+    .closing-cta,
+    .other-link { width: 100%; justify-content: center; }
     /* the strip under the rows is decoration: a phone shows the rows only */
     .stack { display: none; }
     .steps li { grid-template-columns: var(--space-xl) minmax(0, 1fr); }

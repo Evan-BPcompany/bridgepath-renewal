@@ -65,12 +65,30 @@ describe('the files of the customer pages to publish (npm run front:files)', () 
   it('holds the FINDER GREEN mark of the bar at the top, the logo of the closing and the icons of the tab, all in assets/, and no file of assets/ that no page uses', () => {
     expect(files).toContain('assets/logo/finder-green-symbol-green.svg');
     expect(files).toContain('assets/logo/finder-green-signature-white.svg');
+    // The fonts and the home's pictures are there because a page or a stylesheet names them; the original PNGs the user
+    // put in assets/media are not, because no page names them.
     expect(files.filter(file => file.startsWith('assets/'))).toEqual([
+      'assets/fonts/Pretendard-Medium.subset.woff2',
+      'assets/fonts/Pretendard-Regular.subset.woff2',
+      'assets/fonts/Pretendard-SemiBold.subset.woff2',
       'assets/logo/apple-touch-icon.png',
       'assets/logo/favicon.ico',
       'assets/logo/favicon.svg',
       'assets/logo/finder-green-signature-white.svg',
-      'assets/logo/finder-green-symbol-green.svg'
+      'assets/logo/finder-green-symbol-green.svg',
+      'assets/media/choice-shoes.webp',
+      'assets/media/choice-sunglasses.webp',
+      'assets/media/choice-tees.webp',
+      'assets/media/hero-fairway-poster.webp',
+      'assets/media/hero-fairway.mp4',
+      'assets/media/moq-shoes.webp',
+      'assets/media/moq-sunglasses.webp',
+      'assets/media/moq-tees.webp',
+      'assets/media/process-dispatch.webp',
+      'assets/media/process-material.webp',
+      'assets/media/process-production.webp',
+      'assets/media/process-sample.webp',
+      'assets/media/process-spec.webp'
     ]);
   });
 });

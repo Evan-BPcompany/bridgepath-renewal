@@ -1,0 +1,1 @@
+Pretendard (https://github.com/orioncactus/pretendard), SIL Open Font License 1.1, subset files (KS X 1001 Hangul + Latin) of the weights 400, 500 and 600. Downloaded 2026-11-13. The license text is Pretendard-OFL.txt.

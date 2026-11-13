@@ -170,8 +170,9 @@
         sync();
     }
 
-    // The three figures count up once, when they come into view. The text of the page is the final number, so
-    // without script, without an observer or for a visitor who asked for less motion nothing changes.
+    // The order sizes count down once, from the usual minimum (data-from) to the lower one, while the fill of the bar
+    // shrinks (CSS, .js-figures and .is-counting), when they come into view. The text of the page is the final number,
+    // so without script, without an observer or for a visitor who asked for less motion nothing changes.
     function initFigures() {
         var section = document.querySelector('.figures');
         var nodes = section ? section.querySelectorAll('[data-count]') : [];
@@ -179,20 +180,31 @@
             return;
         }
 
-        var DURATION = 900;
+        section.classList.add('js-figures');
+        var DURATION = 700;
+        var STAGGER = 100;
+        var REVEAL = 850;
+        // one formatter for every frame, made once; the page is Korean, so its thousands are Korean's
+        var format = new Intl.NumberFormat('ko-KR');
 
         function run() {
             var start = null;
+            section.classList.add('is-counting');
             function frame(now) {
                 if (start === null) {
                     start = now;
                 }
-                var t = Math.min(1, (now - start) / DURATION);
-                var eased = 1 - Math.pow(1 - t, 3);
-                Array.prototype.forEach.call(nodes, function (node) {
-                    node.textContent = Math.round(Number(node.getAttribute('data-count')) * eased).toLocaleString('en-US');
+                var done = true;
+                Array.prototype.forEach.call(nodes, function (node, index) {
+                    // each case starts 100ms after the one before; the lower number appears last (keep in step with .moq-now in home.css)
+                    var t = Math.min(1, Math.max(0, (now - start - (index * STAGGER + REVEAL)) / DURATION));
+                    var eased = 1 - Math.pow(1 - t, 3);
+                    var from = Number(node.getAttribute('data-from'));
+                    var to = Number(node.getAttribute('data-count'));
+                    node.textContent = format.format(Math.round(from + (to - from) * eased));
+                    done = done && t === 1;
                 });
-                if (t < 1) {
+                if (!done) {
                     requestAnimationFrame(frame);
                 }
             }
@@ -205,8 +217,8 @@
             }
             observer.disconnect();
             run();
-        }, { threshold: 0.6 });
-        observer.observe(section);
+        }, { threshold: 0.35 });
+        observer.observe(section.querySelector('.moq-list') || section);
     }
 
     // Beside the three ways to ask: a sample of each. The tab under the pointer or picked shows its sample, and the
@@ -244,11 +256,28 @@
         show(0);
     }
 
+    // The clip behind the hero plays once and holds its last frame (it has no loop). Without script, or for a visitor
+    // who asked for less motion, it is never started and the poster stays; preload="none" keeps its bytes away too.
+    function initHeroVideo() {
+        var video = document.querySelector('.hero-video');
+        // a visitor who turned on data saving keeps the poster and does not pay for 600KB of mist
+        var saving = typeof navigator !== 'undefined' && navigator.connection && navigator.connection.saveData === true;
+        if (!video || saving || reducedMotion() || typeof video.play !== 'function') {
+            return;
+        }
+        video.preload = 'auto';
+        var started = video.play();
+        if (started && typeof started.catch === 'function') {
+            started.catch(function () { /* the browser refused to autoplay: the poster stays */ });
+        }
+    }
+
     function init() {
         initStack();
         initSteps();
         initFigures();
         initGuide();
+        initHeroVideo();
     }
 
     var api = Object.freeze({ init: init });
