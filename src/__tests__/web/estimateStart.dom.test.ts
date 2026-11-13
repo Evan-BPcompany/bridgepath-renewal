@@ -128,9 +128,11 @@ describe('what the two ways say and hide', () => {
   it('says what needs no account and when one is needed', () => {
     expect(readRoot('sunglasses-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b>[^<]*견적 요청까지 접수할 수 있습니다\. <b>담당자 상세견적<\/b>[^<]*로그인이 필요합니다\.<\/p>/);
     expect(readRoot('golf-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있습니다\.<\/p>/);
-    // The golf shoe page has no price to show yet, and says so instead of promising a range.
+    // The golf shoe page shows a price range as the golf tee page does (estimate-market-preview.js, previewShoes on the server),
+    // so it says the same, and does not say that it cannot (2026-11-13). Step 1 itself does not promise a range yet.
     const shoes = readRoot('shoes-estimate.html');
-    expect(shoes).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 견적 요청까지 접수할 수 있습니다\. 골프화는 아직 예상 가격 범위를 바로 안내하지 못합니다\.[^<]*<\/p>/);
+    expect(shoes).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있습니다\.<\/p>/);
+    expect(shoes).not.toContain('아직 예상 가격 범위를 바로 안내하지 못합니다');
     expect(shoes.slice(shoes.indexOf('id="step1-content"'), shoes.indexOf('id="step2-content"'))).not.toContain('예상 가격 범위를 확인합니다');
   });
 

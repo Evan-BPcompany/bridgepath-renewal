@@ -2,7 +2,7 @@
    The panel, the cards and the tokens: style.css. */
 
 .flow-title {
-    margin: 4px 0 20px;
+    margin: 4px 0 var(--space-xs);
     font-size: clamp(1.2rem, 2.6vw, 1.45rem);
     font-weight: 500;
 }
@@ -37,3 +37,62 @@
 .flow-steps li:first-child::before { color: var(--accent); }
 
 .flow-steps b { display: block; color: var(--ink); }
+
+/* the line under the title: what the three cards are, and where everything else goes */
+.flow-lead {
+    max-width: 42em;
+    margin-bottom: 20px;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+}
+
+/* the way a quote starts, on each card: an AI estimate (a sage chip) */
+.pick-way {
+    display: inline-block;
+    padding: 2px var(--space-xs);
+    border-radius: var(--radius-s);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--ink);
+}
+
+.pick-way-ai { background: var(--accent-soft); }
+
+/* everything else: a box under the cards, not a fourth card (sage wash, no photo, a button that is clearly a button) */
+.other-box {
+    margin-top: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius);
+    background: var(--accent-soft);
+}
+
+.other-title { font-size: 1rem; font-weight: 600; }
+
+.other-text { margin-top: var(--space-xs); font-size: 0.92rem; }
+
+.other-sub { margin-top: var(--space-2xs); font-size: 0.86rem; color: var(--ink-soft); }
+
+.other-btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin-top: var(--space-sm);
+    padding-inline: var(--space-md);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-s);
+    background: var(--white);
+    color: var(--ink);
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.other-btn:hover,
+.other-btn:focus-visible { border-color: var(--ink); background: var(--paper); }
+
+@media (max-width: 560px) {
+    .other-box { padding: var(--space-md); }
+    .other-btn { width: 100%; justify-content: center; }
+}

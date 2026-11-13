@@ -34,38 +34,50 @@
 
             <div class="panel-body">
                 <p class="step-tag">Step <b>01</b> <span>제품 선택</span></p>
-                <h2 class="flow-title">어떤 골프용품의 견적이 필요한가요?</h2>
+                <h2 class="flow-title">빠른 AI 가상견적이 가능한 대표 품목</h2>
+                <p class="flow-lead">아래 대표 품목은 빠른 AI 가상견적 또는 담당 에이전트 확인으로 시작할 수 있습니다. 그 외 골프용품은 별도 문의를 통해 소싱 가능 여부를 확인해드립니다.</p>
 
-                <!-- The three products the site sources (2026-11-11): the same order, names and hints as the home page. -->
+                <!-- The three representative products (not everything that is sourced): the same order and names as the home page, each with
+                     the way its quote works, as the pages behind them really work (all three show a price range: sunglasses from a photo or typed
+                     facts, shoes and golf tee from the material and the quantity). Anything else goes to the inquiry below. -->
                 <ul class="pick-grid pick-three">
                     <li>
                         <a class="pick" href="sunglasses-estimate.html">
                             <span class="pick-name">골프 선글라스</span>
-                            <span class="pick-hint">사진을 올리면 AI가 재질과 렌즈를 추정하고, 예상 가격 범위를 보여드립니다.</span>
+                            <span class="pick-way pick-way-ai">AI 가상견적</span>
+                            <span class="pick-hint">사진이나 직접 입력한 기본 정보를 바탕으로 예상 가격 범위를 확인할 수 있습니다.</span>
                         </a>
                     </li>
                     <li>
                         <a class="pick" href="shoes-estimate.html">
                             <span class="pick-name">골프화</span>
-                            <span class="pick-hint">최소 주문 600켤레. 가격은 담당자가 확인해 안내합니다.</span>
+                            <span class="pick-way pick-way-ai">AI 가상견적</span>
+                            <span class="pick-hint">재질과 수량을 입력하면 예상 가격 범위를 확인할 수 있습니다.</span>
                         </a>
                     </li>
                     <li>
                         <a class="pick" href="golf-estimate.html">
                             <span class="pick-name">골프티</span>
-                            <span class="pick-hint">최소 주문 1,000패키지 (1패키지 50개입). 예상 가격 범위를 바로 보여드립니다.</span>
+                            <span class="pick-way pick-way-ai">AI 가상견적</span>
+                            <span class="pick-hint">재질과 수량을 입력하면 예상 가격 범위를 확인할 수 있습니다.</span>
                         </a>
                     </li>
                 </ul>
-                <p class="more-link">다른 골프용품이 필요한가요? <a href="other-inquiry.html">문의하기</a></p>
+                <!-- Not a fourth card: a quieter box under the cards. The inquiry has no AI estimate; the agent answers (other-inquiry.html). -->
+                <section class="other-box" aria-labelledby="otherTitle">
+                    <h3 class="other-title" id="otherTitle">그 외 골프용품도 소싱 가능합니다.</h3>
+                    <p class="other-text">골프모자, 골프장갑, 볼마커, 볼타월 등 원하는 품목은 담당 에이전트에게 문의해 주세요.</p>
+                    <p class="other-sub">AI 가상견적이 제공되지 않는 품목은 요청 접수 후 담당 에이전트가 소싱 가능 여부와 제작 조건을 확인해 안내합니다.</p>
+                    <a class="other-btn" href="other-inquiry.html">다른 골프용품 소싱 문의</a>
+                </section>
 
                 <ol class="flow-steps" aria-label="견적 진행 순서">
                     <li><b>제품 선택</b></li>
                     <li><b>이미지 또는 직접 입력</b>참고 이미지가 없어도 직접 입력해 진행할 수 있습니다.</li>
-                    <li><b>가격 범위 확인 · 견적 요청</b>선글라스와 골프티는 참고용 예상 범위를 바로 보여드립니다. 확정 견적은 아닙니다.</li>
+                    <li><b>가격 범위 확인 · 견적 요청</b>선글라스·골프화·골프티는 참고용 예상 범위를 바로 보여드립니다. 확정 견적은 아닙니다. 그 외 품목은 담당 에이전트가 확인해 안내합니다.</li>
                 </ol>
 
-                <p class="scope-note"><b>로그인 없이</b> 예상 가격 범위 확인(선글라스·골프티)과 견적 요청 접수까지 할 수 있습니다. <b>담당자 상세견적</b> 요청과 <a href="my-quotes.html">내 견적</a> 확인은 회원가입 후 로그인이 필요합니다.</p>
+                <p class="scope-note"><b>로그인 없이</b> 예상 가격 범위 확인(선글라스·골프화·골프티)과 견적 요청 접수까지 할 수 있습니다. <b>담당자 상세견적</b> 요청과 <a href="my-quotes.html">내 견적</a> 확인은 회원가입 후 로그인이 필요합니다.</p>
             </div>
         </div>
     </main>
