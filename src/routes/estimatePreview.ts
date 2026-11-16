@@ -27,7 +27,7 @@ const router = Router();
 // after the factory and shipping conditions are checked (PRD FR-3). Do not add the service fee
 // here: it is not disclosed in the price guidance.
 export const PREVIEW_NOTICE =
-  '입력하신 정보로 계산한 예상 범위이며 확정 견적이 아닙니다. 정식 견적은 담당자가 공장·운송 조건을 확인한 뒤 안내드립니다.';
+  '입력하신 정보로 계산한 예상 범위이며 확정 견적이 아닙니다. 운송비·관세·금형·로고·포장 비용은 포함하지 않았습니다. 정식 견적은 담당자가 확인한 뒤 안내드립니다.';
 
 const MATERIALS = new Set([...Object.keys(MATERIAL_VARIANTS), UNKNOWN_VALUE]);
 const LENS_TYPES = new Set(Object.keys(LENS_MULTIPLIERS));

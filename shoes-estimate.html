@@ -105,18 +105,22 @@
                         <label for="material">주요 재질 *</label>
                         <select id="material" name="material">
                             <option value="">선택하세요</option>
-                            <option value="leather">가죽</option>
-                            <option value="canvas">캔버스</option>
+                            <option value="leather">그레인 (천연가죽)</option>
+                            <option value="synthetic">액션레더 (합성가죽)</option>
+                            <option value="microfiber">마이크로파이버 (기본)</option>
                             <option value="mesh">메쉬</option>
-                            <option value="synthetic">인공가죽</option>
-                            <option value="rubber">고무</option>
-                            <option value="mixed">혼합</option>
+                            <option value="mixed">혼합 (예: 그레인 + 메쉬)</option>
                             <option value="unknown">잘 모르겠음</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="color">색상</label>
-                        <input type="text" id="color" name="color" placeholder="예: 검정, 흰색 혼합">
+                        <label for="outsole">아웃솔 *</label>
+                        <select id="outsole" name="outsole">
+                            <option value="">선택하세요</option>
+                            <option value="spike">스파이크</option>
+                            <option value="spikeless">스파이크리스</option>
+                            <option value="hybrid">하이브리드 (낮은 스파이크 + 접지 아웃솔)</option>
+                        </select>
                     </div>
                 </div>
 
@@ -177,7 +181,7 @@
 
                 <div class="form-group full-width">
                     <label for="additionalInfo">추가 요청사항</label>
-                    <textarea id="additionalInfo" name="additionalInfo" placeholder="특별한 요청사항이 있으면 입력하세요. (예: 스파이크/스파이크리스, 방수, 로고 위치 등)" rows="5"></textarea>
+                    <textarea id="additionalInfo" name="additionalInfo" placeholder="특별한 요청사항이 있으면 입력하세요. (예: 색상, 방수, 로고 위치 등)" rows="5"></textarea>
                 </div>
             </div>
 

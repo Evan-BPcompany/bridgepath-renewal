@@ -58,6 +58,7 @@ describe('the values of the existing forms', () => {
     ['sunglasses-estimate.html', 'lensType', 'lensType'],
     ['sunglasses-estimate.html', 'frameMaterial', 'frameMaterial'],
     ['shoes-estimate.html', 'material', 'shoesMaterial'],
+    ['shoes-estimate.html', 'outsole', 'shoesOutsole'],
     ['golf-estimate.html', 'material', 'golfMaterial']
   ])('%s: the select %s has the values of OPTIONS.%s', (file, id, key) => {
     expect(optionsOf(page(file), id)).toEqual(api.OPTIONS[key].filter((value: string) => value !== 'unknown'));
@@ -94,7 +95,7 @@ describe('categories', () => {
 
   it('the last card of the shoes page ("기타") is a kind of shoe, not the category other', () => {
     expect(api.normalizeCategory('shoes', 'other')).toEqual({ category: 'shoes', subtype: 'other' });
-    expect(api.buildSpecification('shoes', 'other', { material: 'unknown', sizes: ['240'], quantity: '600' }).spec.shoe_type).toBe('other');
+    expect(api.buildSpecification('shoes', 'other', { material: 'unknown', outsole: 'spikeless', sizes: ['240'], quantity: '600' }).spec.shoe_type).toBe('other');
   });
 
   it('other has no kind of product and is the category other', () => {
@@ -199,19 +200,20 @@ describe('specification: sunglasses', () => {
 });
 
 describe('specification: shoes', () => {
-  const base = { material: 'leather', sizes: ['240', '230', '270'], quantity: 600 };
+  const base = { material: 'leather', outsole: 'spike', sizes: ['240', '230', '270'], quantity: 600 };
 
   it('builds the size range from the sizes that were ticked', () => {
     const { spec } = api.buildSpecification('shoes', 'sneakers', { ...base, color: '흰색', additionalInfo: '특수 밑창' });
 
+    // the form has no colour for shoes any more (it goes into the additional request); a colour that is sent is not kept
     expect(spec).toEqual({
       schema_version: '1.0',
       quantity: 600,
       shoe_type: 'sneakers',
       material: 'leather',
+      outsole: 'spike',
       sizes: [230, 240, 270],
       size_range: '230-270',
-      color: '흰색',
       special_requirements: '특수 밑창'
     });
   });
@@ -224,6 +226,7 @@ describe('specification: shoes', () => {
   it('requires a size, a material and a quantity; refuses sizes the form does not offer', () => {
     expect(codesOf(api.validateSpecInput('shoes', 'heels', { quantity: '600' }).errors)).toEqual([
       'material:choice_required',
+      'outsole:choice_required',
       'sizes:sizes_required'
     ]);
     expect(codesOf(api.validateSpecInput('shoes', 'heels', { ...base, sizes: ['235'] }).errors)).toEqual(['sizes:invalid_choice']);
@@ -307,9 +310,30 @@ describe('delivery date', () => {
   });
 });
 
+describe('golf shoes: the outsole and the upper materials', () => {
+  const base = { material: 'microfiber', sizes: ['250'], quantity: 600 };
+
+  it('asks for the outsole: spike, spikeless or hybrid, and nothing else', () => {
+    expect(api.OPTIONS.shoesOutsole).toEqual(['spike', 'spikeless', 'hybrid']);
+    for (const outsole of ['spike', 'spikeless', 'hybrid']) {
+      expect(api.buildSpecification('shoes', 'other', { ...base, outsole }).spec.outsole).toBe(outsole);
+    }
+    expect(codesOf(api.validateSpecInput('shoes', 'other', base).errors)).toContain('outsole:choice_required');
+    expect(codesOf(api.validateSpecInput('shoes', 'other', { ...base, outsole: 'studs' }).errors)).toContain('outsole:invalid_choice');
+  });
+
+  it('has the uppers of a golf shoe: grain, action leather, microfiber (the usual one), mesh, a mix; no canvas, no rubber', () => {
+    expect(api.OPTIONS.shoesMaterial).toEqual(['leather', 'synthetic', 'microfiber', 'mesh', 'mixed', 'unknown']);
+    for (const material of ['canvas', 'rubber']) {
+      expect(codesOf(api.validateSpecInput('shoes', 'other', { ...base, material, outsole: 'spikeless' }).errors)).toContain('material:invalid_choice');
+    }
+    expect(api.validateSpecInput('shoes', 'other', { ...base, outsole: 'spikeless' }).valid).toBe(true);
+  });
+});
+
 describe('the input is not changed', () => {
   it('buildSpecification and validateCustomer leave their arguments alone', () => {
-    const values = { material: 'leather', sizes: ['240', '230'], quantity: '5' };
+    const values = { material: 'leather', outsole: 'spikeless', sizes: ['240', '230'], quantity: '5' };
     const copy = JSON.parse(JSON.stringify(values));
     const customer = { ...validCustomer, customer_name: '  Kim  ' };
     const customerCopy = JSON.parse(JSON.stringify(customer));
@@ -1005,7 +1029,7 @@ describe('the texts for the visitor', () => {
 
 describe('the minimum orders', () => {
   it('shoes: 600 pairs are accepted and 599 are refused with their own message', () => {
-    const base = { material: 'leather', sizes: ['250'] };
+    const base = { material: 'leather', outsole: 'hybrid', sizes: ['250'] };
 
     expect(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '600' }).valid).toBe(true);
     expect(codesOf(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '599' }).errors)).toEqual(['quantity:quantity_min_shoes']);

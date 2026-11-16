@@ -1,4 +1,5 @@
 jest.mock('../config/database', () => ({ getPool: jest.fn() }));
+jest.mock('../config/serviceMargin', () => ({ SERVICE_MARGIN_RATE: 0, withServiceMargin: (value: number) => value })); // these tests are about the arithmetic of the rules; serviceMargin.test.ts is about the margin
 
 import request from 'supertest';
 import { getPool } from '../config/database';

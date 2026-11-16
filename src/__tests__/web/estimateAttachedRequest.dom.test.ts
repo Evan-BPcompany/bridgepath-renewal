@@ -367,6 +367,7 @@ describe('a request of the other pages with files', () => {
     click($('.category-card[data-category="other"]'));
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
+    choose($('#outsole'), 'spikeless');
     check($('#size250'));
     type($('#quantity'), '600');
     click($('#nextBtn2'));
@@ -496,6 +497,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     click($('.category-card[data-category="other"]'));
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
+    choose($('#outsole'), 'spikeless');
     check($('#size250'));
     type($('#quantity'), '600');
     type($('#additionalInfo'), '<img src=x onerror=alert(1)>');
@@ -520,6 +522,7 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     click($('.category-card[data-category="other"]'));
     click($('#nextBtn1'));
     choose($('#material'), 'leather');
+    choose($('#outsole'), 'spikeless');
     check($('#size250'));
     check($('#size270'));
     type($('#quantity'), '1200');
@@ -534,7 +537,8 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     await settle();
 
     expect(row('제품 종류')).toBe('골프화');
-    expect(row('주요 재질')).toBe('가죽');
+    expect(row('주요 재질')).toBe('그레인 (천연가죽)');
+    expect(row('아웃솔')).toBe('스파이크리스');
     expect(row('사이즈')).toBe('250, 270');
     expect(row('수량')).toBe('1,200켤레');
     expect(row('전화')).toBe('010-1234-5678');

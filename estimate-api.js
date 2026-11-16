@@ -50,7 +50,10 @@
     var OPTIONS = Object.freeze({
         lensType: Object.freeze(['normal', 'polarized', 'mirror', 'gradient', 'photochromic', UNKNOWN]),
         frameMaterial: Object.freeze(['metal', 'plastic', 'acetate', 'mixed', 'wood', UNKNOWN]),
-        shoesMaterial: Object.freeze(['leather', 'canvas', 'mesh', 'synthetic', 'rubber', 'mixed', UNKNOWN]),
+        // Golf shoes: grain (natural leather), action leather (synthetic leather), microfiber (the usual one), mesh, a mix.
+        shoesMaterial: Object.freeze(['leather', 'synthetic', 'microfiber', 'mesh', 'mixed', UNKNOWN]),
+        // The outsole of a golf shoe: with spikes, without, or the hybrid of the two.
+        shoesOutsole: Object.freeze(['spike', 'spikeless', 'hybrid']),
         golfMaterial: Object.freeze(['wood', 'bamboo', 'plastic', UNKNOWN]),
         shoeSizes: Object.freeze([220, 230, 240, 250, 260, 270, 280, 290])
     });
@@ -247,12 +250,12 @@
         } else if (page === 'shoes') {
             spec.shoe_type = kind.subtype;
             spec.material = checkChoice(input, 'material', OPTIONS.shoesMaterial, errors);
+            spec.outsole = checkChoice(input, 'outsole', OPTIONS.shoesOutsole, errors);
             var sizes = checkSizes(input, errors);
             if (sizes) {
                 spec.sizes = sizes;
                 spec.size_range = sizes[0] === sizes[sizes.length - 1] ? String(sizes[0]) : sizes[0] + '-' + sizes[sizes.length - 1];
             }
-            put('color', checkOptionalText(input, 'color', LIMITS.textShort, errors));
             put('special_requirements', checkOptionalText(input, 'additionalInfo', LIMITS.textLong, errors));
         } else if (page === 'golf') {
             spec.product_type = kind.subtype;

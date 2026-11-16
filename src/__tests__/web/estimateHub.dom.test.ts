@@ -69,6 +69,15 @@ describe('estimate.html: the representative products and the way to everything e
     expect(body).not.toMatch(/최소 주문|600켤레|1,000패키지|골프채|골프공|보장|확정됩니다/);
   });
 
+  it('tells the same thing under all three price ranges: what the range leaves out', () => {
+    const sentence = '운송비·관세·금형·로고·포장 비용은 포함하지 않았습니다.';
+
+    // the sunglasses show the notice of the server (with this text as the fallback), the shoes and the golf tee their own
+    expect(readRoot('src/routes/estimatePreview.ts')).toContain(sentence);
+    expect(readRoot('estimate-preview.js')).toContain(sentence);
+    expect(readRoot('estimate-market-preview.js')).toContain(sentence);
+  });
+
   it('keeps the way back, the navigation and the skip link', () => {
     expect(doc.querySelector('.panel-back').getAttribute('href')).toBe('index.html');
     expect(doc.querySelector('.panel-back').getAttribute('aria-label')).toBe('홈으로 돌아가기');

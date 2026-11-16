@@ -246,7 +246,7 @@ describe('when the price cannot be shown', () => {
     expect($('#resultCostStatus').textContent).toContain(text);
     expect(isShown('#resultCostTable')).toBe(false);
     // The rest of the screen and the way on stay usable.
-    expect($('#resultMaterial').textContent).toBe('플라스틱');
+    expect($('#resultMaterial').textContent).toBe('TR90 (수지 플라스틱)');
     expect($('#resultRequestBtn').disabled).toBe(false);
   });
 

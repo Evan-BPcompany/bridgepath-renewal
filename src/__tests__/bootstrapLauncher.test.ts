@@ -96,7 +96,9 @@ describe('admin:bootstrap launcher and compiled command', () => {
 
     compiledIt('stops without DATABASE_URL, both through npm\'s launcher and directly', () => {
       for (const file of [launcher, compiled]) {
-        const result = run(file);
+        // An empty value stays empty: the script reads the .env of the project (dotenv) but never overrides a variable
+        // that is already set, so the test does not depend on a DATABASE_URL in the .env of whoever runs it.
+        const result = run(file, { DATABASE_URL: '' });
 
         expect(result.status).toBe(1);
         expect(result.out).toContain('DATABASE_URL is not set. Aborting; nothing was changed.');

@@ -39,6 +39,8 @@ export interface ShoesSpecification extends SpecificationBase {
   size_range: string;
   quantity: number;
   special_requirements?: string;
+  // spike, spikeless or hybrid (golf shoes); asked by the form, kept for the staff
+  outsole?: string;
 }
 
 export interface GolfSpecification extends SpecificationBase {

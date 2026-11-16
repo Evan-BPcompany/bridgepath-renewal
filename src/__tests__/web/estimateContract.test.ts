@@ -30,7 +30,7 @@ const HIGH = { windowMs: 3600000, max: 100000 };
 
 const VALUES: Record<string, Record<string, unknown>> = {
   sunglasses: { frameMaterial: 'unknown', lensType: 'polarized', quantity: '1000', frameColor: '검정' },
-  shoes: { material: 'unknown', sizes: ['240', '250', '270'], quantity: '600', color: '흰색', additionalInfo: '특수 밑창' },
+  shoes: { material: 'unknown', outsole: 'spikeless', sizes: ['240', '250', '270'], quantity: '600', additionalInfo: '특수 밑창' },
   golf: { material: 'wood', quantity: '1000', color: '검정', size: 'One size', design: '로고 인쇄' },
   other: { productDescription: '맞춤형 텀블러', quantity: '1000' }
 };

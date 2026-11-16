@@ -13,7 +13,7 @@
             quantity: 'quantity', deliveryDate: 'deliveryDate', additionalInfo: 'additionalInfo'
         },
         shoes: {
-            material: 'material', color: 'color', quantity: 'quantity', deliveryDate: 'deliveryDate', additionalInfo: 'additionalInfo'
+            material: 'material', outsole: 'outsole', quantity: 'quantity', deliveryDate: 'deliveryDate', additionalInfo: 'additionalInfo'
         },
         golf: {
             color: 'productColor', material: 'material', size: 'size', design: 'design', quantity: 'quantity',
@@ -29,7 +29,7 @@
             ['lensColor', '렌즈 색상'], ['quantity', '수량', 'count'], ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
         ],
         shoes: [
-            ['material', '주요 재질', 'select'], ['sizes', '사이즈', 'list'], ['color', '색상'], ['quantity', '수량', 'count'],
+            ['material', '주요 재질', 'select'], ['outsole', '아웃솔', 'select'], ['sizes', '사이즈', 'list'], ['quantity', '수량', 'count'],
             ['deliveryDate', '희망 납기일'], ['additionalInfo', '추가 요청사항']
         ],
         golf: [

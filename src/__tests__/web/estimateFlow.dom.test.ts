@@ -45,6 +45,8 @@ const PAGES: Array<{ page: string; card: string; fill: () => void; required: str
     required: ['material'],
     fill: () => {
       choose($('#material'), 'leather');
+      choose($('#outsole'), 'spikeless');
+    choose($('#outsole'), 'spikeless');
       check($('#size250'));
       type($('#quantity'), '600');
     }
@@ -225,6 +227,7 @@ describe('estimate flow: values of the pages', () => {
   it('asks for a size on the shoes page and puts the focus on the first size', () => {
     open('shoes', 'other');
     choose($('#material'), 'leather');
+    choose($('#outsole'), 'spikeless');
     type($('#quantity'), '600');
     click($('#nextBtn2'));
     expect($('#step3-content').classList.contains('active')).toBe(false);
@@ -239,6 +242,7 @@ describe('estimate flow: values of the pages', () => {
   it('accepts the card "기타" of the shoes page', () => {
     open('shoes', 'other');
     choose($('#material'), 'unknown');
+    choose($('#outsole'), 'hybrid');
     check($('#size260'));
     type($('#quantity'), '600');
     click($('#nextBtn2'));

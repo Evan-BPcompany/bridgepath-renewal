@@ -65,7 +65,7 @@
     var SPEC_KEY = Object.freeze({
         frame_type: '제품 종류', shoe_type: '제품 종류', product_type: '제품 종류',
         product_description: '제품 설명',
-        material: '재질', lens_type: '렌즈 타입', frame_color: '프레임 색상', lens_color: '렌즈 색상',
+        material: '재질', outsole: '아웃솔', lens_type: '렌즈 타입', frame_color: '프레임 색상', lens_color: '렌즈 색상',
         color: '색상', size: '크기', size_range: '사이즈 범위', sizes: '사이즈', design: '디자인', customization: '맞춤 요청',
         quantity: '수량', delivery_date: '희망 납기일', additional_info: '추가 요청사항', special_requirements: '추가 요청사항',
         schema_version: '양식 버전'
@@ -74,7 +74,7 @@
     var SPEC_VALUE = Object.freeze({
         material: {
             metal: '금속 (메탈)', plastic: '플라스틱', acetate: '아세테이트', mixed: '혼합', wood: '우드', unknown: '잘 모르겠음',
-            leather: '가죽', canvas: '캔버스', mesh: '메쉬', synthetic: '인공가죽', rubber: '고무',
+            leather: '그레인 (천연가죽)', canvas: '캔버스', mesh: '메쉬', synthetic: '액션레더 (합성가죽)', rubber: '고무', microfiber: '마이크로파이버',
             polyester: '폴리에스터', nylon: '나일론', cotton: '면', wool: '울'
         },
         lens_type: {
@@ -85,6 +85,7 @@
         frame_type: {
             optical: '일반 안경테', sunglasses: '선글라스', sports: '스포츠 선글라스', kids: '키즈 안경', safety: '기능성 안경'
         },
+        outsole: { spike: '스파이크', spikeless: '스파이크리스', hybrid: '하이브리드 (낮은 스파이크 + 접지 아웃솔)' },
         shoe_type: {
             sneakers: '운동화', heels: '여성구두', mens: '남성구두', boots: '부츠', sandals: '샌들/슬리퍼', other: '기타'
         },

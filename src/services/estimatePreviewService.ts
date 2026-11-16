@@ -1,4 +1,5 @@
 import { getPool } from '../config/database';
+import { withServiceMargin } from '../config/serviceMargin';
 import {
   BASE_SPREAD,
   LENS_MULTIPLIERS,
@@ -95,8 +96,8 @@ export function calculateSunglassesPreview(
   const unknownAnswers = (materialKnown ? 0 : 1) + (lensKnown ? 0 : 1);
   const spread = BASE_SPREAD + UNKNOWN_SPREAD_STEP * unknownAnswers;
 
-  const lowUnit = Math.min(...basePool) * lensMultiplier * tier * (1 - spread);
-  const highUnit = Math.max(...basePool) * lensMultiplier * tier * (1 + spread);
+  const lowUnit = withServiceMargin(Math.min(...basePool) * lensMultiplier * tier * (1 - spread));
+  const highUnit = withServiceMargin(Math.max(...basePool) * lensMultiplier * tier * (1 + spread));
 
   const unit_price = { min: roundToUnit(lowUnit), max: roundToUnit(highUnit) };
   return {
@@ -160,7 +161,10 @@ function pricedRange(
   quantity: number
 ): MarketPreview {
   const round = (value: number): number => Math.round(value / rounding) * rounding;
-  const unit_price = { min: round(Math.min(...basePool) * factor * (1 - spread)), max: round(Math.max(...basePool) * factor * (1 + spread)) };
+  const unit_price = {
+    min: round(withServiceMargin(Math.min(...basePool) * factor * (1 - spread))),
+    max: round(withServiceMargin(Math.max(...basePool) * factor * (1 + spread)))
+  };
   return {
     available: true,
     currency: 'KRW',

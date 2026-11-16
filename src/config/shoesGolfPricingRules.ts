@@ -24,12 +24,14 @@ export const SHOE_TYPE_VARIANTS: Record<string, string> = {
 };
 export const SHOE_TYPES = [...Object.keys(SHOE_TYPE_VARIANTS), 'other'];
 
+// The upper of a golf shoe (the form's "주요 재질"): leather is grain (natural leather), synthetic is action leather
+// (synthetic leather), microfiber is the usual one (the base, 1.0). These multipliers are assumptions until real quotes
+// come in; the outsole (spike, spikeless, hybrid) is asked for the request and does not change the range yet.
 export const SHOE_MATERIAL_MULTIPLIERS: Record<string, number> = {
   leather: 1.25,
-  canvas: 0.9,
+  microfiber: 1.0,
   mesh: 0.95,
   synthetic: 0.9,
-  rubber: 0.85,
   mixed: 1.05,
   [UNKNOWN_VALUE]: 1.0
 };

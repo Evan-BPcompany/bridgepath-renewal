@@ -1,4 +1,5 @@
 jest.mock('../config/database', () => ({ getPool: jest.fn() }));
+jest.mock('../config/serviceMargin', () => ({ SERVICE_MARGIN_RATE: 0, withServiceMargin: (value: number) => value })); // these tests are about the arithmetic of the rules; serviceMargin.test.ts is about the margin
 
 import request from 'supertest';
 import { getPool } from '../config/database';
@@ -55,14 +56,15 @@ describe('calculateShoesPreview', () => {
     });
   });
 
-  it('is cheaper per pair for larger orders and dearer for leather than for rubber', () => {
+  it('is cheaper per pair for larger orders and dearer for grain leather than for action leather', () => {
     const at = (quantity: number, material = 'mesh') =>
       calculateShoesPreview({ shoe_type: 'boots', material, quantity }, SHOE_PRICES) as { unit_price: { min: number } };
 
     expect(at(10000).unit_price.min).toBeLessThan(at(3000).unit_price.min);
     expect(at(3000).unit_price.min).toBeLessThan(at(1000).unit_price.min);
     expect(at(1000).unit_price.min).toBeLessThan(at(600).unit_price.min);
-    expect(at(600, 'leather').unit_price.min).toBeGreaterThan(at(600, 'rubber').unit_price.min);
+    expect(at(600, 'leather').unit_price.min).toBeGreaterThan(at(600, 'synthetic').unit_price.min);
+    expect(at(600, 'leather').unit_price.min).toBeGreaterThan(at(600, 'microfiber').unit_price.min);
   });
 
   it('prices an unknown type or material across all types, with a wider range', () => {

@@ -66,11 +66,12 @@ const PAGES: Array<{ page: string; card: string; category: string; fill: () => v
     category: 'shoes',
     fill: () => {
       choose($('#material'), 'leather');
+      choose($('#outsole'), 'spikeless');
       check($('#size250'));
       check($('#size270'));
       type($('#quantity'), '600');
     },
-    expectSpec: { shoe_type: 'other', material: 'leather', sizes: [250, 270], quantity: 600 }
+    expectSpec: { shoe_type: 'other', material: 'leather', outsole: 'spikeless', sizes: [250, 270], quantity: 600 }
   },
   {
     page: 'golf',
