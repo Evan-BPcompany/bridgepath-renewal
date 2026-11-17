@@ -27,23 +27,21 @@ describe('estimate.html: the representative products and the way to everything e
     expect(cards.map(card => card.getAttribute('href'))).toEqual(['sunglasses-estimate.html', 'shoes-estimate.html', 'golf-estimate.html']);
     expect(cards.map(card => text(card.querySelector('.pick-name')))).toEqual(['골프 선글라스', '골프화', '골프티']);
     expect(cards.map(card => text(card.querySelector('.pick-way')))).toEqual(['AI 가상견적', 'AI 가상견적', 'AI 가상견적']);
-    expect(cards.map(card => text(card.querySelector('.pick-hint')))).toEqual([
-      '사진이나 직접 입력한 기본 정보를 바탕으로 예상 가격 범위를 확인할 수 있습니다.',
-      '재질과 수량을 입력하면 예상 가격 범위를 확인할 수 있습니다.',
-      '재질과 수량을 입력하면 예상 가격 범위를 확인할 수 있습니다.'
-    ]);
+    // no hint line under the products any more (2026-11-17): a card is its name and its way
+    expect(cards.map(card => card.querySelector('.pick-hint'))).toEqual([null, null, null]);
   });
 
-  it('labels all three as AI estimates because all three pages really show a price range: the sunglasses through the photo/preview scripts, the shoes and the golf tee through the market preview', () => {
-    for (const page of ['shoes-estimate.html', 'golf-estimate.html']) {
-      const source = readRoot(page);
-
-      expect(source).toContain('<script src="estimate-market-preview.js"></script>');
-      expect(source).toContain('id="marketPreview"');
-    }
+  it('labels all three as AI estimates because all three pages really show a price range: the sunglasses through the photo/preview scripts, the golf shoes through the photo and the result screen (2026-11-17), the golf tee through the market preview', () => {
+    const tee = readRoot('golf-estimate.html');
+    expect(tee).toContain('<script src="estimate-market-preview.js"></script>');
+    expect(tee).toContain('id="marketPreview"');
+    const shoes = readRoot('shoes-estimate.html');
+    expect(shoes).toContain('<script src="golf-shoe-photo.js"></script>');
+    expect(shoes).toContain('<script src="golf-shoe-result.js"></script>');
+    expect(shoes).not.toContain('id="marketPreview"');
     expect(readRoot('sunglasses-estimate.html')).toContain('<script src="estimate-preview.js"></script>');
-    // the shoes are previewed by the server with their own rules, as the golf tee is
-    expect(readRoot('src/routes/estimatePreview.ts')).toContain('previewShoes');
+    // the golf shoe range is made by the server from approved price evidence
+    expect(readRoot('src/routes/golfShoeRange.ts')).toContain('golf-shoe-range');
   });
 
   it('puts everything else in a box under the cards, not in a fourth card, and links it to the inquiry that exists', () => {

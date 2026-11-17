@@ -108,6 +108,26 @@ describe('the photo of the sunglasses form', () => {
     expect($('#imageAnalysisStatus').hidden).toBe(false);
   });
 
+  it('says how far the analysis is while it takes long: the same job, then "almost there"', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    fetchMock.mockImplementation((url: string) => (isAnalysis(url) ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(answer(200, RANGE_ANSWER))));
+    upload();
+    await settle(100);
+
+    expect($('#imageAnalysisStatus').textContent).toBe('사진을 분석하고 있습니다…');
+    await settle(4000);
+    expect($('#imageAnalysisStatus').textContent).toBe('재질과 렌즈를 추정하고 있습니다…');
+    await settle(8000);
+    expect($('#imageAnalysisStatus').textContent).toBe('거의 끝났습니다. 조금만 기다려 주세요…');
+
+    finish(answer(200, ANALYSIS_ANSWER));
+    await settle(0);
+    expect($('#imageAnalysisStatus').textContent).toContain('Thick acetate frame.');
+    // nothing moves the line on after the answer
+    await settle(20000);
+    expect($('#imageAnalysisStatus').textContent).toContain('Thick acetate frame.');
+  });
+
   it('keeps the photo and the whole analysis for the result screen, and drops them with the photo', async () => {
     const file = upload();
     await settle(0);

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import Ajv from 'ajv';
+import Ajv, { type ValidateFunction } from 'ajv';
 import logger from '../utils/logger';
 
 // Reads a sunglasses photo and answers the two things the price guidance needs: what the frame is
@@ -122,7 +122,7 @@ export function isImageAnalysisConfigured(): boolean {
 
 let defaultClient: MessagesClient | null = null;
 
-function getClient(): MessagesClient {
+export function getClient(): MessagesClient {
   if (!defaultClient) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -133,16 +133,23 @@ function getClient(): MessagesClient {
   return defaultClient;
 }
 
-export async function analyzeSunglassesImage(
-  image: Buffer,
-  mediaType: AnalysisImageType,
-  client: MessagesClient = getClient()
-): Promise<SunglassesImageAnalysis> {
+export interface ImageJsonRequest<T> {
+  image: Buffer;
+  mediaType: AnalysisImageType;
+  client: MessagesClient;
+  system: string;
+  schema: object;
+  validate: ValidateFunction<T>;
+}
+
+// Sends one photo with a system prompt and a JSON schema, and returns the answer when it matches the schema. Shared by the
+// photo analyses of every product (sunglasses, golf shoes).
+export async function askImageJson<T>({ image, mediaType, client, system, schema, validate }: ImageJsonRequest<T>): Promise<T> {
   const response = await client.messages.create({
     model: process.env.IMAGE_ANALYSIS_MODEL || DEFAULT_MODEL,
     max_tokens: 6000,
-    system: SYSTEM_PROMPT,
-    output_config: { format: { type: 'json_schema', schema: ANALYSIS_SCHEMA as never } },
+    system,
+    output_config: { format: { type: 'json_schema', schema: schema as never } },
     messages: [
       {
         role: 'user',
@@ -170,12 +177,22 @@ export async function analyzeSunglassesImage(
     throw new ImageAnalysisFailedError('The model did not return JSON');
   }
 
-  if (!validateAnalysis(parsed)) {
+  if (!validate(parsed)) {
     logger.warn('Image analysis answer did not match the schema', {
-      errors: validateAnalysis.errors?.map(error => `${error.instancePath || 'root'}: ${error.message}`)
+      errors: validate.errors?.map(error => `${error.instancePath || 'root'}: ${error.message}`)
     });
     throw new ImageAnalysisFailedError('The model answer did not match the schema');
   }
+
+  return parsed;
+}
+
+export async function analyzeSunglassesImage(
+  image: Buffer,
+  mediaType: AnalysisImageType,
+  client: MessagesClient = getClient()
+): Promise<SunglassesImageAnalysis> {
+  const parsed = await askImageJson({ image, mediaType, client, system: SYSTEM_PROMPT, schema: ANALYSIS_SCHEMA, validate: validateAnalysis });
 
   return {
     ...parsed,

@@ -27,6 +27,9 @@
 
     var IMAGE_MESSAGES = Object.freeze({
         analyzing: '사진을 분석하고 있습니다…',
+        // what the wait says as it goes on (the analysis takes ten seconds or more): the same job, not a different step
+        analyzingMore: '재질과 렌즈를 추정하고 있습니다…',
+        analyzingLong: '거의 끝났습니다. 조금만 기다려 주세요…',
         not_sunglasses: '선글라스 사진으로 보이지 않습니다. 다른 사진을 올리거나 재질과 렌즈를 직접 선택하세요.',
         nothing_certain: '사진만으로는 재질과 렌즈를 알 수 없었습니다. 직접 선택하세요.',
         type: 'JPG, PNG, WEBP 사진만 분석할 수 있습니다. 재질과 렌즈는 직접 선택해도 됩니다.',
@@ -38,6 +41,9 @@
     var IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
     var MAX_IMAGE_BYTES = 5 * 1024 * 1024;
     var IMAGE_TIMEOUT_MS = 45000;
+    // when the line under the upload box moves on while the photo is being analysed
+    var STAGE_MORE_MS = 4000;
+    var STAGE_LONG_MS = 12000;
     // Photos from a phone or a camera are often far larger than the analysis needs: anything over
     // 1 MB is scaled down in the browser (long edge 1600 px, JPEG) before it is sent.
     var RESIZE_ABOVE_BYTES = 1024 * 1024;
@@ -338,6 +344,8 @@
             var request = new AbortController();
             controller = request;
             var timedOut = setTimeout(function () { request.abort(); }, IMAGE_TIMEOUT_MS);
+            var moreTimer = setTimeout(function () { if (mine === sequence) { say(IMAGE_MESSAGES.analyzingMore, 'busy'); } }, STAGE_MORE_MS);
+            var longTimer = setTimeout(function () { if (mine === sequence) { say(IMAGE_MESSAGES.analyzingLong, 'busy'); } }, STAGE_LONG_MS);
             var result;
             try {
                 var form = new FormData();
@@ -359,6 +367,8 @@
                 result = { kind: 'failed' };
             } finally {
                 clearTimeout(timedOut);
+                clearTimeout(moreTimer);
+                clearTimeout(longTimer);
             }
             // An answer for a photo that has been replaced meanwhile is dropped without a word.
             if (mine !== sequence) {
@@ -406,7 +416,13 @@
             fetch: function (url, init) { return globalThis.fetch(url, init); }
         });
         imageInput.addEventListener('change', function () {
-            photo.analyse(imageInput.files && imageInput.files[0]);
+            Promise.resolve(photo.analyse(imageInput.files && imageInput.files[0])).then(function () {
+                // the photo was analysed and filled the material and the lens: what is left is the quantity
+                var quantity = document.getElementById('quantity');
+                if (quantity && !quantity.value && photo.getCurrent() && typeof quantity.scrollIntoView === 'function') {
+                    quantity.scrollIntoView({ block: 'center' });
+                }
+            });
         });
     }
 

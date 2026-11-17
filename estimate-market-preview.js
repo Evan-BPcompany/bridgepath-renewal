@@ -38,14 +38,16 @@
     }
 
     // The body of the price request, or null while the material or the quantity is not given.
-    // `subtype` is the card of the shoes page (sneakers, heels, ...); the golf page has one product.
+    // Each page has ONE product: the golf shoe (category `shoes`, one base price, whatever card the page selected for the
+    // request) and the golf tee. The card of the shoes page is "other" and the server would read that as a product that is not
+    // priced, so it is not sent.
     function readInput(page, subtype, values) {
         var material = values && typeof values.material === 'string' ? values.material : '';
         var quantity = parseQuantity(values ? values.quantity : '');
         if (!PAGES[page] || !material || quantity === null) {
             return null;
         }
-        return { category: page === 'golf' ? 'golf_tee' : subtype || 'shoes', material: material, quantity: quantity };
+        return { category: page === 'golf' ? 'golf_tee' : 'shoes', material: material, quantity: quantity };
     }
 
     function formatWon(amount) {

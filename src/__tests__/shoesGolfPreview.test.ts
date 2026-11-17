@@ -12,14 +12,9 @@ import {
   TEE_PIECES_PER_PACKAGE
 } from '../config/shoesGolfPricingRules';
 
-// The base prices are those of migration 020 (the median factory prices of 2026-10-26).
-const SHOE_PRICES: BasePriceRow[] = [
-  { product_variant: 'Sneakers', base_price: 13860 },
-  { product_variant: 'Heels', base_price: 11430 },
-  { product_variant: 'Mens Dress', base_price: 24030 },
-  { product_variant: 'Boots', base_price: 16400 },
-  { product_variant: 'Sandals', base_price: 7910 }
-];
+// The shoe price is the ONE temporary golf shoe price of migration 022 (USD 22.5 a pair); the tee prices are those of migration 020
+// (the median factory prices of 2026-10-26).
+const SHOE_PRICES: BasePriceRow[] = [{ product_variant: 'Golf Shoe', base_price: 29800 }];
 const TEE_PRICES: BasePriceRow[] = [
   { product_variant: 'Wood Tee', base_price: 23.8 },
   { product_variant: 'Bamboo Tee', base_price: 33.1 },
@@ -27,32 +22,32 @@ const TEE_PRICES: BasePriceRow[] = [
 ];
 
 describe('the minimum orders', () => {
-  it('are 600 pairs of shoes and 1,000 packages of golf tees, and a package holds 50 tees', () => {
-    expect(SHOES_MIN_QUANTITY).toBe(600);
+  it('are 300 pairs of shoes (it was 600 until 2026-11-17) and 1,000 packages of golf tees, and a package holds 50 tees', () => {
+    expect(SHOES_MIN_QUANTITY).toBe(300);
     expect(TEE_MIN_PACKAGES).toBe(1000);
     expect(TEE_PIECES_PER_PACKAGE).toBe(50);
   });
 });
 
 describe('calculateShoesPreview', () => {
-  it('gives no price below 600 pairs, and says the minimum', () => {
-    expect(calculateShoesPreview({ shoe_type: 'sneakers', material: 'mesh', quantity: 599 }, SHOE_PRICES)).toEqual({
+  it('gives no price below 300 pairs, and says the minimum', () => {
+    expect(calculateShoesPreview({ shoe_type: 'sneakers', material: 'mesh', quantity: 299 }, SHOE_PRICES)).toEqual({
       available: false,
       reason: 'BELOW_MINIMUM',
-      minimum_quantity: 600
+      minimum_quantity: 300
     });
   });
 
-  it('prices a known type and material at the minimum order as a rounded range', () => {
+  it('prices a known material at the minimum order as a rounded range', () => {
     const result = calculateShoesPreview({ shoe_type: 'sneakers', material: 'mesh', quantity: 600 }, SHOE_PRICES);
 
-    // 13860 x 0.95 (mesh) x 1.1 (600-999) = 14484.3; range -/+20%.
+    // 29800 x 0.95 (mesh) x 1.1 (600-999) = 31141; range -/+20%.
     expect(result).toEqual({
       available: true,
       currency: 'KRW',
       quantity: 600,
-      unit_price: { min: 11600, max: 17400 },
-      total_price: { min: 6960000, max: 10440000 }
+      unit_price: { min: 24900, max: 37400 },
+      total_price: { min: 14940000, max: 22440000 }
     });
   });
 
@@ -65,16 +60,30 @@ describe('calculateShoesPreview', () => {
     expect(at(1000).unit_price.min).toBeLessThan(at(600).unit_price.min);
     expect(at(600, 'leather').unit_price.min).toBeGreaterThan(at(600, 'synthetic').unit_price.min);
     expect(at(600, 'leather').unit_price.min).toBeGreaterThan(at(600, 'microfiber').unit_price.min);
+    // in the market microfiber is cheaper than action leather (the owner, 2026-11-17)
+    expect(at(600, 'microfiber').unit_price.min).toBeLessThan(at(600, 'synthetic').unit_price.min);
   });
 
-  it('prices an unknown type or material across all types, with a wider range', () => {
-    const known = calculateShoesPreview({ shoe_type: 'sneakers', material: 'mesh', quantity: 1000 }, SHOE_PRICES) as { unit_price: { min: number; max: number } };
-    const unknownType = calculateShoesPreview({ shoe_type: 'other', material: 'mesh', quantity: 1000 }, SHOE_PRICES) as { unit_price: { min: number; max: number } };
-    const unknownBoth = calculateShoesPreview({ shoe_type: 'other', material: 'unknown', quantity: 1000 }, SHOE_PRICES) as { unit_price: { min: number; max: number } };
+  it('does not let the shoe type change the price: there is one golf shoe price', () => {
+    const range = (shoeType: string) => calculateShoesPreview({ shoe_type: shoeType, material: 'mesh', quantity: 1000 }, SHOE_PRICES);
 
-    expect(unknownType.unit_price.min).toBeLessThan(known.unit_price.min);
-    expect(unknownType.unit_price.max).toBeGreaterThan(known.unit_price.max);
-    expect(unknownBoth.unit_price.max - unknownBoth.unit_price.min).toBeGreaterThan(unknownType.unit_price.max - unknownType.unit_price.min);
+    for (const shoeType of ['sneakers', 'heels', 'mens', 'boots', 'sandals', 'other', 'shoes']) {
+      expect(range(shoeType)).toEqual(range('sneakers'));
+    }
+  });
+
+  it('gives a wider range when the material is not known', () => {
+    const known = calculateShoesPreview({ shoe_type: 'other', material: 'microfiber', quantity: 1000 }, SHOE_PRICES) as { unit_price: { min: number; max: number } };
+    const unknown = calculateShoesPreview({ shoe_type: 'other', material: 'unknown', quantity: 1000 }, SHOE_PRICES) as { unit_price: { min: number; max: number } };
+
+    expect(unknown.unit_price.max - unknown.unit_price.min).toBeGreaterThan(known.unit_price.max - known.unit_price.min);
+  });
+
+  it('without the golf shoe row falls back on the active rows of the category, with a wider range', () => {
+    const only = calculateShoesPreview({ shoe_type: 'other', material: 'mesh', quantity: 1000 }, SHOE_PRICES) as { unit_price: { min: number; max: number } };
+    const fallback = calculateShoesPreview({ shoe_type: 'other', material: 'mesh', quantity: 1000 }, [{ product_variant: 'Sneakers', base_price: 29800 }]) as { unit_price: { min: number; max: number } };
+
+    expect(fallback.unit_price.max - fallback.unit_price.min).toBeGreaterThan(only.unit_price.max - only.unit_price.min);
   });
 
   it('says there is no base price when none is set up', () => {
@@ -142,24 +151,24 @@ describe('POST /api/estimate-preview for shoes and golf tees', () => {
     (getPool as jest.Mock).mockReturnValue({ query });
   });
 
-  it('answers a shoe request, in pairs, with the type taken from the category', async () => {
+  it('answers a shoe request, in pairs, with the one golf shoe price (the type of the category does not matter)', async () => {
     query.mockResolvedValue({ rows: SHOE_PRICES });
 
     const res = await post({ category: 'sneakers', material: 'mesh', quantity: 600 });
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ available: true, currency: 'KRW', quantity: 600, unit: 'pair', unit_price: { min: 11600, max: 17400 } });
+    expect(res.body).toMatchObject({ available: true, currency: 'KRW', quantity: 600, unit: 'pair', unit_price: { min: 24900, max: 37400 } });
     expect(query.mock.calls[0][1]).toEqual(['shoes']);
     expect(JSON.stringify(res.body)).not.toMatch(/base_price|product_variant|수수료/);
   });
 
-  it('answers "below the minimum" for 599 pairs, with the minimum, as a normal answer', async () => {
+  it('answers "below the minimum" for 299 pairs, with the minimum, as a normal answer', async () => {
     query.mockResolvedValue({ rows: SHOE_PRICES });
 
-    const res = await post({ category: 'shoes', material: 'leather', quantity: 599 });
+    const res = await post({ category: 'shoes', material: 'leather', quantity: 299 });
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ available: false, reason: 'BELOW_MINIMUM', minimum_quantity: 600 });
+    expect(res.body).toMatchObject({ available: false, reason: 'BELOW_MINIMUM', minimum_quantity: 300 });
   });
 
   it('answers a golf tee request, in packages of 50', async () => {
@@ -201,12 +210,12 @@ describe('the minimum orders in the specification of a request', () => {
   const shoes = (quantity: number) => ({ schema_version: '1.0', shoe_type: 'Running', material: 'Mesh', size_range: '240-250', quantity });
   const tee = (quantity: number) => ({ schema_version: '1.0', product_type: 'golf_tee', material: 'wood', quantity });
 
-  it('accepts 600 pairs of shoes and refuses 599, with the minimum in the message', () => {
-    expect(validateSpecification('sneakers', shoes(600)).valid).toBe(true);
-    const refused = validateSpecification('sneakers', shoes(599));
+  it('accepts 300 pairs of shoes and refuses 299, with the minimum in the message', () => {
+    expect(validateSpecification('sneakers', shoes(300)).valid).toBe(true);
+    const refused = validateSpecification('sneakers', shoes(299));
 
     expect(refused.valid).toBe(false);
-    expect(refused.errors?.join(' ')).toContain('at least 600');
+    expect(refused.errors?.join(' ')).toContain('at least 300');
   });
 
   it('accepts 1,000 packages of golf tees and refuses 999, whichever way the request says it is a tee', () => {

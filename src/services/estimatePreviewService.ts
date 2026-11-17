@@ -19,7 +19,7 @@ import {
   SHOES_UNKNOWN_SPREAD_STEP,
   SHOE_MATERIAL_MULTIPLIERS,
   SHOE_QUANTITY_TIERS,
-  SHOE_TYPE_VARIANTS,
+  GOLF_SHOE_VARIANT,
   TEE_BASE_SPREAD,
   TEE_MATERIAL_VARIANTS,
   TEE_MIN_PACKAGES,
@@ -180,14 +180,15 @@ export interface ShoesPreviewInput {
   quantity: number;
 }
 
-// The price of a pair. `basePrices` are the active rows of the category 'shoes'.
+// The price of a pair of golf shoes. `basePrices` are the active rows of the category 'shoes' (the 'Golf Shoe' row).
 export function calculateShoesPreview(input: ShoesPreviewInput, basePrices: BasePriceRow[]): MarketPreview {
   if (input.quantity < SHOES_MIN_QUANTITY) {
     return { available: false, reason: 'BELOW_MINIMUM', minimum_quantity: SHOES_MIN_QUANTITY };
   }
   const priceByVariant = new Map(basePrices.map(row => [row.product_variant, Number(row.base_price)]));
-  const variant = SHOE_TYPE_VARIANTS[input.shoe_type];
-  const own = variant === undefined ? undefined : priceByVariant.get(variant);
+  // One price for the golf shoe; the shoe type of the request does not change it. Without that row (not set up) the active
+  // rows of the category are all there is, and the range says "it depends".
+  const own = priceByVariant.get(GOLF_SHOE_VARIANT);
   const typeKnown = own !== undefined;
   const basePool = own !== undefined ? [own] : Array.from(priceByVariant.values());
   if (basePool.length === 0) {

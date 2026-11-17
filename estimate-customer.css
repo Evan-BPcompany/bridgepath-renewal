@@ -565,3 +565,102 @@
 .result-layout:not(:has(.result-side .result-block:not([hidden]))) {
     grid-template-columns: minmax(0, 1fr);
 }
+
+/* ==================== Result screen of the golf shoe quote (golf-shoe-result.js) ==================== */
+.result-edit {
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.7rem;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-s);
+    background: var(--white);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.result-edit:hover,
+.result-edit[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--white);
+}
+
+/* the recognised values are texts; "수정하기" turns them into selects */
+.result-facts select {
+    max-width: 100%;
+    padding: 0.3rem 0.5rem;
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.result-per {
+    margin-left: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+
+/* the two ways of production side by side: overseas (China) and domestic */
+.result-compare {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.result-compare[hidden] {
+    display: none;
+}
+
+.result-compare th,
+.result-compare td {
+    padding: 0.8rem 0.6rem;
+    border-top: 1px solid var(--line);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.result-compare thead th {
+    border-top: 0;
+    background: var(--note);
+    font-size: 0.88rem;
+    color: var(--ink);
+}
+
+.result-compare tbody th {
+    width: 22%;
+    color: var(--ink-soft);
+    font-weight: 600;
+}
+
+.result-compare + .form-hint {
+    margin-top: 0.8rem;
+}
+
+.result-compare small {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+}
+
+.result-compare .result-total td {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* a way of production without a range: one grey cell with the sentence */
+.result-compare td.result-unavailable {
+    background: var(--note);
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+}
+
+@media (max-width: 640px) {
+    .result-compare th,
+    .result-compare td {
+        padding: 0.6rem 0.4rem;
+        font-size: 0.86rem;
+    }
+}

@@ -37,7 +37,7 @@
         <div class="step-indicator">
             <div class="step active" id="step1">
                 <span class="step-number">1</span>
-                <span class="step-name">선글라스 선택</span>
+                <span class="step-name">사진으로 시작</span>
             </div>
             <div class="step-line"></div>
             <div class="step" id="step2">
@@ -54,8 +54,8 @@
         <!-- Step 1: the kind of sunglasses. The site sources golf goods (2026-11-11): the frames for
              everyday glasses, children and safety glasses are no longer offered here; the server still knows them. -->
         <section class="step-content active" id="step1-content">
-            <h2>어떤 선글라스를 찾으세요?</h2>
-            <p class="step-description">소싱할 선글라스의 종류를 고르세요.</p>
+            <h2>사진 한 장으로 AI 견적을 시작하세요</h2>
+            <p class="step-description">사진을 올리면 AI가 재질과 렌즈를 추정하고 예상 가격 범위를 계산합니다. 종류는 골프·스포츠 선글라스로 시작하며 바꿀 수 있습니다.</p>
 
             <div class="category-grid">
                 <div class="category-card" data-category="sports">
@@ -66,18 +66,18 @@
                 </div>
             </div>
 
-            <h3 class="start-title">참고할 이미지가 있으신가요?</h3>
+            <h3 class="start-title">시작 방법</h3>
             <!-- The two ways to start. Both go to step 2 (estimate-common.js); the choice only decides whether
                  step 2 opens with the upload area. -->
             <div class="pick-grid start-grid">
                 <button class="pick" id="nextBtn1" type="button" data-start="image" disabled>
                     <span class="pick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5L21 17"/></svg></span>
-                    <span class="pick-name">참고 이미지 있음</span>
-                    <span class="pick-hint">사진을 올리면 AI가 재질과 렌즈를 추정해 항목을 채워 줍니다. 채워진 값은 확인하고 고칠 수 있습니다.</span>
+                    <span class="pick-name">사진 올리고 시작</span>
+                    <span class="pick-hint">누르면 사진 선택 창이 열립니다. AI가 재질과 렌즈를 추정해 항목을 채워 줍니다. 채워진 값은 확인하고 고칠 수 있습니다.</span>
                 </button>
                 <button class="pick" id="manualBtn" type="button" data-start="manual" disabled>
                     <span class="pick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></span>
-                    <span class="pick-name">이미지 없이 직접 입력</span>
+                    <span class="pick-name">사진 없이 직접 입력</span>
                     <span class="pick-hint">재질, 렌즈, 수량을 직접 입력해 예상 가격 범위를 확인합니다.</span>
                 </button>
             </div>

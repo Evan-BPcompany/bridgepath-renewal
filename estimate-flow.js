@@ -175,6 +175,9 @@
 
         globalThis.BridgePathFlow.startDetailed = startDetailed;
         globalThis.BridgePathFlow.setSimple = function () { applyMode(null); };
+        // The golf shoe page asks the specification (step 2) AFTER the customer has logged in for the detailed quote: it marks the
+        // request as a detailed one without going to step 3.
+        globalThis.BridgePathFlow.setDetailed = function (customer) { applyMode(customer); };
 
         // ---- errors of step 2
         var formSection = stepTwo ? stepTwo.querySelector('.form-section') : null;
@@ -271,7 +274,7 @@
     globalThis.BridgePathFlow = {
         init: init, collectValues: collectValues, CONTROLS: CONTROLS,
         // Replaced by init() on a page that has a customer step.
-        startDetailed: function () {}, setSimple: function () {}
+        startDetailed: function () {}, setSimple: function () {}, setDetailed: function () {}
     };
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = globalThis.BridgePathFlow;

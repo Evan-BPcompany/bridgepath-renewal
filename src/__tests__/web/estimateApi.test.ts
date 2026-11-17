@@ -1028,12 +1028,12 @@ describe('the texts for the visitor', () => {
 });
 
 describe('the minimum orders', () => {
-  it('shoes: 600 pairs are accepted and 599 are refused with their own message', () => {
+  it('shoes: 300 pairs are accepted and 299 are refused with their own message (it was 600 until 2026-11-17)', () => {
     const base = { material: 'leather', outsole: 'hybrid', sizes: ['250'] };
 
-    expect(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '600' }).valid).toBe(true);
-    expect(codesOf(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '599' }).errors)).toEqual(['quantity:quantity_min_shoes']);
-    expect(api.messageFor('quantity_min_shoes')).toBe('최소 주문 수량은 600켤레입니다.');
+    expect(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '300' }).valid).toBe(true);
+    expect(codesOf(api.validateSpecInput('shoes', 'sneakers', { ...base, quantity: '299' }).errors)).toEqual(['quantity:quantity_min_shoes']);
+    expect(api.messageFor('quantity_min_shoes')).toBe('최소 주문 수량은 300켤레입니다.');
   });
 
   it('golf tees: 1,000 packages are accepted and 999 are refused with their own message', () => {

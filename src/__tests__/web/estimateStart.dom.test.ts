@@ -18,9 +18,9 @@ function key(element: any, name: string): any {
   return event;
 }
 
+// The golf shoe page has no way to start without a photo (2026-11-17): it has its own tests at the end of this file.
 const PAGES: Array<{ page: string; card: string }> = [
   { page: 'sunglasses', card: 'sports' },
-  { page: 'shoes', card: 'other' },
   { page: 'golf', card: 'golf_tee' }
 ];
 
@@ -42,17 +42,15 @@ describe.each(PAGES)('the two ways to start on the $page page', ({ page, card })
 
   const choose = (): void => click($(`.category-card[data-category="${card}"]`));
 
-  it('offers both ways in step 1, as buttons that wait for the kind of product', () => {
+  it('offers both ways in step 1, as buttons that are ready at once (every page has its kind chosen from the start)', () => {
     const buttons = $$('#step1-content .start-grid button[data-start]');
 
     expect(buttons.map(button => [button.id, button.getAttribute('data-start')])).toEqual([['nextBtn1', 'image'], ['manualBtn', 'manual']]);
-    expect($('#nextBtn1 .pick-name').textContent).toBe('참고 이미지 있음');
-    expect($('#manualBtn .pick-name').textContent).toBe('이미지 없이 직접 입력');
-    if (page === 'sunglasses') {
-      // The golf tee page and the golf shoe page have one kind and choose it themselves.
-      expect(buttons.every(button => button.disabled)).toBe(true);
-      choose();
-    }
+    // The sunglasses page and the golf shoe page start with a photo (2026-11-17); the golf tee page keeps the way it had.
+    expect($('#nextBtn1 .pick-name').textContent).toBe(page === 'golf' ? '참고 이미지 있음' : '사진 올리고 시작');
+    expect($('#manualBtn .pick-name').textContent).toBe(page === 'golf' ? '이미지 없이 직접 입력' : '사진 없이 직접 입력');
+    // The golf tee page and the golf shoe page have one kind and choose it themselves; the sunglasses page chooses the
+    // golf and sports kind, and the visitor can still pick the other one.
     expect(buttons.every(button => !button.disabled)).toBe(true);
   });
 
@@ -76,15 +74,11 @@ describe.each(PAGES)('the two ways to start on the $page page', ({ page, card })
     expect($('#quantity')).not.toBeNull();
   });
 
-  it('does not move on without a kind of product', () => {
-    if (page !== 'sunglasses') {
-      return;
-    }
-    const manual = $('#manualBtn');
-    manual.disabled = false;
-    click(manual);
+  it('has a kind of product chosen from the start, so one click is enough to move on', () => {
+    expect($$('.category-card.selected')).toHaveLength(1);
+    click($('#manualBtn'));
 
-    expect($('#step1-content').classList.contains('active')).toBe(true);
+    expect($('#step2-content').classList.contains('active')).toBe(true);
   });
 
   it('changes the way in step 2 without leaving it or losing what was typed', () => {
@@ -116,24 +110,24 @@ describe.each(PAGES)('the two ways to start on the $page page', ({ page, card })
 });
 
 describe('what the two ways say and hide', () => {
-  it('says on the shoes and golf tee pages that the photo analysis is for sunglasses only', () => {
+  it('says on the golf tee page only that the photo analysis is for sunglasses and golf shoes, and gives the golf shoe page its photo box', () => {
     expect(readRoot('sunglasses-estimate.html')).toContain('AI가 재질과 렌즈를 추정해 항목을 채워 줍니다');
-    for (const page of ['shoes', 'golf']) {
-      const html = readRoot(`${page}-estimate.html`);
-      expect(html).toContain('사진 AI 분석은 선글라스에서만 지원합니다');
-      expect(html).not.toContain('id="imageUploadBox"');
-    }
+    const tee = readRoot('golf-estimate.html');
+    expect(tee).toContain('사진 AI 분석은 선글라스에서만 지원합니다');
+    expect(tee).not.toContain('id="imageUploadBox"');
+    const shoes = readRoot('shoes-estimate.html');
+    expect(shoes).not.toContain('사진 AI 분석은 선글라스에서만 지원합니다');
+    expect(shoes).toContain('id="imageUploadBox"');
+    expect(shoes).toContain('AI가 조임 방식·아웃솔·어퍼 재질을 추정');
   });
 
   it('says what needs no account and when one is needed', () => {
     expect(readRoot('sunglasses-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b>[^<]*견적 요청까지 접수할 수 있습니다\. <b>담당자 상세견적<\/b>[^<]*로그인이 필요합니다\.<\/p>/);
     expect(readRoot('golf-estimate.html')).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있습니다\.<\/p>/);
-    // The golf shoe page shows a price range as the golf tee page does (estimate-market-preview.js, previewShoes on the server),
-    // so it says the same, and does not say that it cannot (2026-11-13). Step 1 itself does not promise a range yet.
+    // The golf shoe page (2026-11-17): the AI quote needs no account, the detailed quote (with the specification) needs one.
     const shoes = readRoot('shoes-estimate.html');
-    expect(shoes).toMatch(/<p class="scope-note"><b>로그인 없이<\/b> 예상 가격 범위를 보고 견적 요청까지 접수할 수 있습니다\.<\/p>/);
+    expect(shoes).toMatch(/<p class="scope-note"><b>로그인 없이<\/b>[^<]*결과[^<]*볼 수 있습니다\. <b>담당자 상세견적<\/b>[^<]*로그인이 필요합니다\.<\/p>/);
     expect(shoes).not.toContain('아직 예상 가격 범위를 바로 안내하지 못합니다');
-    expect(shoes.slice(shoes.indexOf('id="step1-content"'), shoes.indexOf('id="step2-content"'))).not.toContain('예상 가격 범위를 확인합니다');
   });
 
   it('offers the kinds of the golf sourcing direction only (2026-11-11)', () => {
@@ -192,5 +186,89 @@ describe('the photo box of the sunglasses page', () => {
     expect(box.querySelector('img')).toBeNull();
     expect(box.textContent).toContain('<img src=x onerror=alert(1)>.png');
     expect(box.textContent).toContain('선택됨');
+  });
+});
+
+// The sunglasses page starts with a photo (2026-11-17): the kind is chosen, one click goes to step 2 and opens the photo chooser.
+describe('the photo first start of the sunglasses page', () => {
+  let loaded: LoadedPage | undefined;
+
+  beforeEach(() => {
+    g.window.scrollTo = () => undefined;
+    g.document.body.removeAttribute('data-input-mode');
+    loaded = loadPage('sunglasses-estimate.html', PAGE_SCRIPTS('sunglasses'));
+  });
+
+  afterEach(() => {
+    loaded?.dispose();
+    loaded = undefined;
+  });
+
+  it('has the golf and sports sunglasses chosen, and the other kind can still be picked', () => {
+    expect($('.category-card[data-category="sports"]').classList.contains('selected')).toBe(true);
+    click($('.category-card[data-category="sunglasses"]'));
+
+    expect($('.category-card[data-category="sunglasses"]').classList.contains('selected')).toBe(true);
+    expect($('.category-card[data-category="sports"]').classList.contains('selected')).toBe(false);
+  });
+
+  it('moves to step 2 and opens the photo chooser with one click on "사진 올리고 시작"', () => {
+    const chooser = jest.spyOn($('#sunglassImage'), 'click');
+    click($('#nextBtn1'));
+
+    expect($('#step2-content').classList.contains('active')).toBe(true);
+    expect(g.document.body.getAttribute('data-input-mode')).toBe('image');
+    // (the upload box around the input answers a click on it by clicking it again, which a browser ignores while one is under way)
+    expect(chooser).toHaveBeenCalled();
+  });
+
+  it('does not open the photo chooser when the visitor starts without a photo', () => {
+    const chooser = jest.spyOn($('#sunglassImage'), 'click');
+    click($('#manualBtn'));
+
+    expect($('#step2-content').classList.contains('active')).toBe(true);
+    expect(g.document.body.getAttribute('data-input-mode')).toBe('manual');
+    expect(chooser).not.toHaveBeenCalled();
+  });
+});
+
+// The golf shoe page starts with a photo as well (2026-11-17): its kind is chosen by the script, one click goes to step 2 and opens the photo chooser.
+describe('the photo first start of the golf shoe page', () => {
+  let loaded: LoadedPage | undefined;
+
+  beforeEach(() => {
+    g.window.scrollTo = () => undefined;
+    g.document.body.removeAttribute('data-input-mode');
+    loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
+  });
+
+  afterEach(() => {
+    loaded?.dispose();
+    loaded = undefined;
+  });
+
+  it('moves to step 2 and opens the photo chooser with one click on "사진 올리고 시작"', () => {
+    const chooser = jest.spyOn($('#shoeImage'), 'click');
+    click($('#nextBtn1'));
+
+    expect($('#step2-content').classList.contains('active')).toBe(true);
+    expect(g.document.body.getAttribute('data-input-mode')).toBe('image');
+    expect(chooser).toHaveBeenCalled();
+  });
+
+  it('has one way to start only: with a photo, because the specification is asked only in the detailed quote', () => {
+    const buttons = $$('#step1-content .start-grid button[data-start]');
+
+    expect(buttons.map((button: any) => [button.id, button.getAttribute('data-start')])).toEqual([['nextBtn1', 'image']]);
+    expect($('#manualBtn')).toBeNull();
+    expect($('#nextBtn1 .pick-name').textContent).toBe('사진 올리고 시작');
+  });
+
+  it('shows the photo in step 2 and keeps the specification out of sight until the detailed quote', () => {
+    click($('#nextBtn1'));
+
+    expect($('#photoStage').hidden).toBe(false);
+    expect($('#specForm').hidden).toBe(true);
+    expect($('#nextBtn2').textContent).toBe('AI 견적 시작');
   });
 });

@@ -10,6 +10,7 @@ import {
   analyzeSunglassesImage,
   isImageAnalysisConfigured
 } from '../services/imageAnalysisService';
+import { analyzeGolfShoeImage } from '../services/golfShoeAnalysisService';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -48,9 +49,13 @@ function receiveImage(req: Request, res: Response, next: NextFunction): void {
   });
 }
 
-// POST /api/estimate-preview/analyze-image: the visitor's photo goes in, the guessed frame material
-// and lens type come out. It stores nothing and asks for no personal data.
-router.post('/estimate-preview/analyze-image', receiveImage, async (req: Request, res: Response) => {
+export const GOLF_SHOE_ANALYSIS_NOTICE =
+  '사진으로 추정한 결과예요. 실제와 다를 수 있으니 어퍼 재질과 아웃솔을 확인하고 필요하면 직접 고쳐 주세요.';
+
+type Analyze = (image: Buffer, mediaType: AnalysisImageType) => Promise<unknown>;
+
+// The visitor's photo goes in, what the analysis guessed comes out. It stores nothing and asks for no personal data.
+const analysisHandler = (analyze: Analyze, notice: string) => async (req: Request, res: Response) => {
   try {
     if (!isImageAnalysisConfigured()) {
       fail(res, 503, 'Image analysis is not available yet', 'IMAGE_ANALYSIS_NOT_CONFIGURED');
@@ -76,8 +81,8 @@ router.post('/estimate-preview/analyze-image', receiveImage, async (req: Request
       return;
     }
 
-    const analysis = await analyzeSunglassesImage(file.buffer, mediaType);
-    res.json({ analysis, notice: ANALYSIS_NOTICE, timestamp: new Date().toISOString() });
+    const analysis = await analyze(file.buffer, mediaType);
+    res.json({ analysis, notice, timestamp: new Date().toISOString() });
   } catch (err) {
     if (err instanceof ImageAnalysisNotConfiguredError) {
       fail(res, 503, 'Image analysis is not available yet', 'IMAGE_ANALYSIS_NOT_CONFIGURED');
@@ -92,6 +97,20 @@ router.post('/estimate-preview/analyze-image', receiveImage, async (req: Request
     });
     fail(res, 502, 'The image could not be analyzed', 'IMAGE_ANALYSIS_FAILED');
   }
-});
+};
+
+// POST /api/estimate-preview/analyze-image: the guessed frame material and lens type of a sunglasses photo.
+router.post(
+  '/estimate-preview/analyze-image',
+  receiveImage,
+  analysisHandler((image, mediaType) => analyzeSunglassesImage(image, mediaType), ANALYSIS_NOTICE)
+);
+
+// POST /api/estimate-preview/analyze-golf-shoe: the closure, outsole, upper material and difficulty of a golf shoe photo.
+router.post(
+  '/estimate-preview/analyze-golf-shoe',
+  receiveImage,
+  analysisHandler((image, mediaType) => analyzeGolfShoeImage(image, mediaType), GOLF_SHOE_ANALYSIS_NOTICE)
+);
 
 export default router;

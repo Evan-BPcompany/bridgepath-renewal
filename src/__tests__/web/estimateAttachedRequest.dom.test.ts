@@ -373,12 +373,11 @@ describe('a request of the other pages with files', () => {
     click($('#nextBtn2'));
   }
 
-  it('has the shared attachments instead of the old upload box', () => {
+  it('has the shared attachments, and the photo box of the AI analysis next to them (2026-11-17)', () => {
     loaded = loadPage('shoes-estimate.html', PAGE_SCRIPTS('shoes'));
 
     expect($('#attachments .attachments-add')).not.toBeNull();
-    expect($('#imageUploadBox')).toBeNull();
-    expect($('#shoeImage')).toBeNull();
+    expect($('#imageUploadBox #shoeImage')).not.toBeNull();
   });
 
   it('sends the attached files with the request, and no record of an AI screen', async () => {

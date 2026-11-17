@@ -75,8 +75,8 @@
         phoneMinDigits: 7,
         phoneMaxDigits: 15,
         quantityMax: 1000000,
-        // The minimum orders: 600 pairs of shoes, 1,000 packages of golf tees (a package holds 50 tees).
-        quantityMinShoes: 600,
+        // The minimum orders: 300 pairs of shoes (800 shown for spikes or a dial, not enforced), 1,000 packages of golf tees (a package holds 50 tees).
+        quantityMinShoes: 300,
         quantityMinGolf: 1000,
         teesPerPackage: 50,
         textShort: 100,
@@ -796,7 +796,7 @@
         consent_required: '개인정보 수집·이용에 동의하세요.',
         consent_version: '동의 안내문을 다시 불러온 뒤 시도하세요.',
         quantity_invalid: '수량은 1 이상의 숫자로 입력하세요. (최대 1,000,000)',
-        quantity_min_shoes: '최소 주문 수량은 600켤레입니다.',
+        quantity_min_shoes: '최소 주문 수량은 300켤레입니다.',
         quantity_min_golf: '최소 주문 수량은 1,000패키지(1패키지 = 50개입)입니다.',
         choice_required: '선택하세요. 잘 모르겠다면 ‘' + UNKNOWN_LABEL + '’을 골라도 됩니다.',
         sizes_required: '사이즈를 1개 이상 선택하세요.',

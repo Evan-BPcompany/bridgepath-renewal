@@ -20,10 +20,7 @@ const SUNGLASSES_ROWS = [
   { product_variant: 'Plastic Frame', base_price: 15000 },
   { product_variant: 'Metal Frame', base_price: 25000 }
 ];
-const SHOE_ROWS = [
-  { product_variant: 'Sneakers', base_price: 14000 },
-  { product_variant: 'Boots', base_price: 30000 }
-];
+const SHOE_ROWS = [{ product_variant: 'Golf Shoe', base_price: 29800 }];
 const TEE_ROWS = [{ product_variant: 'Bamboo Tee', base_price: 50.4 }];
 
 describe('the margin of the company in the price guidance', () => {

@@ -49,8 +49,9 @@ describe('the pure helpers', () => {
     }
   });
 
-  it('builds the request: the shoe type as the category, the golf tee as golf_tee, and only three values', () => {
-    expect(preview.readInput('shoes', 'boots', { material: 'leather', quantity: '600' })).toEqual({ category: 'boots', material: 'leather', quantity: 600 });
+  it('builds the request: the golf shoe as the category shoes whatever card was selected, the golf tee as golf_tee, and only three values', () => {
+    expect(preview.readInput('shoes', 'boots', { material: 'leather', quantity: '600' })).toEqual({ category: 'shoes', material: 'leather', quantity: 600 });
+    expect(preview.readInput('shoes', 'other', { material: 'leather', quantity: '600' })).toEqual({ category: 'shoes', material: 'leather', quantity: 600 });
     expect(preview.readInput('golf', '', { material: 'wood', quantity: '1000' })).toEqual({ category: 'golf_tee', material: 'wood', quantity: 1000 });
     expect(preview.readInput('shoes', 'boots', { material: '', quantity: '600' })).toBeNull();
     expect(preview.readInput('shoes', 'boots', { material: 'leather', quantity: '' })).toBeNull();
@@ -89,8 +90,8 @@ describe('the pure helpers', () => {
   });
 });
 
+// The golf shoe page has no price box under the quantity any more (2026-11-17): its range is on the result screen (golfShoeResult.dom.test.ts).
 describe.each([
-  ['shoes', 'shoes-estimate.html', 'other', 'leather', '600', '599'],
   ['golf', 'golf-estimate.html', 'golf_tee', 'wood', '1000', '999']
 ])('the price box of the %s page', (page, file, card, material, minimum, below) => {
   let loaded: LoadedPage | undefined;
@@ -138,7 +139,7 @@ describe.each([
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const sent = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(sent).toEqual({ category: page === 'golf' ? 'golf_tee' : card, material, quantity: Number(minimum) });
+    expect(sent).toEqual({ category: page === 'golf' ? 'golf_tee' : 'shoes', material, quantity: Number(minimum) });
     expect($('#marketPreview').hidden).toBe(false);
     expect($('#marketPreview').getAttribute('data-kind')).toBe('range');
     expect($('#marketPreview').textContent).toContain('약 11,600원 ~ 17,400원');

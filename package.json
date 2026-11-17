@@ -20,6 +20,7 @@
     "db:status:prod": "knex migrate:list --knexfile knexfile.production.js --env production",
     "db:migrate:make": "knex migrate:make",
     "db:seed": "knex seed:run --env development",
+    "evidence:import": "ts-node src/scripts/import-price-evidence.ts",
     "admin:bootstrap": "node scripts/admin-bootstrap.js",
     "audit:prod": "node scripts/audit-prod.js",
     "audit:dev": "npm audit --audit-level=high",
