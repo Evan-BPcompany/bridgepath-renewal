@@ -25,6 +25,13 @@ describe('validateEvidence', () => {
     expect(row).toMatchObject({ unit: 'pair', supplier_type: 'unknown', moq: 50, price_date: null, note: null, outsole: null });
   });
 
+  it('takes the frame and the lens of a sunglasses row (migration 024), each empty when not named', () => {
+    const sunglasses = listing({ category: 'sunglasses', product_type: 'golf_sunglasses', unit: 'piece', frame_material: 'plastic', lens_type: 'polarized' });
+
+    expect(validateEvidence(sunglasses).row).toMatchObject({ unit: 'piece', frame_material: 'plastic', lens_type: 'polarized' });
+    expect(validateEvidence(listing()).row).toMatchObject({ frame_material: null, lens_type: null });
+  });
+
   it('rejects a row that is not an object, unknown fields (typos) and missing required fields', () => {
     expect(validateEvidence('x').errors).toEqual(['a row must be an object']);
     expect(validateEvidence(listing({ price_mim: 1 })).errors).toContain('unknown field "price_mim"');
@@ -108,7 +115,7 @@ describe('storeEvidence', () => {
     expect(calls[0].sql).toContain("'approved', CURRENT_TIMESTAMP");
     expect(calls[0].sql).toContain('ON CONFLICT');
     expect(calls[0].sql).toContain('DO NOTHING');
-    expect(calls[0].values).toHaveLength(20);
+    expect(calls[0].values).toHaveLength(22);
     expect(calls[0].values.slice(0, 6)).toEqual(['shoes', 'spike', 'overseas', 'listing', 21.69, 22.58]);
   });
 });

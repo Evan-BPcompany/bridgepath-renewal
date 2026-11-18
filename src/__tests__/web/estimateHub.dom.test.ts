@@ -31,17 +31,21 @@ describe('estimate.html: the representative products and the way to everything e
     expect(cards.map(card => card.querySelector('.pick-hint'))).toEqual([null, null, null]);
   });
 
-  it('labels all three as AI estimates because all three pages really show a price range: the sunglasses through the photo/preview scripts, the golf shoes through the photo and the result screen (2026-11-17), the golf tee through the market preview', () => {
-    const tee = readRoot('golf-estimate.html');
-    expect(tee).toContain('<script src="estimate-market-preview.js"></script>');
-    expect(tee).toContain('id="marketPreview"');
-    const shoes = readRoot('shoes-estimate.html');
-    expect(shoes).toContain('<script src="golf-shoe-photo.js"></script>');
-    expect(shoes).toContain('<script src="golf-shoe-result.js"></script>');
-    expect(shoes).not.toContain('id="marketPreview"');
-    expect(readRoot('sunglasses-estimate.html')).toContain('<script src="estimate-preview.js"></script>');
-    // the golf shoe range is made by the server from approved price evidence
+  it('labels all three as AI estimates because all three pages really show a result from a photo: the golf shoe (2026-11-17), the sunglasses and the golf tee (2026-11-18) the same way', () => {
+    for (const page of ['shoes-estimate.html', 'golf-estimate.html', 'sunglasses-estimate.html']) {
+      const html = readRoot(page);
+      expect(html).toContain('<script src="golf-shoe-photo.js"></script>');
+      expect(html).toContain('id="result-content"');
+      expect(html).not.toContain('id="marketPreview"');
+      expect(html).not.toContain('id="manualBtn"');
+    }
+    expect(readRoot('shoes-estimate.html')).toContain('<script src="golf-shoe-result.js"></script>');
+    expect(readRoot('golf-estimate.html')).toContain('<script src="golf-shoe-result.js"></script>');
+    expect(readRoot('sunglasses-estimate.html')).toContain('<script src="sunglasses-result.js"></script>');
+    // the golf shoe and golf tee ranges are made by the server from approved price evidence; the sunglasses cost from the cost model
     expect(readRoot('src/routes/golfShoeRange.ts')).toContain('golf-shoe-range');
+    expect(readRoot('src/routes/golfTeeRange.ts')).toContain('golf-tee-range');
+    expect(readRoot('src/routes/sunglassesCost.ts')).toContain('sunglasses-cost');
   });
 
   it('puts everything else in a box under the cards, not in a fourth card, and links it to the inquiry that exists', () => {
@@ -70,10 +74,11 @@ describe('estimate.html: the representative products and the way to everything e
   it('tells the same thing under all three price ranges: what the range leaves out', () => {
     const sentence = '운송비·관세·금형·로고·포장 비용은 포함하지 않았습니다.';
 
-    // the sunglasses show the notice of the server (with this text as the fallback), the shoes and the golf tee their own
-    expect(readRoot('src/routes/estimatePreview.ts')).toContain(sentence);
-    expect(readRoot('estimate-preview.js')).toContain(sentence);
-    expect(readRoot('estimate-market-preview.js')).toContain(sentence);
+    // the golf shoe and the golf tee show the notice of their range (with this text as the fallback); the sunglasses cost simulation
+    // says the same of its own cost (moulds, freight, duty and VAT are not in it)
+    expect(readRoot('src/config/priceRangeRules.ts')).toContain(sentence);
+    expect(readRoot('golf-shoe-result.js')).toContain(sentence);
+    expect(readRoot('src/routes/sunglassesCost.ts')).toContain('신규 금형비·국제운송비·관세·부가세는 포함하지 않았습니다');
   });
 
   it('keeps the way back, the navigation and the skip link', () => {

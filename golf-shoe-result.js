@@ -1,4 +1,4 @@
-// The result screen of the golf shoe quote, shown when the visitor presses "AI 견적 시작" in step 2 (the photo was analysed by
+// The result screen of the golf shoe quote (and, since 2026-11-18, of the golf tee quote: PAGES below), shown when the visitor presses "AI 견적 시작" in step 2 (the photo was analysed by
 // golf-shoe-photo.js). It shows what the photo analysis found (the recognised values can be corrected with "수정하기", which asks the
 // price ranges again at once), the overseas (China) and the domestic price range for one pair and for the minimum order, and the
 // analysis texts. The customer is never told where the prices come from, or how many listings they rest on.
@@ -12,7 +12,26 @@
 (function () {
     'use strict';
 
-    var PAGE = 'shoes';
+    // What differs between the golf shoe and the golf tee: the range asked, the recognised values that can be corrected (key of the
+    // analysis and of the range request, select, text), the unit of the order, the fields of the specification they fill, the texts.
+    var PAGES = Object.freeze({
+        shoes: Object.freeze({
+            path: '/api/estimate-preview/golf-shoe-range',
+            fields: [['closure', 'resultClosure', 'resultClosureText'], ['outsole', 'resultOutsole', 'resultOutsoleText'], ['upper_material', 'resultUpper', 'resultUpperText']],
+            fill: [['material', 'upper_material'], ['outsole', 'outsole']],
+            unit: '켤레',
+            photoTitle: '골프화 사진을 올려 주세요',
+            photoDescription: '사진 1장이면 AI가 골프화를 분석해 해외·국내 예상 가격 범위를 보여 드립니다.'
+        }),
+        golf: Object.freeze({
+            path: '/api/estimate-preview/golf-tee-range',
+            fields: [['material', 'resultMaterial', 'resultMaterialText']],
+            fill: [['material', 'material']],
+            unit: '패키지',
+            photoTitle: '골프티 사진을 올려 주세요',
+            photoDescription: '사진 1장이면 AI가 골프티를 분석해 해외·국내 예상 가격 범위를 보여 드립니다.'
+        })
+    });
     var RANGE_TIMEOUT_MS = 15000;
     var RANGE_DELAY_MS = 300;
 
@@ -26,12 +45,13 @@
         unavailable: '이 사양은 상세견적이 필요합니다. 담당자가 확인해 드립니다.',
         specTitle: '상세견적에 필요한 사양을 입력하세요',
         specDescription: '입력하신 사양을 담당자가 확인한 뒤 업무일 기준 2~3일 안에 상세견적을 안내드립니다. AI가 읽은 값은 미리 채워 두었으니 확인하세요.',
-        photoTitle: '골프화 사진을 올려 주세요',
-        photoDescription: '사진 1장이면 AI가 골프화를 분석해 해외·국내 예상 가격 범위를 보여 드립니다.'
+        photoTitle: PAGES.shoes.photoTitle,
+        photoDescription: PAGES.shoes.photoDescription
     });
 
     var COMPLEXITY = Object.freeze({ low: '낮음', medium: '중간', high: '높음' });
     var STYLE = Object.freeze({ sneaker: '스니커형', classic: '클래식형', boot: '부츠형', sandal: '샌들형', other: '기타' });
+    var SHAPE = Object.freeze({ standard: '기본형', castle: '높이 고정형(캐슬)', brush: '브러시형', prong: '갈래형', other: '기타' });
 
     function byId(id) {
         return document.getElementById(id);
@@ -101,16 +121,16 @@
         return String(apiBase || '').replace(/\/+$/, '') + path;
     }
 
-    // The three values of the range request, "unknown" for a select that has no value.
-    function readSpec(values) {
+    // The values of the range request, "unknown" for a select that has no value (the three of the golf shoe unless keys are given).
+    function readSpec(values, keys) {
         function pick(value) {
             return typeof value === 'string' && value ? value : 'unknown';
         }
-        return {
-            outsole: pick(values && values.outsole),
-            closure: pick(values && values.closure),
-            upper_material: pick(values && values.upper_material)
-        };
+        var spec = {};
+        (keys || ['outsole', 'closure', 'upper_material']).forEach(function (key) {
+            spec[key] = pick(values && values[key]);
+        });
+        return spec;
     }
 
     function isRange(value) {
@@ -136,7 +156,7 @@
 
     // What the table shows for one region: { ok, unit, sub, moq, total } for a range, { ok: false, message } without one. The
     // message is the one of the server when it has one (it never tells how many listings there were).
-    function describeRegion(region, moq) {
+    function describeRegion(region, moq, unit) {
         if (!region || region.status !== 'ok' || !isRange(region.unit_krw)) {
             return { ok: false, message: region && nonEmpty(region.reason) ? region.reason : TEXTS.unavailable };
         }
@@ -147,7 +167,7 @@
             sub: region.currency === 'USD' && typeof region.low === 'number' && typeof region.high === 'number'
                 ? '약 ' + formatUsd(region.low) + ' ~ ' + formatUsd(region.high)
                 : '',
-            moq: moq ? moq.toLocaleString('ko-KR') + '켤레' : '—',
+            moq: moq ? moq.toLocaleString('ko-KR') + (unit || '켤레') : '—',
             total: isRange(total) ? formatRange(total) : '—'
         };
     }
@@ -179,27 +199,25 @@
         var config = globalThis.BridgePathConfig;
         var screen = byId('result-content');
         var stepTwo = byId('step2-content');
-        if (!body || body.getAttribute('data-estimate-page') !== PAGE || !screen || !stepTwo || !photoApi || !flow || !config || typeof globalThis.fetch !== 'function') {
+        var product = body ? PAGES[body.getAttribute('data-estimate-page')] : null;
+        if (!product || !screen || !stepTwo || !photoApi || !flow || !config || typeof globalThis.fetch !== 'function') {
             return;
         }
 
-        var closureSelect = byId('resultClosure');
-        var outsoleSelect = byId('resultOutsole');
-        var upperSelect = byId('resultUpper');
         var editButton = byId('resultEditBtn');
         var nextButton = byId('nextBtn2');
         var sequence = 0;
         var rangeTimer = null;
         var editing = false;
-        var recognised = { closure: 'unknown', outsole: 'unknown', upper_material: 'unknown' };
-        // the minimum order of the last range that was shown (300 pairs, 800 with spikes or a dial)
+        var recognised = {};
+        // the minimum order of the last range that was shown (300 pairs, 800 with spikes or a dial; 1,000 packages of tees)
         var lastMoq = null;
 
-        var PAIRS = [
-            [closureSelect, 'resultClosureText'],
-            [outsoleSelect, 'resultOutsoleText'],
-            [upperSelect, 'resultUpperText']
-        ];
+        // [key, select, text id] of each recognised value
+        var PAIRS = product.fields.map(function (field) {
+            return [field[0], byId(field[1]), field[2]];
+        });
+        var KEYS = PAIRS.map(function (pair) { return pair[0]; });
 
         function activate() {
             var current = document.querySelector('.step-content.active');
@@ -218,20 +236,24 @@
         }
 
         function spec() {
-            return readSpec({ outsole: outsoleSelect.value, closure: closureSelect.value, upper_material: upperSelect.value });
+            var values = {};
+            PAIRS.forEach(function (pair) {
+                values[pair[0]] = pair[1].value;
+            });
+            return readSpec(values, KEYS);
         }
 
         function updateTexts() {
             PAIRS.forEach(function (pair) {
-                pair[0].hidden = !editing;
-                setText(pair[1], labelOf(pair[0], pair[0].value));
-                var text = byId(pair[1]);
+                pair[1].hidden = !editing;
+                setText(pair[2], labelOf(pair[1], pair[1].value));
+                var text = byId(pair[2]);
                 if (text) {
                     text.hidden = editing;
                 }
             });
             var wanted = spec();
-            var changed = wanted.closure !== recognised.closure || wanted.outsole !== recognised.outsole || wanted.upper_material !== recognised.upper_material;
+            var changed = KEYS.some(function (key) { return wanted[key] !== recognised[key]; });
             setText('resultRecognitionNote', changed ? TEXTS.edited : TEXTS.recognised);
             if (editButton) {
                 editButton.textContent = editing ? '수정 완료' : '수정하기';
@@ -250,7 +272,7 @@
             var unitCell = byId(cells.unit);
             var moqCell = byId(cells.moq);
             var totalCell = byId(cells.total);
-            var info = describeRegion(region, moq);
+            var info = describeRegion(region, moq, product.unit);
             unitCell.textContent = '';
             unitCell.classList.toggle('result-unavailable', !info.ok);
             if (!info.ok) {
@@ -301,7 +323,7 @@
             var request = new AbortController();
             var timer = setTimeout(function () { request.abort(); }, RANGE_TIMEOUT_MS);
             try {
-                var response = await globalThis.fetch(joinUrl(config.API_BASE, '/api/estimate-preview/golf-shoe-range'), {
+                var response = await globalThis.fetch(joinUrl(config.API_BASE, product.path), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                     body: JSON.stringify(spec()),
@@ -341,15 +363,19 @@
             setText('resultComplexity', level ? '복잡도 · ' + level : '');
             setHidden('resultComplexity', !level);
 
-            var style = STYLE[analysis.style];
-            setText('resultStyle', style || '');
-            setHidden('resultStyleRow', !style);
+            // the facts a page shows next to the values (the style of a shoe; the shape, length and colour of a tee)
+            [['resultStyle', 'resultStyleRow', STYLE[analysis.style]], ['resultShape', 'resultShapeRow', SHAPE[analysis.shape]],
+                ['resultLength', 'resultLengthRow', nonEmpty(analysis.length) ? analysis.length : ''],
+                ['resultColor', 'resultColorRow', nonEmpty(analysis.color) ? analysis.color : '']].forEach(function (fact) {
+                setText(fact[0], fact[2] || '');
+                setHidden(fact[1], !fact[2]);
+            });
 
+            // each text of the details goes to resultDetail + its key (Upper, Sole, ... for a shoe; Body, Head, Finish for a tee)
             var details = analysis.details && typeof analysis.details === 'object' ? analysis.details : null;
-            setText('resultDetailUpper', details && nonEmpty(details.upper) ? details.upper : '');
-            setText('resultDetailSole', details && nonEmpty(details.sole) ? details.sole : '');
-            setText('resultDetailClosure', details && nonEmpty(details.closure) ? details.closure : '');
-            setText('resultDetailDecoration', details && nonEmpty(details.decoration) ? details.decoration : '');
+            Object.keys(details || {}).forEach(function (key) {
+                setText('resultDetail' + key.charAt(0).toUpperCase() + key.slice(1), nonEmpty(details[key]) ? details[key] : '');
+            });
             setHidden('resultDetailsBox', !details);
 
             fillList('resultUnconfirmed', 'resultUnconfirmedBox', analysis.unconfirmed);
@@ -363,10 +389,14 @@
                 return;
             }
             var analysis = photo.analysis;
-            recognised = { closure: analysis.closure, outsole: analysis.outsole, upper_material: analysis.upper_material };
-            closureSelect.value = analysis.closure;
-            outsoleSelect.value = analysis.outsole;
-            upperSelect.value = analysis.upper_material;
+            recognised = {};
+            PAIRS.forEach(function (pair) {
+                pair[1].value = analysis[pair[0]];
+                if (pair[1].value !== analysis[pair[0]]) {
+                    pair[1].value = 'unknown';
+                }
+                recognised[pair[0]] = pair[1].value;
+            });
             editing = false;
             showPhoto(photo.file);
             showAnalysis(analysis);
@@ -376,7 +406,7 @@
         }
 
         PAIRS.forEach(function (pair) {
-            pair[0].addEventListener('change', function () {
+            pair[1].addEventListener('change', function () {
                 updateTexts();
                 later();
             });
@@ -394,17 +424,19 @@
             var isSpec = stage === 'spec';
             setHidden('photoStage', isSpec);
             setHidden('specForm', !isSpec);
-            setText('step2Title', isSpec ? TEXTS.specTitle : TEXTS.photoTitle);
-            setText('step2Description', isSpec ? TEXTS.specDescription : TEXTS.photoDescription);
+            setText('step2Title', isSpec ? TEXTS.specTitle : product.photoTitle);
+            setText('step2Description', isSpec ? TEXTS.specDescription : product.photoDescription);
             nextButton.textContent = isSpec ? '다음 단계' : 'AI 견적 시작';
             nextButton.disabled = isSpec ? false : !photoApi.getPhoto().analysis;
         }
 
-        // The recognised outsole and material go into the specification, never over a value the customer chose.
+        // The recognised values (outsole and material; the material of a tee) go into the specification, never over a value the
+        // customer chose.
         function fillSpecification() {
-            [['material', upperSelect], ['outsole', outsoleSelect]].forEach(function (pair) {
+            var wanted = spec();
+            product.fill.forEach(function (pair) {
                 var target = byId(pair[0]);
-                var value = pair[1].value;
+                var value = wanted[pair[1]];
                 if (!target || value === 'unknown' || (target.value && !target.hasAttribute('data-ai-filled'))) {
                     return;
                 }
@@ -421,7 +453,7 @@
             setStage('spec');
             fillSpecification();
             if (lastMoq) {
-                setText('quantityHint', 'AI 견적 기준 이 사양의 최소 주문 수량은 ' + lastMoq.toLocaleString('ko-KR') + '켤레입니다.');
+                setText('quantityHint', 'AI 견적 기준 이 사양의 최소 주문 수량은 ' + lastMoq.toLocaleString('ko-KR') + product.unit + '입니다.');
             }
             if (typeof globalThis.goToStep === 'function') {
                 globalThis.goToStep(2);
@@ -520,7 +552,7 @@
         api.show = show;
     }
 
-    var api = { init: init, show: null, readSpec: readSpec, interpretRange: interpretRange, describeRegion: describeRegion, TEXTS: TEXTS };
+    var api = { init: init, show: null, readSpec: readSpec, interpretRange: interpretRange, describeRegion: describeRegion, TEXTS: TEXTS, PAGES: PAGES };
     globalThis.BridgePathGolfShoeResult = api;
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;

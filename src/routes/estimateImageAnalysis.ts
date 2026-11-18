@@ -11,6 +11,7 @@ import {
   isImageAnalysisConfigured
 } from '../services/imageAnalysisService';
 import { analyzeGolfShoeImage } from '../services/golfShoeAnalysisService';
+import { analyzeGolfTeeImage } from '../services/golfTeeAnalysisService';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -111,6 +112,14 @@ router.post(
   '/estimate-preview/analyze-golf-shoe',
   receiveImage,
   analysisHandler((image, mediaType) => analyzeGolfShoeImage(image, mediaType), GOLF_SHOE_ANALYSIS_NOTICE)
+);
+
+// POST /api/estimate-preview/analyze-golf-tee: the material, shape and difficulty of a golf tee photo (2026-11-18).
+export const GOLF_TEE_ANALYSIS_NOTICE = '사진으로 추정한 결과예요. 실제와 다를 수 있으니 재질을 확인하고 필요하면 직접 고쳐 주세요.';
+router.post(
+  '/estimate-preview/analyze-golf-tee',
+  receiveImage,
+  analysisHandler((image, mediaType) => analyzeGolfTeeImage(image, mediaType), GOLF_TEE_ANALYSIS_NOTICE)
 );
 
 export default router;

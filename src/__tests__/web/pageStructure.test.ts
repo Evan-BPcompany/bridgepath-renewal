@@ -58,22 +58,20 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
     const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(match => match[1]);
     expect(scripts).toEqual([
       'config.js',
-      // Only the sunglasses page asks signed-in customers for a detailed quote (estimateDetailedQuote.dom.test.ts).
-      ...(page === 'sunglasses' || page === 'shoes' ? ['customer-auth.js'] : []),
+      // Every page asks signed-in customers for the detailed quote (2026-11-18).
+      'customer-auth.js',
       'estimate-api.js',
       'estimate-common.js',
       'estimate-customer-step.js',
       'estimate-attachments.js',
       'estimate-submit.js',
       'estimate-flow.js',
-      // Only the sunglasses form has the photo analysis and the result screen (estimatePhoto and
-      // estimateResult .dom.test.ts).
-      ...(page === 'sunglasses' ? ['estimate-preview.js', 'estimate-result.js'] : []),
-      // The golf shoe page reuses the photo checks of estimate-preview.js for its own photo analysis and has its own result screen
-      // (golfShoePhoto.dom.test.ts, golfShoeResult.dom.test.ts); the golf tee page shows the price range under the quantity
-      // (estimateMarketPreview.dom.test.ts).
-      ...(page === 'shoes' ? ['estimate-preview.js', 'golf-shoe-photo.js', 'golf-shoe-result.js'] : []),
-      ...(page === 'golf' ? ['estimate-market-preview.js'] : []),
+      // The sunglasses page works like the golf shoe page (2026-11-18): the same photo script (estimatePhoto.dom.test.ts) and its own
+      // result screen with the cost simulation (sunglassesResult.dom.test.ts).
+      ...(page === 'sunglasses' ? ['estimate-preview.js', 'golf-shoe-photo.js', 'sunglasses-result.js'] : []),
+      // The golf shoe page and the golf tee page (2026-11-18) share the photo script and the result screen (golfShoePhoto,
+      // golfShoeResult, golfTeeResult .dom.test.ts); the photo checks are those of estimate-preview.js.
+      ...(page === 'shoes' || page === 'golf' ? ['estimate-preview.js', 'golf-shoe-photo.js', 'golf-shoe-result.js'] : []),
       `${page}-estimate.js`
     ]);
     scripts.forEach(file => expect(fs.existsSync(path.join(ROOT, file))).toBe(true));
@@ -95,16 +93,10 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 
   it('has no behaviour of its own in the page script any more (no fake submit, no redirect)', () => {
     const code = read(`${page}-estimate.js`).replace(/^\s*\/\/.*$/gm, '').trim();
-    if (page === 'golf') {
-      // The golf tee is the one product of its page: the script only chooses its card.
-      expect(code).not.toMatch(/fetch|location|submit|innerHTML/);
-      expect(code).toContain('card.click()');
-    } else {
-      // The sunglasses page and the golf shoe page start with a photo (2026-11-17): the script chooses the kind and opens the photo chooser.
-      expect(code).not.toMatch(/fetch|location|submit|innerHTML/);
-      expect(code).toContain('card.click()');
-      expect(code).toContain('input.click()');
-    }
+    // Every page starts with a photo (2026-11-17, the golf tee 2026-11-18): the script chooses the kind and opens the photo chooser.
+    expect(code).not.toMatch(/fetch|location|submit|innerHTML/);
+    expect(code).toContain('card.click()');
+    expect(code).toContain('input.click()');
   });
 
   it('has the success screen with places for the receipt number, the time and the message of the server', () => {
@@ -118,7 +110,7 @@ describe.each(PAGES)('%s-estimate.html: three steps', page => {
 });
 
 describe('the new scripts', () => {
-  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-submit.js', 'estimate-attachments.js', 'estimate-preview.js', 'estimate-result.js', 'golf-shoe-photo.js', 'golf-shoe-result.js', 'other-inquiry.js'])('%s never writes markup', file => {
+  it.each(['estimate-customer-step.js', 'estimate-flow.js', 'estimate-submit.js', 'estimate-attachments.js', 'estimate-preview.js', 'sunglasses-result.js', 'golf-shoe-photo.js', 'golf-shoe-result.js', 'other-inquiry.js'])('%s never writes markup', file => {
     const code = read(file).replace(/^\s*\/\/.*$/gm, '');
     expect(code).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function/);
   });

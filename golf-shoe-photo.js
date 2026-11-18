@@ -1,6 +1,7 @@
-// The photo of the golf shoe page (step 2): a photo of the shoe is sent to POST /api/estimate-preview/analyze-golf-shoe. When it
-// shows a golf shoe, "AI 견적 시작" is ready and the analysis is kept for the result screen (golf-shoe-result.js); the visitor enters
-// no specification here: that is asked only in the detailed quote (signed-in customers), after the result.
+// The photo of the golf shoe page and of the sunglasses page (step 2, the same way since 2026-11-18): the photo is sent to the
+// analysis of the product (PAGES below). When it shows the product, "AI 견적 시작" is ready and the analysis is kept for the result
+// screen (golf-shoe-result.js, sunglasses-result.js); the visitor enters no specification here: that is asked only in the detailed
+// quote (signed-in customers), after the result.
 //
 // Nothing here blocks anything else: when the analysis cannot be had, a short line says so and the visitor can try another photo.
 // Nothing is stored; the analysis sends only the photo (no contact data, no free text). The photo checks and the scaling of a
@@ -8,7 +9,12 @@
 (function () {
     'use strict';
 
-    var PAGE = 'shoes';
+    // What differs between the two pages: the file input, the analysis, the flag that says the photo shows the product.
+    var PAGES = Object.freeze({
+        shoes: Object.freeze({ input: 'shoeImage', path: '/api/estimate-preview/analyze-golf-shoe', flag: 'is_golf_shoe', other: 'not_golf_shoe', more: 'analyzingMore' }),
+        sunglasses: Object.freeze({ input: 'sunglassImage', path: '/api/estimate-preview/analyze-image', flag: 'is_sunglasses', other: 'not_sunglasses', more: 'analyzingMoreSunglasses' }),
+        golf: Object.freeze({ input: 'teeImage', path: '/api/estimate-preview/analyze-golf-tee', flag: 'is_golf_tee', other: 'not_golf_tee', more: 'analyzingMoreTee' })
+    });
     var IMAGE_TIMEOUT_MS = 45000;
     // when the line under the upload box moves on while the photo is being analysed (the analysis takes ten seconds or more)
     var STAGE_MORE_MS = 4000;
@@ -17,9 +23,13 @@
     var MESSAGES = Object.freeze({
         analyzing: '사진을 분석하고 있습니다…',
         analyzingMore: '조임 방식과 아웃솔, 재질을 추정하고 있습니다…',
+        analyzingMoreSunglasses: '프레임과 렌즈를 살펴보고 있습니다…',
+        analyzingMoreTee: '재질과 형태를 살펴보고 있습니다…',
         analyzingLong: '거의 끝났습니다. 조금만 기다려 주세요…',
         done: '사진 분석이 끝났습니다. 아래 ‘AI 견적 시작’을 눌러 결과를 확인하세요.',
         not_golf_shoe: '골프화 사진으로 보이지 않습니다. 골프화가 잘 보이는 다른 사진을 올려 주세요.',
+        not_sunglasses: '선글라스 사진으로 보이지 않습니다. 선글라스가 잘 보이는 다른 사진을 올려 주세요.',
+        not_golf_tee: '골프티 사진으로 보이지 않습니다. 골프티가 잘 보이는 다른 사진을 올려 주세요.',
         type: 'JPG, PNG, WEBP 사진만 분석할 수 있습니다.',
         too_large: '사진은 5MB까지 분석할 수 있습니다.',
         unavailable: '사진 분석은 아직 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
@@ -32,7 +42,8 @@
     }
 
     // What to do with the answer of the analysis: { kind: 'analysis', analysis } or { kind: <message key> }.
-    function interpretAnalysis(status, body) {
+    function interpretAnalysis(status, body, page) {
+        var product = PAGES[page] || PAGES.shoes;
         if (status === 429) {
             return { kind: 'busy' };
         }
@@ -43,11 +54,11 @@
             return { kind: 'too_large' };
         }
         var analysis = body && typeof body === 'object' ? body.analysis : null;
-        if (status !== 200 || !analysis || typeof analysis.is_golf_shoe !== 'boolean') {
+        if (status !== 200 || !analysis || typeof analysis[product.flag] !== 'boolean') {
             return { kind: 'failed' };
         }
-        if (!analysis.is_golf_shoe) {
-            return { kind: 'not_golf_shoe' };
+        if (!analysis[product.flag]) {
+            return { kind: product.other };
         }
         return { kind: 'analysis', analysis: analysis };
     }
@@ -64,6 +75,8 @@
         var preview = options.preview;
         var statusLine = options.statusLine;
         var startButton = options.startButton;
+        var page = options.page || 'shoes';
+        var product = PAGES[page] || PAGES.shoes;
         var controller = null;
         var sequence = 0;
         // The photo that was analysed with success and what came out, for the result screen.
@@ -117,13 +130,13 @@
             var request = new AbortController();
             controller = request;
             var timedOut = setTimeout(function () { request.abort(); }, IMAGE_TIMEOUT_MS);
-            var moreTimer = setTimeout(function () { if (mine === sequence) { say(MESSAGES.analyzingMore, 'busy'); } }, STAGE_MORE_MS);
+            var moreTimer = setTimeout(function () { if (mine === sequence) { say(MESSAGES[product.more], 'busy'); } }, STAGE_MORE_MS);
             var longTimer = setTimeout(function () { if (mine === sequence) { say(MESSAGES.analyzingLong, 'busy'); } }, STAGE_LONG_MS);
             var result;
             try {
                 var form = new FormData();
                 form.append('image', file);
-                var response = await options.fetch(joinUrl(options.apiBase, '/api/estimate-preview/analyze-golf-shoe'), {
+                var response = await options.fetch(joinUrl(options.apiBase, product.path), {
                     method: 'POST',
                     headers: { Accept: 'application/json' },
                     body: form,
@@ -135,7 +148,7 @@
                 } catch (parseError) {
                     body = undefined;
                 }
-                result = interpretAnalysis(response.status, body);
+                result = interpretAnalysis(response.status, body, page);
             } catch (error) {
                 result = { kind: 'failed' };
             } finally {
@@ -164,12 +177,13 @@
 
     function init() {
         var body = document.body;
-        if (!body || body.getAttribute('data-estimate-page') !== PAGE) {
+        var page = body ? body.getAttribute('data-estimate-page') : null;
+        if (!PAGES[page]) {
             return;
         }
         var config = globalThis.BridgePathConfig;
         var preview = globalThis.BridgePathPreview;
-        var input = document.getElementById('shoeImage');
+        var input = document.getElementById(PAGES[page].input);
         var statusLine = document.getElementById('imageAnalysisStatus');
         var startButton = document.getElementById('nextBtn2');
         if (!config || !preview || !input || !statusLine || !startButton || typeof globalThis.fetch !== 'function') {
@@ -177,13 +191,14 @@
         }
 
         photo = create({
+            page: page,
             preview: preview,
             statusLine: statusLine,
             startButton: startButton,
             apiBase: config.API_BASE,
             fetch: function (url, init) { return globalThis.fetch(url, init); }
         });
-        // "AI 견적 시작" waits for a golf shoe photo that was analysed.
+        // "AI 견적 시작" waits for a photo of the product that was analysed.
         startButton.disabled = true;
         input.addEventListener('change', function () {
             photo.analyse(input.files && input.files[0]);

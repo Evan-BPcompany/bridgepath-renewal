@@ -46,17 +46,37 @@ const ANALYSIS = {
   overview: '두꺼운 아세테이트 프레임의 클래식 선글라스입니다.',
   details: { frame: '두께감 있는 프레임', lens: '그라데이션 틴트', decoration: '은색 핀' },
   cost_factors: ['아세테이트 가공'],
-  recommendations: ['사출 프레임으로 변경하면 원가 절감']
+  recommendations: ['사출 프레임으로 변경하면 원가 절감'],
+  frame: 'acetate',
+  lens: 'unknown',
+  mirror: false,
+  gradient: true,
+  photochromic: false,
+  unconfirmed: ['렌즈 소재']
 };
 
-const RANGE = {
-  available: true,
-  currency: 'KRW',
-  quantity: 500,
-  unit_price: { min: 8300, max: 11300 },
-  total_price: { min: 4150000, max: 5650000 },
-  notice: 'guidance only'
+// The cost simulation of the result screen (sunglasses-result.js, 2026-11-18).
+const COST = {
+  simulation: {
+    unconfirmed: ['lens'],
+    currency: 'USD',
+    frame_cost: { low: 2.1, high: 2.1 },
+    lens_cost: { low: 0.65, high: 1.07 },
+    other_cost: 0.6,
+    unit_cost: { low: 3.35, high: 3.77 },
+    total_cost: { low: 3350, high: 3770 },
+    quantity: 1000,
+    unit_krw: { low: 4400, high: 5000 },
+    total_krw: { low: 4400000, high: 5000000 },
+    estimate_type: 'simulation'
+  },
+  supplier_reference: { status: 'insufficient' },
+  assumptions: [],
+  notice: 'virtual quote'
 };
+
+// Only a signed-in customer reaches step 3 of the sunglasses page (the detailed quote, 2026-11-18).
+const ACCOUNT = { name: '김구매', email: 'buyer@example.com', company_name: 'ACME', customer_type: 'business_brand' };
 
 const CREATED = { receipt_id: 'BP20261013001', created_at: '2026-10-13T03:00:00.000Z', message: 'fixed message' };
 
@@ -66,13 +86,13 @@ let imageInput: any;
 let estimateAnswer: any;
 
 const isAnalysis = (url: string): boolean => url.endsWith('/api/estimate-preview/analyze-image');
-const isPreview = (url: string): boolean => url.endsWith('/api/estimate-preview');
+const isCost = (url: string): boolean => url.endsWith('/api/estimate-preview/sunglasses-cost');
 const isEstimate = (url: string): boolean => url.endsWith('/api/estimates');
 const sent = (): any[] => fetchMock.mock.calls.filter(call => isEstimate(call[0]));
 
 const SUNGLASSES_SCRIPTS = (): string[] => {
   const scripts = PAGE_SCRIPTS('sunglasses');
-  scripts.splice(scripts.length - 1, 0, 'estimate-preview.js', 'estimate-result.js');
+  scripts.splice(scripts.length - 1, 0, 'estimate-preview.js', 'golf-shoe-photo.js', 'sunglasses-result.js');
   return scripts;
 };
 
@@ -86,12 +106,13 @@ beforeEach(() => {
     if (isAnalysis(url)) {
       return answer(200, { analysis: ANALYSIS, notice: 'n' });
     }
-    if (isPreview(url)) {
-      return answer(200, RANGE);
+    if (isCost(url)) {
+      return answer(200, COST);
     }
     return estimateAnswer;
   });
   g.fetch = fetchMock;
+  g.BridgePathAuth = { me: jest.fn().mockResolvedValue({ ok: true, status: 200, body: { customer: ACCOUNT } }) };
 });
 
 afterEach(() => {
@@ -100,6 +121,9 @@ afterEach(() => {
   delete g.fetch;
   // Each page loads its own scripts: what an earlier page defined must not be there for the next.
   delete g.BridgePathResult;
+  delete g.BridgePathSunglassesResult;
+  delete g.BridgePathGolfShoePhoto;
+  delete g.BridgePathAuth;
   delete g.BridgePathPreview;
   delete g.BridgePathAttachments;
   delete g.URL.createObjectURL;
@@ -119,24 +143,28 @@ function fillCustomer(): void {
   check($('#privacyConsent'));
 }
 
-async function openSunglassesAtStep3(withPhoto = true): Promise<any> {
+// The photo, the result screen, the detailed quote of a signed-in customer, the specification and step 3 (2026-11-18).
+async function openSunglassesAtSpec(): Promise<any> {
   loaded = loadPage('sunglasses-estimate.html', SUNGLASSES_SCRIPTS());
   imageInput = $('#sunglassImage');
   click($('.category-card[data-category="sunglasses"]'));
   click($('#nextBtn1'));
   const file = photo();
-  if (withPhoto) {
-    Object.defineProperty(imageInput, 'files', { value: [file], configurable: true });
-    imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
-    await settle();
-  } else {
-    choose($('#frameMaterial'), 'metal');
-    choose($('#lensType'), 'normal');
-  }
-  type($('#quantity'), '500');
-  click($('#nextBtn2'));
+  Object.defineProperty(imageInput, 'files', { value: [file], configurable: true });
+  imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
   await settle();
-  click($('#resultRequestBtn'));
+  click($('#nextBtn2'));
+  await settle(400);
+  click($('#detailedBtn'));
+  await settle();
+  expect($('#specForm').hidden).toBe(false);
+  type($('#quantity'), '500');
+  return file;
+}
+
+async function openSunglassesAtStep3(): Promise<any> {
+  const file = await openSunglassesAtSpec();
+  click($('#nextBtn2'));
   expect($('#step3-content').classList.contains('active')).toBe(true);
   return file;
 }
@@ -158,7 +186,7 @@ describe('a sunglasses request with the photo that was analysed', () => {
   });
 
   it('keeps the photo attached when the analysis fails: the customer chose it', async () => {
-    fetchMock.mockImplementation(async (url: string) => (isAnalysis(url) ? answer(503, {}) : answer(200, RANGE)));
+    fetchMock.mockImplementation(async (url: string) => (isAnalysis(url) ? answer(503, {}) : answer(200, COST)));
     loaded = loadPage('sunglasses-estimate.html', SUNGLASSES_SCRIPTS());
     imageInput = $('#sunglassImage');
 
@@ -223,9 +251,9 @@ describe('a sunglasses request with the photo that was analysed', () => {
       },
       price: {
         currency: 'KRW',
-        quantity: 500,
-        unit_price: { min: 8300, max: 11300 },
-        total_price: { min: 4150000, max: 5650000 }
+        quantity: 1000,
+        unit_price: { min: 4400, max: 5000 },
+        total_price: { min: 4400000, max: 5000000 }
       }
     });
   });
@@ -255,7 +283,7 @@ describe('a sunglasses request with the photo that was analysed', () => {
       if (isAnalysis(url)) {
         return answer(200, { analysis: long, notice: 'n' });
       }
-      return isPreview(url) ? answer(200, RANGE) : estimateAnswer;
+      return isCost(url) ? answer(200, COST) : estimateAnswer;
     });
     await openSunglassesAtStep3();
     fillCustomer();
@@ -271,12 +299,9 @@ describe('a sunglasses request with the photo that was analysed', () => {
   });
 
   it('sends plain JSON when the customer took the photo out, still with the record', async () => {
-    await openSunglassesAtStep3();
-    click($('#resultEditBtn'));
+    await openSunglassesAtSpec();
     click($('#attachments .attachments-remove'));
     click($('#nextBtn2'));
-    await settle();
-    click($('#resultRequestBtn'));
     fillCustomer();
 
     click($('#submitBtn'));
@@ -287,29 +312,6 @@ describe('a sunglasses request with the photo that was analysed', () => {
     const body = JSON.parse(init.body);
     expect(body.files).toBeUndefined();
     expect(body.specification_json.ai_preview.source).toBe('customer_screen');
-  });
-
-  it('sends no record when there was no photo, but the price the screen showed is in it', async () => {
-    await openSunglassesAtStep3(false);
-    fillCustomer();
-
-    click($('#submitBtn'));
-    await settle();
-
-    const spec = JSON.parse(sent()[0][1].body).specification_json;
-    expect(spec.ai_preview.analysis).toBeUndefined();
-    expect(spec.ai_preview.price.unit_price).toEqual({ min: 8300, max: 11300 });
-  });
-
-  it('sends no record when the price could not be had and there was no photo', async () => {
-    fetchMock.mockImplementation(async (url: string) => (isPreview(url) ? answer(500, {}) : estimateAnswer));
-    await openSunglassesAtStep3(false);
-    fillCustomer();
-
-    click($('#submitBtn'));
-    await settle();
-
-    expect(JSON.parse(sent()[0][1].body).specification_json.ai_preview).toBeUndefined();
   });
 
   it('empties the attachments after a request that was accepted, and shows the receipt number', async () => {
@@ -453,11 +455,12 @@ describe('the receipt after an accepted request (PRD FR-4.5)', () => {
     expect(row('이메일')).toBe('buyer@example.com');
     expect(row('첨부 파일')).toBe('frame.png');
     expect(row('화면에 보인 예상 범위 (참고)')).toBe(
-      '개당 약 8,300원 ~ 11,300원, 총 약 4,150,000원 ~ 5,650,000원 · 확정 견적이 아닙니다'
+      '개당 약 4,400원 ~ 5,000원, 총 약 4,400,000원 ~ 5,000,000원 · 확정 견적이 아닙니다'
     );
     // What was not filled in is not listed.
     expect(row('전화')).toBeUndefined();
-    expect(row('프레임 색상')).toBeUndefined();
+    // the frame colour the photo showed is filled into the specification (sunglasses-result.js)
+    expect(row('프레임 색상')).toBe('블랙');
   });
 
   it('has the receipt number and a button that copies it', async () => {

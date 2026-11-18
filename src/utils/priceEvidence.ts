@@ -24,6 +24,8 @@ export interface EvidenceRow {
   upper_material: string | null;
   outsole: string | null;
   closure: string | null;
+  frame_material: string | null;
+  lens_type: string | null;
   supplier_name: string | null;
   supplier_type: (typeof EVIDENCE_SUPPLIER_TYPES)[number];
   source_url: string | null;
@@ -36,7 +38,7 @@ export interface EvidenceRow {
 
 const KEYS = [
   'category', 'product_type', 'region', 'price_kind', 'price_min', 'price_max', 'currency', 'unit', 'moq', 'trade_terms',
-  'upper_material', 'outsole', 'closure', 'supplier_name', 'supplier_type', 'source_url', 'source_title', 'price_date',
+  'upper_material', 'outsole', 'closure', 'frame_material', 'lens_type', 'supplier_name', 'supplier_type', 'source_url', 'source_title', 'price_date',
   'collected_at', 'status', 'note'
 ] as const;
 
@@ -167,6 +169,8 @@ export function validateEvidence(input: unknown): { row?: EvidenceRow; errors: s
       upper_material: text('upper_material', 40, false),
       outsole: text('outsole', 40, false),
       closure: text('closure', 40, false),
+      frame_material: text('frame_material', 40, false),
+      lens_type: text('lens_type', 40, false),
       supplier_name: text('supplier_name', 200, false),
       supplier_type: supplierType,
       source_url: sourceUrl,
@@ -216,7 +220,7 @@ export interface Queryable {
 
 const COLUMNS = [
   'category', 'product_type', 'region', 'price_kind', 'price_min', 'price_max', 'currency', 'unit', 'moq', 'trade_terms',
-  'upper_material', 'outsole', 'closure', 'supplier_name', 'supplier_type', 'source_url', 'source_title', 'price_date',
+  'upper_material', 'outsole', 'closure', 'frame_material', 'lens_type', 'supplier_name', 'supplier_type', 'source_url', 'source_title', 'price_date',
   'collected_at', 'note'
 ] as const;
 

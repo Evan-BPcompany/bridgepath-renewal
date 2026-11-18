@@ -241,9 +241,9 @@
                 getFiles: function () { return attachments ? attachments.getFiles() : []; },
                 getSummary: function () { return summaryRows(page); },
                 getRequestKind: function () { return detailedCustomer ? 'detailed' : 'simple'; },
-                // The sunglasses page records what its screen showed (estimate-result.js).
+                // The sunglasses page records what its result screen showed (sunglasses-result.js).
                 getExtraSpec: function () {
-                    var result = globalThis.BridgePathResult;
+                    var result = globalThis.BridgePathResult || globalThis.BridgePathSunglassesResult;
                     return result && typeof result.getAiPreview === 'function' ? { ai_preview: result.getAiPreview() } : null;
                 },
                 afterSuccess: function () {

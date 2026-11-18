@@ -18,6 +18,8 @@ import { createSitePagesRouter } from './routes/sitePages';
 import estimatesRouter from './routes/estimates';
 import estimatePreviewRouter from './routes/estimatePreview';
 import golfShoeRangeRouter from './routes/golfShoeRange';
+import sunglassesCostRouter from './routes/sunglassesCost';
+import golfTeeRangeRouter from './routes/golfTeeRange';
 import estimateImageAnalysisRouter from './routes/estimateImageAnalysis';
 
 export interface CreateAppOptions {
@@ -69,10 +71,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // never parsed and no file reaches S3.
   app.post('/api/estimates', limiters.estimateCreate);
   app.get('/api/estimates/:receipt_id', limiters.estimateRead);
-  app.post(['/api/estimate-preview', '/api/estimate-preview/golf-shoe-range'], limiters.estimatePreview);
+  app.post(['/api/estimate-preview', '/api/estimate-preview/golf-shoe-range', '/api/estimate-preview/sunglasses-cost', '/api/estimate-preview/golf-tee-range'], limiters.estimatePreview);
   // Before Multer in the router: a refused request never has its image parsed or sent on.
   // The golf shoe analysis shares the budget of the sunglasses one: both are paid model calls.
-  app.post(['/api/estimate-preview/analyze-image', '/api/estimate-preview/analyze-golf-shoe'], limiters.imageAnalysis);
+  app.post(['/api/estimate-preview/analyze-image', '/api/estimate-preview/analyze-golf-shoe', '/api/estimate-preview/analyze-golf-tee'], limiters.imageAnalysis);
 
   // The customer pages (index, login, my quotes, the forms) come from this server too.
   app.use(createSitePagesRouter({ nodeEnv: config.nodeEnv }));
@@ -133,6 +135,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use('/api', estimatesRouter);
   app.use('/api', estimatePreviewRouter);
   app.use('/api', golfShoeRangeRouter);
+  app.use('/api', sunglassesCostRouter);
+  app.use('/api', golfTeeRangeRouter);
   app.use('/api', estimateImageAnalysisRouter);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

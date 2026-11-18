@@ -314,6 +314,35 @@
     color: var(--accent);
 }
 
+/* sunglasses (2026-11-18): the quantity of the cost simulation, the lens options while editing, the assumptions of the cost */
+.result-table input[type="number"] {
+    width: 8rem;
+    max-width: 100%;
+    padding: 0.4rem 0.5rem;
+    font: inherit;
+}
+
+.result-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+}
+
+.result-options[hidden] {
+    display: none;
+}
+
+.result-assumptions {
+    margin: 0.8rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+}
+
+.result-assumptions[hidden] {
+    display: none;
+}
+
 .result-status:empty,
 .result-cost .form-hint:empty {
     display: none;

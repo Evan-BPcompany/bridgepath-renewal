@@ -123,7 +123,8 @@ describe('index.html: the footer', () => {
 
 describe('index.html: structure and files', () => {
   it('links only to files that exist, and its anchors point to sections of the page', () => {
-    const files = [...html.matchAll(/(?:href|src)="([^"#:]+?)"/g)].map(match => match[1]).filter(name => !/^https?:/.test(name));
+    // a version query (?v=2) only renews the cache; the file is the part before it
+    const files = [...html.matchAll(/(?:href|src)="([^"#:?]+)(?:\?[^"#:]*)?"/g)].map(match => match[1]).filter(name => !/^https?:/.test(name));
     files.forEach(file => expect(fs.existsSync(path.join(ROOT, file))).toBe(true));
     const anchors = [...html.matchAll(/href="#([^"]+)"/g)].map(match => match[1]);
     anchors.forEach(id => expect(html).toContain(`id="${id}"`));
@@ -451,7 +452,7 @@ describe('the finder ring, the figures and the samples beside the ways to ask (h
 
   it('gives each of the five steps one photo that changes with its text, from one set of files', () => {
     const panel = html.slice(html.indexOf('<div class="step-panel">'), html.indexOf('</section>', html.indexOf('<div class="step-panel">')));
-    const photos = [...panel.matchAll(/<figure class="view-photo"><img src="assets\/media\/process-([a-z]+)\.webp" alt="([^"]{8,})" width="960" height="720" loading="lazy"/g)];
+    const photos = [...panel.matchAll(/<figure class="view-photo"><img src="assets\/media\/process-([a-z]+)\.webp(?:\?v=\d+)?" alt="([^"]{8,})" width="960" height="720" loading="lazy"/g)];
 
     expect(photos.map(match => match[1])).toEqual(['material', 'spec', 'sample', 'production', 'dispatch']);
     // the photo is inside its view, before the text of the step

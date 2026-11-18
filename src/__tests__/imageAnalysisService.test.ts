@@ -17,7 +17,13 @@ const GOOD = {
   overview: '두꺼운 아세테이트 프레임의 클래식 선글라스입니다.',
   details: { frame: '두께감 있는 프레임', lens: '그라데이션 틴트', decoration: '사진으로 확인되지 않아요' },
   cost_factors: ['아세테이트 가공', '그라데이션 렌즈 코팅'],
-  recommendations: ['사출 프레임으로 변경하면 원가 절감']
+  recommendations: ['사출 프레임으로 변경하면 원가 절감'],
+  frame: 'acetate',
+  lens: 'unknown',
+  mirror: false,
+  gradient: true,
+  photochromic: false,
+  unconfirmed: ['렌즈 소재', '편광 여부', '힌지 종류']
 };
 
 function fakeClient(response: Record<string, unknown>): { client: MessagesClient; create: jest.Mock } {
@@ -136,5 +142,30 @@ describe('analyzeSunglassesImage', () => {
     await expect(
       analyzeSunglassesImage(IMAGE, 'image/png', { messages: { create } } as unknown as MessagesClient)
     ).rejects.toThrow('529 overloaded');
+  });
+});
+
+describe('the cost model fields of the sunglasses analysis (2026-11-18)', () => {
+  it('returns the frame, the lens and its options in the values of the cost model, and at most four things to confirm', async () => {
+    const { client } = fakeClient(textAnswer(JSON.stringify({ ...GOOD, unconfirmed: ['렌즈 소재', '편광 여부', '힌지 종류', 'UV 차단 등급', '프레임 두께'] })));
+
+    const result = await analyzeSunglassesImage(IMAGE, 'image/png', client);
+
+    expect(result).toMatchObject({ frame: 'acetate', lens: 'unknown', mirror: false, gradient: true, photochromic: false });
+    expect(result.unconfirmed).toEqual(['렌즈 소재', '편광 여부', '힌지 종류', 'UV 차단 등급']);
+  });
+
+  it('tells the model not to decide the lens material or the polarisation from the look', async () => {
+    const { client, create } = fakeClient(textAnswer(JSON.stringify(GOOD)));
+
+    await analyzeSunglassesImage(IMAGE, 'image/png', client);
+
+    expect(create.mock.calls[0][0].system).toContain('A photo shows neither the lens material nor polarisation');
+  });
+
+  it('refuses an answer with a frame that is not a value of the cost model', async () => {
+    const { client } = fakeClient(textAnswer(JSON.stringify({ ...GOOD, frame: 'titanium' })));
+
+    await expect(analyzeSunglassesImage(IMAGE, 'image/png', client)).rejects.toBeInstanceOf(ImageAnalysisFailedError);
   });
 });

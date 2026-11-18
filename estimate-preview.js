@@ -1,4 +1,7 @@
-// What the sunglasses form needs from the API besides the request itself.
+// What the estimate forms need from the API besides the request itself: the photo checks and scaling (used by golf-shoe-photo.js on the
+// golf shoe and sunglasses pages) and the old price guidance (requestPreview). Since 2026-11-18 no page wires the photo analysis below
+// to its form any more: the sunglasses page works like the golf shoe page (golf-shoe-photo.js, sunglasses-result.js).
+//
 //
 // A photo of the product can be put in step 2: it is sent to POST /api/estimate-preview/analyze-image,
 // and the frame material and lens type it shows are put into the two selects (never over a choice
@@ -12,7 +15,6 @@
 (function () {
     'use strict';
 
-    var PAGE = 'sunglasses';
     var DEFAULT_CATEGORY = 'sunglasses';
     var TIMEOUT_MS = 15000;
     var MAX_QUANTITY = 1000000;
@@ -391,41 +393,6 @@
         return { analyse: analyse, getCurrent: getCurrent };
     }
 
-    // The photo state of the page, for the result screen; empty until a photo has been analysed.
-    var photo = null;
-
-    function init() {
-        var body = document.body;
-        if (!body || body.getAttribute('data-estimate-page') !== PAGE) {
-            return;
-        }
-        var config = globalThis.BridgePathConfig;
-        var imageInput = document.getElementById('sunglassImage');
-        var imageStatus = document.getElementById('imageAnalysisStatus');
-        var materialSelect = document.getElementById('frameMaterial');
-        var lensSelect = document.getElementById('lensType');
-        if (!config || typeof globalThis.fetch !== 'function' || !imageInput || !imageStatus || !materialSelect || !lensSelect) {
-            return;
-        }
-
-        photo = createImageAnalysis({
-            statusLine: imageStatus,
-            materialSelect: materialSelect,
-            lensSelect: lensSelect,
-            apiBase: config.API_BASE,
-            fetch: function (url, init) { return globalThis.fetch(url, init); }
-        });
-        imageInput.addEventListener('change', function () {
-            Promise.resolve(photo.analyse(imageInput.files && imageInput.files[0])).then(function () {
-                // the photo was analysed and filled the material and the lens: what is left is the quantity
-                var quantity = document.getElementById('quantity');
-                if (quantity && !quantity.value && photo.getCurrent() && typeof quantity.scrollIntoView === 'function') {
-                    quantity.scrollIntoView({ block: 'center' });
-                }
-            });
-        });
-    }
-
     var api = Object.freeze({
         MESSAGES: MESSAGES,
         parseQuantity: parseQuantity,
@@ -437,9 +404,7 @@
         checkImage: checkImage,
         prepareImage: prepareImage,
         interpretAnalysis: interpretAnalysis,
-        createImageAnalysis: createImageAnalysis,
-        getPhoto: function () { return photo ? photo.getCurrent() : { file: null, analysis: null }; },
-        init: init
+        createImageAnalysis: createImageAnalysis
     });
 
     globalThis.BridgePathPreview = api;
@@ -447,9 +412,4 @@
         module.exports = api;
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
 })();

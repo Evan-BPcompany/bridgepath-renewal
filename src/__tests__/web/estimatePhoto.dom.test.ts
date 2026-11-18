@@ -3,34 +3,23 @@
  */
 import { loadPage, PAGE_SCRIPTS, LoadedPage } from './domHarness';
 
+// The photo of the sunglasses page (2026-11-18: the same photo step as the golf shoe page, golf-shoe-photo.js). The specification
+// form is not in step 2 any more; what the photo shows goes to the result screen (sunglassesResult.dom.test.ts).
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const g = globalThis as any;
 const $ = (selector: string): any => g.document.querySelector(selector);
-
-function type(element: any, value: string): void {
-  element.value = value;
-  element.dispatchEvent(new g.Event('input', { bubbles: true }));
-}
-
-function choose(element: any, value: string): void {
-  element.value = value;
-  element.dispatchEvent(new g.Event('change', { bubbles: true }));
-}
-
-const RANGE_ANSWER = {
-  available: true,
-  currency: 'KRW',
-  quantity: 500,
-  unit_price: { min: 12800, max: 17300 },
-  total_price: { min: 6400000, max: 8650000 },
-  notice: 'guidance only, not a quote'
-};
 
 const ANALYSIS_ANSWER = {
   analysis: {
     is_sunglasses: true,
     frame_material: 'acetate',
     lens_type: 'gradient',
+    frame: 'acetate',
+    lens: 'unknown',
+    mirror: false,
+    gradient: true,
+    photochromic: false,
     confidence: 'medium',
     summary: 'Thick acetate frame.'
   },
@@ -42,7 +31,7 @@ const isAnalysis = (url: string): boolean => url.endsWith('/api/estimate-preview
 
 const SCRIPTS = (): string[] => {
   const scripts = PAGE_SCRIPTS('sunglasses');
-  scripts.splice(scripts.length - 1, 0, 'estimate-preview.js');
+  scripts.splice(scripts.length - 1, 0, 'estimate-preview.js', 'golf-shoe-photo.js');
   return scripts;
 };
 
@@ -58,9 +47,8 @@ const settle = async (ms = 400): Promise<void> => {
 
 const analysisCalls = (): any[] => fetchMock.mock.calls.filter(call => isAnalysis(call[0]));
 
-// The fake API: the analysis answer is chosen per test, the price guidance always answers.
 function route(analysis: unknown = answer(200, ANALYSIS_ANSWER)): void {
-  fetchMock.mockImplementation(async (url: string) => (isAnalysis(url) ? analysis : answer(200, RANGE_ANSWER)));
+  fetchMock.mockImplementation(async (url: string) => (isAnalysis(url) ? analysis : answer(404, {})));
 }
 
 function upload(name = 'frame.png', mime = 'image/png', size = 100): any {
@@ -69,9 +57,6 @@ function upload(name = 'frame.png', mime = 'image/png', size = 100): any {
   imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
   return file;
 }
-
-const withMaterial = (frame_material: string, summary = 'Thick acetate frame.') =>
-  answer(200, { ...ANALYSIS_ANSWER, analysis: { ...ANALYSIS_ANSWER.analysis, frame_material, summary } });
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -86,10 +71,12 @@ afterEach(() => {
   loaded.dispose();
   jest.useRealTimers();
   delete g.fetch;
+  delete g.BridgePathGolfShoePhoto;
 });
 
-describe('the photo of the sunglasses form', () => {
-  it('sends the photo as a form and fills the two selects from the answer', async () => {
+describe('the photo of the sunglasses page', () => {
+  it('sends only the photo to the sunglasses analysis, keeps the analysis and makes "AI 견적 시작" ready', async () => {
+    expect($('#nextBtn2').disabled).toBe(true);
     const file = upload();
     await settle(0);
 
@@ -99,115 +86,51 @@ describe('the photo of the sunglasses form', () => {
     expect(init.body.get('image')).toBe(file);
     expect(Array.from(init.body.keys())).toEqual(['image']);
 
-    expect($('#frameMaterial').value).toBe('acetate');
-    expect($('#lensType').value).toBe('gradient');
-    const text = $('#imageAnalysisStatus').textContent;
-    expect(text).toContain('Thick acetate frame.');
-    expect(text).toContain('재질: 아세테이트');
-    expect(text).toContain('Estimated from the photo.');
-    expect($('#imageAnalysisStatus').hidden).toBe(false);
+    expect(g.BridgePathGolfShoePhoto.getPhoto()).toEqual({ file, analysis: ANALYSIS_ANSWER.analysis });
+    expect($('#nextBtn2').disabled).toBe(false);
+    expect($('#imageAnalysisStatus').textContent).toContain('AI 견적 시작');
   });
 
-  it('says how far the analysis is while it takes long: the same job, then "almost there"', async () => {
+  it('says how far the analysis is while it takes long: the frame and lens, then "almost there"', async () => {
     let finish: (value: unknown) => void = () => undefined;
-    fetchMock.mockImplementation((url: string) => (isAnalysis(url) ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(answer(200, RANGE_ANSWER))));
+    fetchMock.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
     upload();
     await settle(100);
 
     expect($('#imageAnalysisStatus').textContent).toBe('사진을 분석하고 있습니다…');
     await settle(4000);
-    expect($('#imageAnalysisStatus').textContent).toBe('재질과 렌즈를 추정하고 있습니다…');
+    expect($('#imageAnalysisStatus').textContent).toBe('프레임과 렌즈를 살펴보고 있습니다…');
     await settle(8000);
     expect($('#imageAnalysisStatus').textContent).toBe('거의 끝났습니다. 조금만 기다려 주세요…');
 
     finish(answer(200, ANALYSIS_ANSWER));
     await settle(0);
-    expect($('#imageAnalysisStatus').textContent).toContain('Thick acetate frame.');
-    // nothing moves the line on after the answer
-    await settle(20000);
-    expect($('#imageAnalysisStatus').textContent).toContain('Thick acetate frame.');
+    expect($('#nextBtn2').disabled).toBe(false);
   });
 
-  it('keeps the photo and the whole analysis for the result screen, and drops them with the photo', async () => {
-    const file = upload();
+  it('keeps nothing of a photo that could not be analysed, and drops the analysis with the photo', async () => {
+    upload();
     await settle(0);
-
-    const kept = g.BridgePathPreview.getPhoto();
-    expect(kept.file).toBe(file);
-    expect(kept.analysis).toEqual(ANALYSIS_ANSWER.analysis);
-
     Object.defineProperty(imageInput, 'files', { value: [], configurable: true });
     imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
     await settle(0);
-    expect(g.BridgePathPreview.getPhoto()).toEqual({ file: null, analysis: null });
-  });
+    expect(g.BridgePathGolfShoePhoto.getPhoto()).toEqual({ file: null, analysis: null });
+    expect($('#imageAnalysisStatus').hidden).toBe(true);
 
-  it('keeps nothing of a photo that could not be analysed', async () => {
     route(answer(502, { code: 'X' }));
     upload();
     await settle(0);
-
-    expect(g.BridgePathPreview.getPhoto()).toEqual({ file: null, analysis: null });
+    expect(g.BridgePathGolfShoePhoto.getPhoto()).toEqual({ file: null, analysis: null });
+    expect($('#nextBtn2').disabled).toBe(true);
   });
 
-  it('asks for no price on its own: the price comes with the start of the quote', async () => {
-    upload();
-    await settle(0);
-    type($('#quantity'), '500');
-    await settle(1000);
-
-    expect(fetchMock.mock.calls.filter(call => !isAnalysis(call[0]))).toHaveLength(0);
-  });
-
-  it('never replaces a choice the visitor made', async () => {
-    choose($('#frameMaterial'), 'wood');
-    upload();
-    await settle(0);
-
-    expect($('#frameMaterial').value).toBe('wood');
-    expect($('#lensType').value).toBe('gradient');
-    expect($('#imageAnalysisStatus').textContent).not.toContain('재질:');
-  });
-
-  it('lets a second photo replace what the first one filled, but not a later choice', async () => {
-    upload('a.png');
-    await settle(0);
-    expect($('#frameMaterial').value).toBe('acetate');
-
-    route(withMaterial('metal'));
-    upload('b.png');
-    await settle(0);
-    expect($('#frameMaterial').value).toBe('metal');
-
-    choose($('#frameMaterial'), 'plastic');
-    route(withMaterial('wood'));
-    upload('c.png');
-    await settle(0);
-    expect($('#frameMaterial').value).toBe('plastic');
-  });
-
-  it('leaves a select empty when the photo cannot tell, and says so', async () => {
-    route(
-      answer(200, {
-        ...ANALYSIS_ANSWER,
-        analysis: { ...ANALYSIS_ANSWER.analysis, frame_material: 'unknown', lens_type: 'unknown', summary: '' }
-      })
-    );
-    upload();
-    await settle(0);
-
-    expect($('#frameMaterial').value).toBe('');
-    expect($('#lensType').value).toBe('');
-    expect($('#imageAnalysisStatus').textContent).toContain('직접 선택');
-  });
-
-  it('says so when the photo does not show sunglasses, and fills nothing', async () => {
+  it('says so when the photo does not show sunglasses', async () => {
     route(answer(200, { analysis: { ...ANALYSIS_ANSWER.analysis, is_sunglasses: false } }));
     upload();
     await settle(0);
 
     expect($('#imageAnalysisStatus').textContent).toContain('선글라스 사진으로 보이지 않습니다');
-    expect($('#frameMaterial').value).toBe('');
+    expect($('#nextBtn2').disabled).toBe(true);
   });
 
   it.each([
@@ -215,14 +138,12 @@ describe('the photo of the sunglasses form', () => {
     [429, '잠시 후'],
     [413, '5MB'],
     [502, '분석하지 못했습니다']
-  ])('shows a plain line for a %i answer and leaves the form usable', async (status, text) => {
+  ])('shows a plain line for a %i answer', async (status, text) => {
     route(answer(status, { code: 'X' }));
     upload();
     await settle(0);
 
     expect($('#imageAnalysisStatus').textContent).toContain(text);
-    expect($('#frameMaterial').value).toBe('');
-    expect($('#nextBtn2').disabled).toBe(false);
   });
 
   it('shows the failure line after a network error', async () => {
@@ -247,36 +168,19 @@ describe('the photo of the sunglasses form', () => {
 
   it('drops the answer of a photo that was replaced meanwhile', async () => {
     let releaseFirst: (value: unknown) => void = () => undefined;
-    fetchMock.mockImplementationOnce(
-      () => new Promise(resolve => { releaseFirst = resolve; })
-    );
-    route(withMaterial('metal', 'Second photo.'));
+    fetchMock.mockImplementationOnce(() => new Promise(resolve => { releaseFirst = resolve; }));
+    const second = { ...ANALYSIS_ANSWER, analysis: { ...ANALYSIS_ANSWER.analysis, frame: 'metal' } };
+    route(answer(200, second));
 
     upload('first.png');
     await settle(0);
-    expect(analysisCalls()).toHaveLength(1);
     upload('second.png');
     await settle(0);
     expect(analysisCalls()).toHaveLength(2);
     releaseFirst(answer(200, ANALYSIS_ANSWER));
     await settle(0);
 
-    expect($('#frameMaterial').value).toBe('metal');
-    expect($('#imageAnalysisStatus').textContent).toContain('Second photo.');
-  });
-
-  it('shows what the server said as text, not as markup', async () => {
-    route(
-      answer(200, {
-        analysis: { ...ANALYSIS_ANSWER.analysis, summary: '<img src=x onerror="alert(1)">' },
-        notice: '<b>bold</b>'
-      })
-    );
-    upload();
-    await settle(0);
-
-    expect($('#imageAnalysisStatus').querySelector('img, b')).toBeNull();
-    expect($('#imageAnalysisStatus').textContent).toContain('<img src=x');
+    expect(g.BridgePathGolfShoePhoto.getPhoto().analysis.frame).toBe('metal');
   });
 
   describe('a large photo', () => {
@@ -315,7 +219,6 @@ describe('the photo of the sunglasses form', () => {
       expect(sent.type).toBe('image/jpeg');
       expect(sent.name).toBe('ONIR_0064.jpg');
       expect(sent.size).toBe(200000);
-      expect($('#frameMaterial').value).toBe('acetate');
     });
 
     it('leaves a photo of 1 MB or less as it is', async () => {
@@ -346,16 +249,5 @@ describe('the photo of the sunglasses form', () => {
       expect(g.createImageBitmap).not.toHaveBeenCalled();
       expect(analysisCalls()).toHaveLength(0);
     });
-  });
-
-  it('clears the line when the photo is removed', async () => {
-    upload();
-    await settle(0);
-
-    Object.defineProperty(imageInput, 'files', { value: [], configurable: true });
-    imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
-    await settle(0);
-
-    expect($('#imageAnalysisStatus').hidden).toBe(true);
   });
 });
