@@ -1,16 +1,20 @@
 import { getPool } from '../config/database';
-import { withServiceMargin } from '../config/serviceMargin';
 import { DISPLAY_USD_KRW, HIGH_PERCENTILE, LOW_PERCENTILE, MIN_LISTINGS, MIN_SUPPLIERS, SINGLE_QUOTE_SPREAD } from '../config/priceRangeRules';
 import { INSUFFICIENT_REASON, weightedPercentile, withoutOutliers, type EvidenceItem } from './priceRangeService';
 
 // The price range of a golf tee (2026-11-18, the golf shoe way): from the APPROVED rows of price_evidence of the category golf_tee and
 // nothing else. A real factory quote of the material comes first; without one, public listings need MIN_LISTINGS rows from
 // MIN_SUPPLIERS suppliers, or the answer is "cannot quote". The rows hold the price of 100 tees (unit 100_tees: a tee costs a few cents,
-// which two decimals would lose) and the material in product_type (bamboo_tee, wood_tee, plastic_tee). The service margin of 10 % is
-// added, as for every product range of the AI quote (2026-11-16). No factor is applied: the material picks its own rows.
+// which two decimals would lose) and the material in product_type (bamboo_tee, wood_tee, plastic_tee). The golf tee margin is added
+// (TEE_MARGIN_RATE). No factor of the material is applied: the material picks its own rows.
 
 export const TEE_MATERIALS = ['bamboo', 'wood', 'plastic', 'unknown'] as const;
 export type TeeMaterial = (typeof TEE_MATERIALS)[number];
+
+// The margin of the golf tee (the owner, 2026-11-18): the bamboo tee looked cheap, so its price was raised by 10 % on top of the service
+// margin of 10 % (1.1 x 1.1 = 1.21). It is the golf tee's own: the golf shoe keeps the service margin (config/serviceMargin.ts).
+export const TEE_MARGIN_RATE = 0.21;
+const withTeeMargin = (value: number): number => value * (1 + TEE_MARGIN_RATE);
 
 export const TEES_PER_PACKAGE = 50;
 // The minimum order of golf tees: 1,000 packages (the minimum of the request form, estimate-api.js, and the size of the real quote).
@@ -65,9 +69,9 @@ export function calculateTeeRange(material: TeeMaterial, evidence: EvidenceItem[
   if (low === high) {
     [low, high] = [low * (1 - SINGLE_QUOTE_SPREAD), high * (1 + SINGLE_QUOTE_SPREAD)];
   }
-  // per package of 50, with the service margin
-  const packageLow = cents(withServiceMargin(low) / PACKAGES_PER_EVIDENCE_UNIT);
-  const packageHigh = cents(withServiceMargin(high) / PACKAGES_PER_EVIDENCE_UNIT);
+  // per package of 50, with the golf tee margin
+  const packageLow = cents(withTeeMargin(low) / PACKAGES_PER_EVIDENCE_UNIT);
+  const packageHigh = cents(withTeeMargin(high) / PACKAGES_PER_EVIDENCE_UNIT);
   const unitKrw = { low: tenWon(packageLow * DISPLAY_USD_KRW), high: tenWon(packageHigh * DISPLAY_USD_KRW) };
   return {
     material,

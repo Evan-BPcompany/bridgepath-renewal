@@ -33,13 +33,13 @@ const QUOTES = [3.64, 3.8, 4].map((price, index) => row({ product_type: 'bamboo_
 const BAMBOO_LISTINGS = [1, 3, 7, 8, 8.5].map((price, index) => row({ product_type: 'bamboo_tee', price_min: price, price_max: price, supplier_name: `S${index}` }));
 
 describe('calculateTeeRange', () => {
-  it('rests on the real quote of the material, per package of 50 with the service margin, before any listing', () => {
+  it('rests on the real quote of the material, per package of 50 with the golf tee margin of 21 %, before any listing', () => {
     const range = calculateTeeRange('bamboo', [...QUOTES, ...BAMBOO_LISTINGS]);
 
-    // 3.64 / 2 x 1.1 = 2.00, 4.00 / 2 x 1.1 = 2.20
-    expect(range.overseas).toMatchObject({ status: 'ok', currency: 'USD', low: 2, high: 2.2, basis: 'quote' });
-    expect(range.overseas.unit_krw).toEqual({ low: 2650, high: 2910 });
-    expect(range.overseas.total_krw).toEqual({ low: 2650 * 1000, high: 2910 * 1000 });
+    // 3.64 / 2 x 1.21 = 2.20, 4.00 / 2 x 1.21 = 2.42
+    expect(range.overseas).toMatchObject({ status: 'ok', currency: 'USD', low: 2.2, high: 2.42, basis: 'quote' });
+    expect(range.overseas.unit_krw).toEqual({ low: 2910, high: 3200 });
+    expect(range.overseas.total_krw).toEqual({ low: 2910 * 1000, high: 3200 * 1000 });
     expect(range.moq).toBe(GOLF_TEE_MOQ_PACKAGES);
     expect(range.domestic).toEqual({ status: 'insufficient', currency: 'KRW', reason: '국내 기준은 상세견적이 필요한 사양입니다.' });
   });
@@ -70,7 +70,7 @@ describe('POST /api/estimate-preview/golf-tee-range', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ spec: { material: 'bamboo' }, unit: 'package', tees_per_package: 50, moq: 1000, notice: RANGE_NOTICE });
-    expect(res.body.overseas).toEqual({ status: 'ok', currency: 'USD', low: 2, high: 2.2, unit_krw: { low: 2650, high: 2910 }, total_krw: { low: 2650000, high: 2910000 } });
+    expect(res.body.overseas).toEqual({ status: 'ok', currency: 'USD', low: 2.2, high: 2.42, unit_krw: { low: 2910, high: 3200 }, total_krw: { low: 2910000, high: 3200000 } });
     expect(JSON.stringify(res.body)).not.toMatch(/basis|quote|supplier|example.com/);
     expect(range).toHaveBeenCalledWith('bamboo');
   });
