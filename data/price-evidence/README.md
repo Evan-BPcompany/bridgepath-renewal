@@ -6,7 +6,7 @@ The evidence of the AI quote (`price_evidence`, migrations 023 and 024). Every r
 |---|---|---|
 | `golf-shoe-approved-2026-11-17.json` | 52 | public FOB listing prices of golf shoes (Global Sources, collected 2026-11-17) |
 | `sunglasses-approved-2026-11-18.json` | 45 | public FOB listing prices of golf and sports sunglasses (Global Sources, collected 2026-11-18); shown only as a reference next to the cost simulation |
-| `golf-tee-approved-2026-11-18.json` | 13 | 10 public FOB listing prices of golf tees (Global Sources, 2026-11-18) and the 3 rows of the real bamboo tee factory quote (EXW, 2026-11); price per 100 tees (`unit: 100_tees`), material in `product_type` (bamboo_tee, plastic_tee) |
+| `golf-tee-approved-2026-11-18.json` | 14 | 11 public FOB listing prices of golf tees (Global Sources, 2026-11-18, one plastic row 2026-11-19) and the 3 rows of the real bamboo tee factory quote (EXW, 2026-11); price per 100 tees (`unit: 100_tees`), material in `product_type` (bamboo_tee, plastic_tee) |
 
 **Check before relying on them:** the parts of a row (`upper_material`, `outsole`, `closure` of a shoe, `frame_material` and `lens_type`
 of sunglasses) were guessed from the listing titles (most rows have none), and the prices are display prices of the listings, not quotes.

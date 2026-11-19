@@ -242,5 +242,24 @@
     "collected_at": "2026-11-18",
     "status": "approved",
     "note": "material bamboo; the real quote of migration 021, per 100 tees (2 packages)"
+  },
+  {
+    "category": "golf_tee",
+    "product_type": "plastic_tee",
+    "region": "overseas",
+    "price_kind": "listing",
+    "price_min": 3,
+    "price_max": 4,
+    "currency": "USD",
+    "unit": "100_tees",
+    "moq": 1000,
+    "trade_terms": "FOB",
+    "supplier_name": "Naike Group Co.,ltd",
+    "supplier_type": "unknown",
+    "source_url": "https://www.globalsources.com/Golf-tee/Golf-tees-1232564350p.htm",
+    "source_title": "Durable Wholesale Custom Logo Mixed Colors Plastic Golf Tees",
+    "collected_at": "2026-11-19",
+    "status": "approved",
+    "note": "material plastic (from the title); listing display price per tee x 100, not a quote; approved 2026-11-19"
   }
 ]

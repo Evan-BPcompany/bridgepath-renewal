@@ -16,6 +16,15 @@ export type TeeMaterial = (typeof TEE_MATERIALS)[number];
 export const TEE_MARGIN_RATE = 0.21;
 const withTeeMargin = (value: number): number => value * (1 + TEE_MARGIN_RATE);
 
+// A factor of the material on top of the margin (the owner, 2026-11-19: the bamboo tee 10 % dearer again). A material without one
+// counts 1. It is applied to the real quote as well, by the owner's choice.
+export const TEE_MATERIAL_FACTOR: Partial<Record<TeeMaterial, number>> = { bamboo: 1.1 };
+
+// TEMPORARY (the owner, 2026-11-19): a wood tee has one usable listing only, so it is priced at 0.8 times the bamboo tee as shown
+// (research 2026-11-19: wood is cheaper than bamboo everywhere, 0.3-0.7 times by the sources). Its own evidence, once there is enough,
+// replaces this. Remove it when a real quote of wood tees comes in.
+export const TEE_DERIVED_FROM: Partial<Record<TeeMaterial, { from: TeeMaterial; factor: number }>> = { wood: { from: 'bamboo', factor: 0.8 } };
+
 export const TEES_PER_PACKAGE = 50;
 // The minimum order of golf tees: 1,000 packages (the minimum of the request form, estimate-api.js, and the size of the real quote).
 export const GOLF_TEE_MOQ_PACKAGES = 1000;
@@ -32,7 +41,7 @@ export interface TeeRegion {
   total_krw?: { low: number; high: number };
   reason?: string;
   // for the staff only: what the range rests on (stripped from the public answer)
-  basis?: 'quote' | 'listing';
+  basis?: 'quote' | 'listing' | 'derived';
 }
 
 export interface TeeRange {
@@ -60,6 +69,22 @@ export function calculateTeeRange(material: TeeMaterial, evidence: EvidenceItem[
   const used = basis === 'quote' ? quotes : listings;
   const suppliers = new Set(used.map(({ item }) => item.supplier_name).filter(Boolean)).size;
   if (used.length === 0 || (basis === 'listing' && (used.length < MIN_LISTINGS || suppliers < MIN_SUPPLIERS))) {
+    // Without evidence of its own, a material may be priced from another one (TEMPORARY, TEE_DERIVED_FROM).
+    const derived = TEE_DERIVED_FROM[material];
+    if (derived) {
+      const from = calculateTeeRange(derived.from, evidence, moq).overseas;
+      if (from.status === 'ok' && from.low !== undefined && from.high !== undefined) {
+        const packageLow = cents(from.low * derived.factor);
+        const packageHigh = cents(from.high * derived.factor);
+        const unitKrw = { low: tenWon(packageLow * DISPLAY_USD_KRW), high: tenWon(packageHigh * DISPLAY_USD_KRW) };
+        return {
+          material,
+          moq,
+          overseas: { status: 'ok', currency: 'USD', low: packageLow, high: packageHigh, unit_krw: unitKrw, total_krw: { low: unitKrw.low * moq, high: unitKrw.high * moq }, basis: 'derived' },
+          domestic
+        };
+      }
+    }
     return { material, moq, overseas: none, domestic };
   }
 
@@ -69,9 +94,10 @@ export function calculateTeeRange(material: TeeMaterial, evidence: EvidenceItem[
   if (low === high) {
     [low, high] = [low * (1 - SINGLE_QUOTE_SPREAD), high * (1 + SINGLE_QUOTE_SPREAD)];
   }
-  // per package of 50, with the golf tee margin
-  const packageLow = cents(withTeeMargin(low) / PACKAGES_PER_EVIDENCE_UNIT);
-  const packageHigh = cents(withTeeMargin(high) / PACKAGES_PER_EVIDENCE_UNIT);
+  // per package of 50, with the golf tee margin and the factor of the material
+  const factor = TEE_MATERIAL_FACTOR[material] ?? 1;
+  const packageLow = cents((withTeeMargin(low) * factor) / PACKAGES_PER_EVIDENCE_UNIT);
+  const packageHigh = cents((withTeeMargin(high) * factor) / PACKAGES_PER_EVIDENCE_UNIT);
   const unitKrw = { low: tenWon(packageLow * DISPLAY_USD_KRW), high: tenWon(packageHigh * DISPLAY_USD_KRW) };
   return {
     material,

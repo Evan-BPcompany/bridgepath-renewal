@@ -33,13 +33,13 @@ const QUOTES = [3.64, 3.8, 4].map((price, index) => row({ product_type: 'bamboo_
 const BAMBOO_LISTINGS = [1, 3, 7, 8, 8.5].map((price, index) => row({ product_type: 'bamboo_tee', price_min: price, price_max: price, supplier_name: `S${index}` }));
 
 describe('calculateTeeRange', () => {
-  it('rests on the real quote of the material, per package of 50 with the golf tee margin of 21 %, before any listing', () => {
+  it('rests on the real quote of the material, per package of 50 with the golf tee margin of 21 % and the bamboo factor 1.1, before any listing', () => {
     const range = calculateTeeRange('bamboo', [...QUOTES, ...BAMBOO_LISTINGS]);
 
-    // 3.64 / 2 x 1.21 = 2.20, 4.00 / 2 x 1.21 = 2.42
-    expect(range.overseas).toMatchObject({ status: 'ok', currency: 'USD', low: 2.2, high: 2.42, basis: 'quote' });
-    expect(range.overseas.unit_krw).toEqual({ low: 2910, high: 3200 });
-    expect(range.overseas.total_krw).toEqual({ low: 2910 * 1000, high: 3200 * 1000 });
+    // 3.64 / 2 x 1.21 x 1.1 = 2.42, 4.00 / 2 x 1.21 x 1.1 = 2.66
+    expect(range.overseas).toMatchObject({ status: 'ok', currency: 'USD', low: 2.42, high: 2.66, basis: 'quote' });
+    expect(range.overseas.unit_krw).toEqual({ low: 3200, high: 3520 });
+    expect(range.overseas.total_krw).toEqual({ low: 3200 * 1000, high: 3520 * 1000 });
     expect(range.moq).toBe(GOLF_TEE_MOQ_PACKAGES);
     expect(range.domestic).toEqual({ status: 'insufficient', currency: 'KRW', reason: '국내 기준은 상세견적이 필요한 사양입니다.' });
   });
@@ -70,7 +70,7 @@ describe('POST /api/estimate-preview/golf-tee-range', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ spec: { material: 'bamboo' }, unit: 'package', tees_per_package: 50, moq: 1000, notice: RANGE_NOTICE });
-    expect(res.body.overseas).toEqual({ status: 'ok', currency: 'USD', low: 2.2, high: 2.42, unit_krw: { low: 2910, high: 3200 }, total_krw: { low: 2910000, high: 3200000 } });
+    expect(res.body.overseas).toEqual({ status: 'ok', currency: 'USD', low: 2.42, high: 2.66, unit_krw: { low: 3200, high: 3520 }, total_krw: { low: 3200000, high: 3520000 } });
     expect(JSON.stringify(res.body)).not.toMatch(/basis|quote|supplier|example.com/);
     expect(range).toHaveBeenCalledWith('bamboo');
   });
@@ -89,5 +89,24 @@ describe('POST /api/estimate-preview/golf-tee-range', () => {
 
     expect(res.status).toBe(500);
     expect(JSON.stringify(res.body)).not.toContain('connection refused');
+  });
+});
+
+// TEMPORARY (2026-11-19): a wood tee without evidence of its own is 0.8 times the bamboo tee as shown.
+describe('the wood tee priced from the bamboo tee', () => {
+  it('is 0.8 times the bamboo range, per package and for the minimum order', () => {
+    const wood = calculateTeeRange('wood', QUOTES).overseas;
+
+    // bamboo USD 2.42 - 2.66 -> 1.94 - 2.13
+    expect(wood).toMatchObject({ status: 'ok', low: 1.94, high: 2.13, basis: 'derived' });
+    expect(wood.unit_krw).toEqual({ low: 2570, high: 2820 });
+    expect(wood.total_krw).toEqual({ low: 2570000, high: 2820000 });
+  });
+
+  it('has no range when the bamboo tee has none, and uses its own listings once there are enough', () => {
+    expect(calculateTeeRange('wood', []).overseas.status).toBe('insufficient');
+    const own = [1, 1.2, 1.4, 1.6, 1.8].map((price, index) => row({ product_type: 'wood_tee', price_min: price, price_max: price, supplier_name: `W${index}` }));
+
+    expect(calculateTeeRange('wood', [...QUOTES, ...own]).overseas).toMatchObject({ status: 'ok', basis: 'listing' });
   });
 });
