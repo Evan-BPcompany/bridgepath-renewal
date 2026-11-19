@@ -140,6 +140,23 @@ describe('POST /api/estimate-preview/analyze-image', () => {
     expect(JSON.stringify(res.body)).not.toMatch(/sk-ant|x-api-key|401/);
   });
 
+  // An expired key (2026-11-19) or an overloaded AI service is not the fault of the photo: "unavailable", not "try another photo".
+  it.each([401, 403, 429, 500, 529])('answers 503 "unavailable" when the AI service answers %i, without its details', async status => {
+    analyze.mockRejectedValue(Object.assign(new Error(`${status} invalid x-api-key sk-ant-secret`), { status }));
+
+    const res = await send(PNG, 'frame.png', 'image/png');
+
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('IMAGE_ANALYSIS_UNAVAILABLE');
+    expect(JSON.stringify(res.body)).not.toMatch(/sk-ant|x-api-key/);
+  });
+
+  it('still answers 502 for an error of the request itself (400 from the AI service)', async () => {
+    analyze.mockRejectedValue(Object.assign(new Error('400 bad request'), { status: 400 }));
+
+    expect((await send(PNG, 'frame.png', 'image/png')).status).toBe(502);
+  });
+
   it('is rate limited per client IP, before the image is read', async () => {
     const app = createApp({ rateLimits: { imageAnalysis: { windowMs: 60000, max: 1 } } });
 

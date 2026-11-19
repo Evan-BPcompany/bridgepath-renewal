@@ -93,6 +93,18 @@ const analysisHandler = (analyze: Analyze, notice: string) => async (req: Reques
       fail(res, 502, 'The image could not be analyzed', 'IMAGE_ANALYSIS_FAILED');
       return;
     }
+    // The AI service refused the key (401/403: expired or wrong ANTHROPIC_API_KEY), is rate limited or overloaded (429, 5xx): a
+    // problem of the service, not of the photo, so the visitor is told it is unavailable instead of being asked for another photo.
+    const status = (err as { status?: unknown }).status;
+    if (typeof status === 'number' && (status === 401 || status === 403 || status === 429 || status >= 500)) {
+      logger.error('Image analysis service unavailable', {
+        status,
+        hint: status === 401 || status === 403 ? 'check ANTHROPIC_API_KEY (expired or revoked)' : undefined,
+        error: err instanceof Error ? err.message : String(err)
+      });
+      fail(res, 503, 'Image analysis is not available right now', 'IMAGE_ANALYSIS_UNAVAILABLE');
+      return;
+    }
     logger.error('Image analysis request failed', {
       error: err instanceof Error ? err.message : String(err)
     });

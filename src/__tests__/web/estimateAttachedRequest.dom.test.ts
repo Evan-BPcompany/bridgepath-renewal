@@ -194,7 +194,7 @@ describe('a sunglasses request with the photo that was analysed', () => {
     imageInput.dispatchEvent(new g.Event('change', { bubbles: true }));
     await settle();
 
-    expect($('#imageAnalysisStatus').textContent).toContain('아직 사용할 수 없습니다');
+    expect($('#imageAnalysisStatus').textContent).toContain('지금 사용할 수 없습니다');
     expect($('#attachments .attachments-name').textContent).toBe('frame.png');
   });
 
